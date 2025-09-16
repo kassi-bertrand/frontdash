@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "name": "Alex Thompson",
+    "type": "Delivery Driver",
+    "status": "Available",
+    "location": "Zone A"
+  },
+  {
+    "id": 2,
+    "name": "Maria Garcia",
+    "type": "Delivery Driver",
+    "status": "Delivering",
+    "location": "Zone B"
+  },
+  {
+    "id": 3,
+    "name": "James Wilson",
+    "type": "Delivery Driver",
+    "status": "Offline",
+    "location": "Break"
+  },
+  {
+    "id": 4,
+    "name": "Nina Patel",
+    "type": "Delivery Driver",
+    "status": "Available",
+    "location": "Zone C"
+  },
+  {
+    "id": 5,
+    "name": "Carlos Lopez",
+    "type": "Delivery Driver",
+    "status": "Delivering",
+    "location": "Zone A"
+  }
+]
