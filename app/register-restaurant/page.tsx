@@ -15,7 +15,15 @@ export default function RegisterRestaurant() {
     phones: [""],
     contactPerson: "",
     email: "",
-    hours: "",
+    hours: [
+        { day: "Monday", open: "", close: "" },
+        { day: "Tuesday", open: "", close: "" },
+        { day: "Wednesday", open: "", close: "" },
+        { day: "Thursday", open: "", close: "" },
+        { day: "Friday", open: "", close: "" },
+        { day: "Saturday", open: "", close: "" },
+        { day: "Sunday", open: "", close: "" },
+      ],
     menu: [
       { name: "", picture: null as File | null, price: "", availability: "AVAILABLE" as Availability }
     ]
@@ -32,6 +40,12 @@ export default function RegisterRestaurant() {
     if (file) setRestaurant(prev => ({ ...prev, picture: file }))
   }
 
+  const handleHoursChange = (index: number, field: "open" | "close", value: string) => {
+    const updatedHours = [...restaurant.hours]
+    updatedHours[index][field] = value
+    setRestaurant(prev => ({ ...prev, hours: updatedHours }))
+  }
+  
   const handlePhoneChange = (index: number, value: string) => {
     const newPhones = [...restaurant.phones]
     newPhones[index] = value
@@ -207,16 +221,28 @@ export default function RegisterRestaurant() {
         </div>
 
         {/* Opening Hours */}
-        <div className="flex flex-col">
-          <label className="font-semibold mb-1">Opening Hours</label>
-          <input
-            type="text"
-            name="hours"
-            value={restaurant.hours}
-            onChange={handleChange}
-            className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
-          />
-        </div>
+        <div className="flex flex-col gap-2">
+  <p className="font-semibold">Opening Hours</p>
+  {restaurant.hours.map((h, i) => (
+    <div key={i} className="flex gap-2 items-center">
+      <span className="w-24 font-medium">{h.day}</span>
+      <input
+        type="time"
+        value={h.open}
+        onChange={e => handleHoursChange(i, "open", e.target.value)}
+        className="p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
+      />
+      <span>to</span>
+      <input
+        type="time"
+        value={h.close}
+        onChange={e => handleHoursChange(i, "close", e.target.value)}
+        className="p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
+      />
+    </div>
+  ))}
+</div>
+
 
         {/* Phone Numbers */}
         <div className="flex flex-col gap-2">
@@ -224,13 +250,14 @@ export default function RegisterRestaurant() {
           {restaurant.phones.map((phone, index) => (
             <div key={index} className="flex gap-2">
               <input
-                type="tel"
-                value={phone}
-                onChange={e => handlePhoneChange(index, e.target.value)}
-                pattern="\d{10}"
-                required
-                className="flex-1 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
-              />
+  type="tel"
+  value={phone}
+  onChange={e => handlePhoneChange(index, e.target.value)}
+  pattern="\(\d{3}\)-\d{3}-\d{4}"
+  placeholder="(123)-456-7890"
+  required
+  className="flex-1 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
+/>
               {restaurant.phones.length > 1 && (
                 <button
                   type="button"
