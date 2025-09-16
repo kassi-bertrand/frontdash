@@ -475,6 +475,159 @@ While built as a monolithic Next.js application, the three components operate in
 
 This architecture satisfies the requirement that "all three components can be developed independently and should be possible to use them concurrently."
 
+## 🗺️ Route Structure
+
+> **Route Status**: ✅ = Implemented | 🔄 = Not Implemented Yet | ⭐ = Bonus Feature
+
+### Public Routes (No Authentication Required)
+
+#### Customer Flow
+```typescript
+'/'                                     // ✅ Homepage - Browse all restaurants
+'/restaurant/[id]'                      // 🔄 View specific restaurant menu
+'/checkout'                             // 🔄 Order review/confirmation
+'/checkout/payment'                     // 🔄 Payment form
+'/checkout/delivery'                    // 🔄 Delivery address form
+'/order/[orderId]/confirmation'         // 🔄 Order complete with tracking number
+```
+
+#### Registration Pages (Public)
+```typescript
+'/restaurant/register'                  // 🔄 Restaurant registration form
+'/customer/register'                    // 🔄 ⭐ Customer loyalty registration (bonus)
+```
+
+### Authentication Routes
+
+#### Unified Authentication
+```typescript
+'/login'                               // ✅ Unified login for admin/staff (username/password)
+'/logout'                              // 🔄 Logout endpoint for all user types
+
+// After login, redirects to:
+// Admin → '/admin/dashboard' ✅
+// Staff → '/staff/dashboard' 🔄
+```
+
+### Protected Routes (Authentication Required)
+
+#### Restaurant Dashboard
+```typescript
+'/restaurant/dashboard'                 // 🔄 Main restaurant dashboard
+'/restaurant/dashboard/menu'            // 🔄 Menu management
+'/restaurant/dashboard/menu/[itemId]/edit' // 🔄 Edit specific menu item
+'/restaurant/dashboard/menu/new'        // 🔄 Add new menu item
+'/restaurant/dashboard/hours'           // 🔄 Operating hours management
+'/restaurant/dashboard/contact'         // 🔄 Contact info management
+'/restaurant/dashboard/settings'        // 🔄 Password change, withdrawal
+'/restaurant/dashboard/orders'          // 🔄 View orders (future feature)
+```
+
+#### Admin Portal
+```typescript
+'/admin/dashboard'                      // ✅ Admin main dashboard with complete tables
+'/admin/restaurants'                    // 🔄 Restaurant management overview
+'/admin/restaurants/registrations'      // 🔄 Registration queue management
+'/admin/restaurants/withdrawals'        // 🔄 Withdrawal queue management
+'/admin/restaurants/[id]'               // 🔄 View specific restaurant details
+'/admin/staff'                          // 🔄 Staff management
+'/admin/staff/new'                      // 🔄 Add new staff form
+'/admin/staff/[id]'                     // 🔄 View/edit specific staff
+'/admin/drivers'                        // 🔄 Driver management
+'/admin/drivers/new'                    // 🔄 Hire new driver form
+'/admin/customers'                      // 🔄 ⭐ Customer registrations (bonus)
+'/admin/orders'                         // 🔄 All orders overview
+'/admin/reports'                        // 🔄 Analytics/reports (future)
+```
+
+#### Staff Portal
+```typescript
+'/staff/dashboard'                      // 🔄 Staff main dashboard
+'/staff/orders'                         // 🔄 Order queue management
+'/staff/orders/[orderId]'               // 🔄 Process specific order
+'/staff/orders/[orderId]/assign'        // 🔄 Assign driver to order
+'/staff/orders/[orderId]/complete'      // 🔄 Mark order complete
+'/staff/active'                         // 🔄 Active orders tracking
+'/staff/settings'                       // 🔄 Password change
+'/staff/first-login'                    // 🔄 Force password change on first login
+```
+
+### Driver Portal (Minimal Interface)
+```typescript
+'/driver/[driverId]/active'             // 🔄 Current delivery
+'/driver/[driverId]/history'            // 🔄 Delivery history
+```
+
+### API Routes (Backend - BetterAuth + Custom)
+
+#### Authentication (BetterAuth)
+```typescript
+'/api/auth/**'                          // 🔄 BetterAuth endpoints
+'/api/auth/sign-in'                     // 🔄 Login endpoint
+'/api/auth/sign-out'                    // 🔄 Logout endpoint
+'/api/auth/session'                     // 🔄 Session management
+```
+
+#### Business Logic APIs
+```typescript
+'/api/restaurants'                      // 🔄 Restaurant CRUD operations
+'/api/restaurants/[id]'                 // 🔄 Specific restaurant operations
+'/api/restaurants/[id]/menu'            // 🔄 Menu management
+'/api/restaurants/register'             // 🔄 Restaurant registration
+'/api/restaurants/withdraw'             // 🔄 Restaurant withdrawal
+
+'/api/orders'                           // 🔄 Order management
+'/api/orders/queue'                     // 🔄 Order queue operations
+'/api/orders/[id]/complete'             // 🔄 Mark order complete
+'/api/orders/[id]/assign-driver'        // 🔄 Assign driver to order
+
+'/api/payment/process'                  // 🔄 Payment processing
+'/api/payment/verify'                   // 🔄 Payment verification (third-party)
+
+'/api/delivery/calculate'               // 🔄 Delivery time calculation
+'/api/delivery/estimate'                // 🔄 Address-based delivery estimates
+
+'/api/admin/queues/registrations'       // 🔄 Registration queue management
+'/api/admin/queues/withdrawals'         // 🔄 Withdrawal queue management
+'/api/admin/staff'                      // 🔄 Staff account management
+'/api/admin/drivers'                    // 🔄 Driver management
+'/api/admin/customers'                  // 🔄 ⭐ Customer registrations (bonus)
+
+'/api/email/send-credentials'           // 🔄 Send login credentials
+'/api/email/send-confirmation'          // 🔄 Send order confirmation
+
+'/api/loyalty/points'                   // 🔄 ⭐ Loyalty points management
+'/api/loyalty/redeem'                   // 🔄 ⭐ Redeem points for discount
+```
+
+### Utility Routes
+```typescript
+'/404'                                  // Custom not found page
+'/500'                                  // Custom server error page
+'/maintenance'                          // 🔄 Maintenance mode page
+'/health'                               // 🔄 Health check endpoint
+```
+
+### Route Access Control
+
+#### Public Access
+- Homepage and restaurant browsing
+- Customer ordering flow (no login required)
+- Public registration forms
+
+#### Role-Based Access
+- **Admin**: Full access to admin portal + staff/driver management
+- **Staff**: Order processing + password management
+- **Restaurant**: Own dashboard + menu/hours management only
+
+#### Authentication Flow
+1. All admin/staff users → `/login`
+2. System determines user type after authentication
+3. Redirect to appropriate dashboard:
+   - Admin → `/admin/dashboard`
+   - Staff → `/staff/dashboard`
+4. Role middleware protects route access
+
 ## 🎯 Core Requirements Implementation Checklist
 
 ### 1. Restaurant Module
@@ -585,10 +738,10 @@ This architecture satisfies the requirement that "all three components can be de
 ### 3. Administrator Module
 
 #### Admin Authentication
-- [ ] Hard-coded admin account
-- [ ] Admin login page
+- [ ] Hard-coded admin account (backend database seeding required)
+- [x] Admin login page
 - [ ] Admin logout functionality
-- [ ] Admin dashboard
+- [x] Admin dashboard
 
 #### Restaurant Management
 - [ ] View registration request queue
@@ -641,9 +794,9 @@ This architecture satisfies the requirement that "all three components can be de
 ### 5. General System Requirements
 
 #### Security & Validation
-- [ ] Password encryption in database
-- [ ] Password never displayed in UI
-- [ ] Password masking in all input fields
+- [ ] Password encryption in database (backend required)
+- [x] Password never displayed in UI
+- [x] Password masking in all input fields
 - [ ] Username format validation (2 chars + 2 digits, except admin)
 - [ ] Phone number validation (10 digits, first not 0)
 - [ ] Credit card validation (16 digits, first not 0)
