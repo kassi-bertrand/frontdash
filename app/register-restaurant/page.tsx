@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { useWindowSize } from '@react-hook/window-size';
 import { motion } from "framer-motion"
 import { ChangeEvent, useState, useEffect } from "react"
 import React from "react"
 import ProgressBar from "./progressbar"
+import { CheckCircle2 } from "lucide-react"
 
 
 
@@ -140,6 +140,9 @@ export default function RegisterRestaurant() {
     }
   }, [restaurant]); 
 
+
+  
+  const [showStep2Error, setShowStep2Error] = useState<string>("")
   
 const [showMenu, setShowMenu] = useState(false)
 
@@ -171,6 +174,17 @@ const [showMenu, setShowMenu] = useState(false)
     setRestaurant((prev) => ({ ...prev, menu: newMenu }))
   }
 
+  const [activeImageTab, setActiveImageTab] = useState<"restaurant" | "menu">("restaurant")
+
+  const formatTime = (time: string) => {
+    if (!time) return ""
+    const [hour, minute] = time.split(":").map(Number)
+    const ampm = hour >= 12 ? "PM" : "AM"
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12
+    return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`
+  }
+  const [menuIndex, setMenuIndex] = useState(0)
+
   const addMenuItem = () =>
     setRestaurant((prev) => ({
       ...prev,
@@ -197,7 +211,7 @@ const [showMenu, setShowMenu] = useState(false)
     setStep(4) // jump to "success" screen
   }
 
-    const [width, height] = useWindowSize()
+
   
     // define steps here
     const steps = [
@@ -209,7 +223,7 @@ const [showMenu, setShowMenu] = useState(false)
 
   return (
     <div
-      className="min-h-screen flex flex-col bg-cover bg-center"
+      className="min-h-screen flex flex-col bg-cover bg-center bg-fixed"
       style={{
         backgroundImage:
           "url('https://images.unsplash.com/photo-1600891964599-f61ba0e24092')",
@@ -397,6 +411,7 @@ const [showMenu, setShowMenu] = useState(false)
             )}
 
   {/* Step 2: Menu Upload + Opening Hours */}
+{/* Step 2: Menu Upload + Opening Hours */}
 {step === 2 && (
   <div className="flex flex-col gap-6">
     {/* Cuisine Selector (not collapsible) */}
@@ -504,29 +519,27 @@ const [showMenu, setShowMenu] = useState(false)
               </div>
             </div>
 
-            {/* Availability + Pill Badge */}
+            {/* Availability as Pill Toggle */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Availability</label>
-                <select
-                  value={item.availability}
-                  onChange={(e) =>
-                    handleMenuChange(index, "availability", e.target.value)
+                <label className="text-sm font-medium">Availability (Toggle On/Off): </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleMenuChange(
+                      index,
+                      "availability",
+                      item.availability === "AVAILABLE" ? "UNAVAILABLE" : "AVAILABLE"
+                    )
                   }
-                  className="p-2 rounded-lg border border-gray-300"
-                >
-                  <option value="AVAILABLE">AVAILABLE</option>
-                  <option value="UNAVAILABLE">UNAVAILABLE</option>
-                </select>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
                     item.availability === "AVAILABLE"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
+                      ? "bg-green-100 text-green-700 hover:bg-green-200"
+                      : "bg-red-100 text-red-700 hover:bg-red-200"
                   }`}
                 >
                   {item.availability}
-                </span>
+                </button>
               </div>
 
               {restaurant.menu.length > 1 && (
@@ -599,53 +612,97 @@ const [showMenu, setShowMenu] = useState(false)
   </div>
 )}
 
-  {/* Step 3: Verification */}
+
+{/* Step 3: Verification */}
+{/* Step 3: Verification */}
 {step === 3 && (
   <div>
     <h3 className="text-xl font-semibold mb-4 text-red-600">
       Like what you see?
     </h3>
-    <div className="bg-white p-6 rounded-lg shadow-md space-y-6">
-      {/* Restaurant Info */}
-      <div>
-        <h4 className="text-lg font-bold mb-2">Restaurant Info</h4>
-        <p><span className="font-semibold">Name:</span> {restaurant.name}</p>
-        <p><span className="font-semibold">Contact Person:</span> {restaurant.contactPerson}</p>
-        <p><span className="font-semibold">Email:</span> {restaurant.email}</p>
-        <p><span className="font-semibold">Address:</span> {restaurant.address}</p>
-        <p><span className="font-semibold">Phone(s):</span> {restaurant.phones.join(", ")}</p>
-        <p><span className="font-semibold">Cuisine:</span> {restaurant.cuisine}</p>
 
-        {/* Restaurant Image */}
+    <div className="bg-white p-6 rounded-lg shadow-md space-y-8">
+      {/* Restaurant Info */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <div>
+          <h4 className="text-lg font-bold mb-2">Restaurant Info</h4>
+          <p><span className="font-semibold">Name:</span> {restaurant.name}</p>
+          <p><span className="font-semibold">Contact Person:</span> {restaurant.contactPerson}</p>
+          <p><span className="font-semibold">Email:</span> {restaurant.email}</p>
+          <p><span className="font-semibold">Address:</span> {restaurant.address}</p>
+          <p><span className="font-semibold">Phone(s):</span> {restaurant.phones.join(", ")}</p>
+          <p><span className="font-semibold">Cuisine:</span> {restaurant.cuisine}</p>
+        </div>
         {restaurant.picture && (
-          <div className="mt-3">
-            <p className="font-semibold mb-1">Restaurant Image:</p>
+          <div className="flex justify-center">
             <img
               src={URL.createObjectURL(restaurant.picture)}
               alt="Restaurant preview"
-              className="w-40 h-40 object-cover rounded-lg border"
+              className="w-48 h-48 object-cover rounded-lg border shadow"
             />
           </div>
         )}
       </div>
 
-      {/* Menu Items */}
+      {/* Menu Items Carousel */}
       <div>
-        <h4 className="text-lg font-bold mb-2">Menu Items</h4>
-        {restaurant.menu.map((item, i) => (
-          <div key={i} className="border p-3 rounded mb-3">
-            <p><span className="font-semibold">Item:</span> {item.name}</p>
-            <p><span className="font-semibold">Price:</span> ${item.price}</p>
-            <p><span className="font-semibold">Availability:</span> {item.availability}</p>
-            {item.picture && (
-              <img
-                src={URL.createObjectURL(item.picture)}
-                alt={`Menu item ${item.name}`}
-                className="w-32 h-32 object-cover rounded mt-2 border"
-              />
-            )}
+        <h4 className="text-lg font-bold mb-4">Menu Items</h4>
+        {restaurant.menu.length > 0 && (
+          <div className="relative w-full max-w-2xl mx-auto">
+            <div className="bg-gray-50 p-6 rounded-lg shadow flex flex-col md:flex-row items-center gap-6">
+              {/* Left: Info */}
+              <div className="flex-1">
+                <p><span className="font-semibold">Item:</span> {restaurant.menu[menuIndex].name}</p>
+                <p><span className="font-semibold">Price:</span> ${restaurant.menu[menuIndex].price}</p>
+                <p>
+                  <span className="font-semibold">Availability:</span>{" "}
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      restaurant.menu[menuIndex].availability === "AVAILABLE"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {restaurant.menu[menuIndex].availability}
+                  </span>
+                </p>
+              </div>
+
+              {/* Right: Image */}
+              {restaurant.menu[menuIndex].picture && (
+                <img
+                  src={URL.createObjectURL(restaurant.menu[menuIndex].picture)}
+                  alt={`Menu item ${restaurant.menu[menuIndex].name}`}
+                  className="w-40 h-40 object-cover rounded-lg border shadow"
+                />
+              )}
+            </div>
+
+            {/* Overlay arrows */}
+            {restaurant.menu.length > 1 && (
+  <>
+    <button
+      type="button"
+      onClick={() =>
+        setMenuIndex((menuIndex - 1 + restaurant.menu.length) % restaurant.menu.length)
+      }
+      className="absolute -left-12 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition"
+    >
+      ←
+    </button>
+    <button
+      type="button"
+      onClick={() =>
+        setMenuIndex((menuIndex + 1) % restaurant.menu.length)
+      }
+      className="absolute -right-12 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition"
+    >
+      →
+    </button>
+  </>
+)}
           </div>
-        ))}
+        )}
       </div>
 
       {/* Opening Hours */}
@@ -654,7 +711,9 @@ const [showMenu, setShowMenu] = useState(false)
         {restaurant.hours.map((h, i) => (
           <p key={i}>
             <span className="font-semibold">{h.day}:</span>{" "}
-            {h.closed ? "Closed" : `${h.open} – ${h.close}`}
+            {h.closed
+              ? "Closed"
+              : `${formatTime(h.open)} – ${formatTime(h.close)}`}
           </p>
         ))}
       </div>
@@ -662,33 +721,9 @@ const [showMenu, setShowMenu] = useState(false)
   </div>
 )}
 
-
-  
-            {/* Step 4: Success */}
             
-{/* Step 4: Success */}
-{step === 4 && (
-  <div className="text-center py-12">
-    <h3 className="text-2xl font-bold text-green-600">
-      🎉 Registration Form Submitted!
-    </h3>
-    <p className="mt-2">
-      Please wait for an admin to verify and approve. Check your email
-      for updates.
-    </p>
-    <p className="mt-2">Thank you for choosing FrontDash!</p>
 
-    {/* Back Home Button */}
-    <div className="mt-6">
-      <Link
-        href="/"
-        className="inline-block px-6 py-3 bg-red-600 text-white font-medium rounded-lg shadow hover:bg-red-700 transition"
-      >
-        Go Back Home
-      </Link>
-    </div>
-  </div>
-)}
+
  {/* Navigation buttons */}
 {step < 4 && (
   <div className={`flex mt-6 ${step === 1 ? "flex-col items-end gap-2" : "justify-between"}`}>
@@ -738,16 +773,53 @@ const [showMenu, setShowMenu] = useState(false)
       </div>
     )}
 
-    {/* Steps 2: Next button */}
-    {step === 2 && (
-      <button
-        type="button"
-        onClick={() => setStep(step + 1)}
-        className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800"
-      >
-        Next
-      </button>
+    {/* Step 2: Next button with validation */}
+{step === 2 && (
+  <div className="flex flex-col items-end gap-2">
+    {showStep2Error && (
+      <p className="text-red-600 text-sm self-start">{showStep2Error}</p>
     )}
+
+    <button
+      type="button"
+      onClick={() => {
+        const hasMenuItem = restaurant.menu.some(
+          (item) =>
+            item.name.trim() !== "" &&
+            item.price !== "" &&
+            item.price !== "0.00" &&  // ignore the default placeholder
+            parseFloat(item.price) > 0
+        )
+        
+        const hasOpenDay = restaurant.hours.some(
+          (day) =>
+            !day.closed &&
+            day.open?.trim() !== "" &&
+            day.close?.trim() !== ""
+        )
+
+        console.log({ hasMenuItem, hasOpenDay })
+
+        if (!hasMenuItem) {
+          setShowStep2Error("Please add at least one menu item with a name and price.")
+          return
+        }
+
+        if (!hasOpenDay) {
+          setShowStep2Error("Please ensure at least one time slot is filled out.")
+          return
+        }
+
+        // Passed validation
+        setShowStep2Error("")
+        setStep(step + 1)
+      }}
+      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800"
+    >
+      Next
+    </button>
+  </div>
+)}
 
     {/* Step 3: Submit button */}
     {step === 3 && (
