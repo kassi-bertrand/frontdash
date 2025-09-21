@@ -18,6 +18,10 @@ export default function RegisterRestaurant() {
   const [restaurant, setRestaurant] = useState({
     name: "",
     picture: null as File | null,
+    building: "",
+    street: "",
+    city: "",
+     state: "",
     address: "",
     phones: [""],
     contactPerson: "",
@@ -306,31 +310,69 @@ const [showMenu, setShowMenu] = useState(false)
                   </div>
                 </div>
   
-                {/* Address + Email */}
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="font-semibold mb-1 block">Street Address</label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={restaurant.address}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="font-semibold mb-1 block">Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={restaurant.email}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                </div>
+                  {/* Address */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div>
+        <label className="font-semibold mb-1 block">Building #</label>
+        <input
+          type="text"
+          name="building"
+          value={restaurant.building}
+          onChange={handleChange}
+          className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
+          required
+        />
+      </div>
+      <div>
+        <label className="font-semibold mb-1 block">Street</label>
+        <input
+          type="text"
+          name="street"
+          value={restaurant.street}
+          onChange={handleChange}
+          className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
+          required
+        />
+      </div>
+      <div>
+        <label className="font-semibold mb-1 block">City</label>
+        <input
+          type="text"
+          name="city"
+          value={restaurant.city}
+          onChange={handleChange}
+          className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
+          required
+        />
+      </div>
+      <div>
+        <label className="font-semibold mb-1 block">State</label>
+        <input
+          type="text"
+          name="state"
+          value={restaurant.state}
+          onChange={handleChange}
+          className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
+          required
+        />
+      </div>
+    </div>
+
+    {/* Email */}
+    <div>
+      <label className="font-semibold mb-1 block">Email</label>
+      <input
+        type="email"
+        name="email"
+        value={restaurant.email}
+        onChange={handleChange}
+        pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
+        title="Please enter a valid email address (e.g. name@example.com)"
+        className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
+        required
+      />
+    </div>
+
   
                {/* Phones + Restaurant Image */}
 <div className="flex flex-col md:flex-row gap-4 items-start">
@@ -409,8 +451,6 @@ const [showMenu, setShowMenu] = useState(false)
 
               </div>
             )}
-
-  {/* Step 2: Menu Upload + Opening Hours */}
 {/* Step 2: Menu Upload + Opening Hours */}
 {step === 2 && (
   <div className="flex flex-col gap-6">
@@ -612,8 +652,6 @@ const [showMenu, setShowMenu] = useState(false)
   </div>
 )}
 
-
-{/* Step 3: Verification */}
 {/* Step 3: Verification */}
 {step === 3 && (
   <div>
@@ -629,10 +667,17 @@ const [showMenu, setShowMenu] = useState(false)
           <p><span className="font-semibold">Name:</span> {restaurant.name}</p>
           <p><span className="font-semibold">Contact Person:</span> {restaurant.contactPerson}</p>
           <p><span className="font-semibold">Email:</span> {restaurant.email}</p>
-          <p><span className="font-semibold">Address:</span> {restaurant.address}</p>
+
+          {/* One-line Address */}
+          <p>
+            <span className="font-semibold">Address:</span>{" "}
+            {restaurant.building} {restaurant.street}, {restaurant.city}, {restaurant.state}
+          </p>
+
           <p><span className="font-semibold">Phone(s):</span> {restaurant.phones.join(", ")}</p>
           <p><span className="font-semibold">Cuisine:</span> {restaurant.cuisine}</p>
         </div>
+
         {restaurant.picture && (
           <div className="flex justify-center">
             <img
@@ -744,7 +789,7 @@ const [showMenu, setShowMenu] = useState(false)
       <div className="flex flex-col items-end gap-2">
         {showStep1Error && (
           <p className="text-red-600 text-sm self-start">
-            Please fill out all required fields before continuing.
+            Please check that you have correctly filled out all required fields before continuing.
           </p>
         )}
 
@@ -752,12 +797,16 @@ const [showMenu, setShowMenu] = useState(false)
           type="button"
           onClick={() => {
             const hasMissingFields =
-              !restaurant.name.trim() ||
-              !restaurant.contactPerson.trim() ||
-              !restaurant.address.trim() ||
-              !restaurant.email.trim() ||
-              restaurant.phones.length === 0 ||
-              restaurant.phones.some((phone) => phone.trim() === "");
+    !restaurant.name.trim() ||
+    !restaurant.contactPerson.trim() ||
+    !restaurant.building.trim() ||
+    !restaurant.street.trim() ||
+    !restaurant.city.trim() ||
+    !restaurant.state.trim() ||
+    !restaurant.email.trim() ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurant.email) || // regex check
+    restaurant.phones.length === 0 ||
+    restaurant.phones.some((phone) => phone.trim() === "");
 
             if (hasMissingFields) {
               setShowStep1Error(true); // show alert
