@@ -8,8 +8,6 @@ import ProgressBar from "./progressbar"
 import { CheckCircle2 } from "lucide-react"
 
 
-
-
 type Availability = "AVAILABLE" | "UNAVAILABLE"
 
 export default function RegisterRestaurant() {
@@ -766,7 +764,32 @@ const [showMenu, setShowMenu] = useState(false)
   </div>
 )}
 
-            
+            {/* Step 4: Success */}
+{step === 4 && (
+  <div className="flex items-center justify-center py-16 bg-gradient-to-b from-red-50 to-white">
+    <div className="bg-white p-10 rounded-2xl shadow-lg text-center max-w-md w-full">
+      <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+      <h3 className="text-2xl font-bold text-green-600">
+        Registration Form Submitted!
+      </h3>
+      <p className="mt-3 text-gray-700">
+        Please wait for an admin to verify and approve. <br />
+        Check your email for updates.
+      </p>
+      <p className="mt-2 text-gray-600">Thank you for choosing <span className="font-semibold text-red-600">FrontDash</span>!</p>
+
+      {/* Back Home Button */}
+      <div className="mt-8">
+        <Link
+          href="/"
+          className="inline-block px-6 py-3 bg-red-600 text-white font-medium rounded-lg shadow hover:bg-red-700 transition transform hover:scale-105"
+        >
+          Go Back Home
+        </Link>
+      </div>
+    </div>
+  </div>
+)}
 
 
  {/* Navigation buttons */}
