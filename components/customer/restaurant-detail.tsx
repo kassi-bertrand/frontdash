@@ -112,11 +112,11 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
         </div>
       </header>
 
-      <main className="mx-auto mt-12 w-full max-w-5xl px-6">
+      <main className="mx-auto mt-12 w-full max-w-5xl px-6 self-start">
         <Button
           asChild
           variant="ghost"
-          className="mb-8 flex items-center gap-2 rounded-xl px-3 text-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+          className="mb-8 ml-0 flex w-fit items-center gap-2 rounded-xl px-3 text-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
         >
           <Link href="/">
             <ArrowLeft className="h-4 w-4" />

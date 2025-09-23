@@ -117,7 +117,7 @@ This document contains all user stories derived from the FrontDash project requi
 
 ### Browsing & Ordering (No Login Required)
 
-#### STORY-C001: Browse Restaurants
+#### ✅ STORY-C001: Browse Restaurants
 **As a** customer  
 **I want to** browse available restaurants  
 **So that** I can choose where to order from
@@ -128,7 +128,7 @@ This document contains all user stories derived from the FrontDash project requi
 - See restaurant logo/icon (*"optional icon/logo for the restaurant"*)
 - See open/closed status (*"status indicating whether the restaurant is open at that time"*)
 
-#### STORY-C002: Select Restaurant
+#### ✅ STORY-C002: Select Restaurant
 **As a** customer  
 **I want to** select a restaurant  
 **So that** I can view their menu
@@ -137,7 +137,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Click on restaurant to view menu (*"Customer should be able to select a restaurant for the next step"*)
 - Navigate to restaurant's menu page
 
-#### STORY-C003: Browse Menu
+#### ✅ STORY-C003: Browse Menu
 **As a** customer  
 **I want to** browse the restaurant's menu  
 **So that** I can choose what to order
@@ -149,7 +149,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Select multiple items (*"Customer should be able to select one or more food items from the menu"*)
 - Specify quantity for each item (*"customer should be able to indicate a quantity as well"*)
 
-#### STORY-C004: Confirm Order
+#### ✅ STORY-C004: Confirm Order
 **As a** customer  
 **I want to** review my order  
 **So that** I can verify everything before payment
@@ -165,7 +165,7 @@ This document contains all user stories derived from the FrontDash project requi
 - View total before service charge (*"Total of all subtotals before service charge"*)
 - View 8.25% service charge (*"Service charge - 8.25% for this problem"*)
 
-#### STORY-C005: Add Tips
+#### ✅ STORY-C005: Add Tips
 **As a** customer  
 **I want to** add tips to my order  
 **So that** I can tip the delivery driver
@@ -175,7 +175,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Can enter percentage or fixed amount (*"customer should be able to enter the tips - you can use percentage or fixed amount"*)
 - Grand total updates after tips (*"Grand total, after customer enters the tips"*)
 
-#### STORY-C006: Pay with Credit Card
+#### ✅ STORY-C006: Pay with Credit Card
 **As a** customer  
 **I want to** pay for my order with a credit card  
 **So that** I can complete my purchase

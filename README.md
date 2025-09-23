@@ -680,46 +680,46 @@ This architecture satisfies the requirement that "all three components can be de
 ### 2. Customer Module (No Login Required)
 
 #### Browse & Select
-- [ ] Homepage with restaurant grid
+- [x] Homepage with restaurant grid
 - [ ] Restaurant cards showing:
-  - [ ] Restaurant name
+  - [x] Restaurant name
   - [ ] Restaurant logo/image
-  - [ ] Open/Closed status based on current time
-- [ ] Restaurant selection functionality
-- [ ] Menu browsing page showing:
-  - [ ] All menu items
-  - [ ] Item images
-  - [ ] Item prices
-  - [ ] Availability status
-  - [ ] Quantity selector for each item
-  - [ ] Add to cart functionality
+  - [x] Open/Closed status based on current time
+- [x] Restaurant selection functionality
+- [x] Menu browsing page showing:
+  - [x] All menu items
+  - [x] Item images
+  - [x] Item prices
+  - [x] Availability status
+  - [x] Quantity selector for each item
+  - [x] Add to cart functionality
 
 #### Order & Billing
-- [ ] Order confirmation page displaying:
-  - [ ] Restaurant name
-  - [ ] Current date and time
-  - [ ] Ordered items with:
-    - [ ] Item name
-    - [ ] Price per item
-    - [ ] Quantity
-    - [ ] Subtotal per item
-  - [ ] Total before service charge
-  - [ ] Service charge (8.25%)
-  - [ ] Tips input field
-    - [ ] Percentage-based option
-    - [ ] Fixed amount option
-  - [ ] Grand total calculation
+- [x] Order confirmation page displaying:
+  - [x] Restaurant name
+  - [x] Current date and time
+  - [x] Ordered items with:
+    - [x] Item name
+    - [x] Price per item
+    - [x] Quantity
+    - [x] Subtotal per item
+  - [x] Total before service charge
+  - [x] Service charge (8.25%)
+  - [x] Tips input field
+    - [x] Percentage-based option
+    - [x] Fixed amount option
+  - [x] Grand total calculation
 
 #### Payment Processing
-- [ ] Credit card payment form:
-  - [ ] Card type selection (VISA, MasterCard, Discover, etc.)
-  - [ ] Card number field (16 digits validation)
-  - [ ] Cardholder first name (min 2 letters)
-  - [ ] Cardholder last name (min 2 letters)
-  - [ ] Billing address
-  - [ ] Expiry date (month/year)
-  - [ ] Security code (3 digits)
-- [ ] Third-party payment verification
+- [x] Credit card payment form:
+  - [x] Card type selection (VISA, MasterCard, Discover, etc.)
+  - [x] Card number field (16 digits validation)
+  - [x] Cardholder first name (min 2 letters)
+  - [x] Cardholder last name (min 2 letters)
+  - [x] Billing address
+  - [x] Expiry date (month/year)
+  - [x] Security code (3 digits)
+- [x] Third-party payment verification (mocked)
 - [ ] Payment confirmation
 
 #### Delivery Information
