@@ -1,103 +1,150 @@
-import Image from "next/image";
+"use client"
+
+import Link from "next/link"
+import { motion } from "framer-motion"
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  // Dummy restaurants with fixed statuses
+  const demoRestaurants = [
+    {
+      id: 1,
+      name: "Bella Italia",
+      image: "https://images.pexels.com/photos/2619967/pexels-photo-2619967.jpeg",
+      status: "OPEN",
+    },
+    {
+      id: 2,
+      name: "Sakura Sushi",
+      image: "https://images.pexels.com/photos/357756/pexels-photo-357756.jpeg",
+      status: "CLOSED",
+    },
+    {
+      id: 3,
+      name: "Taco Bar",
+      image: "https://images.pexels.com/photos/461198/pexels-photo-461198.jpeg",
+      status: "OPEN",
+    },
+    {
+      id: 4,
+      name: "Burger Barn",
+      image: "https://images.pexels.com/photos/2983101/pexels-photo-2983101.jpeg",
+      status: "CLOSED",
+    },
+  ]
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  return (
+    <div className="min-h-screen flex flex-col">
+      {/* Navbar */}
+      <header className="flex items-center justify-between px-6 sm:px-10 py-4 border-b-2 border-red-600 bg-red-600">
+        <motion.div
+          initial={{ x: -40, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.6 }}
+          className="text-2xl font-bold text-white"
+        >
+          Front<span className="text-black">Dash</span>
+        </motion.div>
+        <motion.nav
+          initial={{ x: 40, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="space-x-6"
+        >
+          <Link href="/register-restaurant" className="text-white font-semibold hover:text-red-200">
+            Register a Restaurant
+          </Link>
+          <Link href="/login" className="text-white font-semibold hover:text-red-200">
+            Login
+          </Link>
+        </motion.nav>
+      </header>
+
+      {/* Main content */}
+      <main className="flex-1 flex flex-col">
+        {/* Hero */}
+        <section
+          className="relative h-[60vh] min-h-[300px] flex items-center justify-center text-white"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1600891964599-f61ba0e24092')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="bg-black/50 p-10 rounded-lg text-center"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+            <h1 className="text-4xl sm:text-6xl font-extrabold">
+              Welcome To <span className="text-red-500">FrontDash!</span>
+            </h1>
+          </motion.div>
+        </section>
+
+        {/* Restaurants */}
+        <section className="flex-1 bg-red-50 py-10 border-t-2 border-red-600">
+          <div className="px-4 sm:px-6 lg:px-10">
+            <motion.h2
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6 }}
+              className="text-2xl font-bold text-red-600 mb-6"
+            >
+              Hungry? Browse Our Restaurants!
+            </motion.h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {demoRestaurants.map((r, i) => (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 * i, duration: 0.5 }}
+                  className="group shadow-md rounded-xl overflow-hidden border hover:shadow-xl transition relative"
+                >
+                  <img
+                    src={r.image}
+                    alt={r.name}
+                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                  />
+
+                  {/* Open/Closed Badge */}
+                  <span
+                    className={`absolute top-2 left-2 px-2 py-1 rounded text-sm font-semibold ${
+                      r.status === "OPEN" ? "bg-green-500 text-white" : "bg-gray-400 text-white"
+                    }`}
+                  >
+                    {r.status}
+                  </span>
+
+                  <p className="p-3 text-center font-semibold text-red-600">
+                    <Link href={`/restaurant/${r.id}`}>{r.name}</Link>
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1, duration: 0.6 }}
+              className="mt-6 text-right"
+            >
+              <Link
+                href="/restaurants"
+                className="inline-block bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 transition"
+              >
+                Show More →
+              </Link>
+            </motion.div>
+          </div>
+        </section>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
-  );
+  )
 }
+
+
+
