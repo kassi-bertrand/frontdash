@@ -13,9 +13,9 @@
  * - Inline editing capabilities
  * - TODO: Backend integration for data fetching
  */
-"use client";
+'use client'
 
-import * as React from "react";
+import * as React from 'react'
 
 // ============================================================================
 // DRAG & DROP IMPORTS
@@ -31,15 +31,15 @@ import {
   useSensors,
   type DragEndEvent,
   type UniqueIdentifier,
-} from "@dnd-kit/core";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers"; // Constrains dragging to vertical only
+} from '@dnd-kit/core'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers' // Constrains dragging to vertical only
 import {
   arrayMove, // Utility for reordering arrays
   SortableContext, // Context for sortable items
   useSortable, // Hook for making items sortable
   verticalListSortingStrategy, // Optimized sorting strategy for vertical lists
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities"; // CSS transform utilities
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities' // CSS transform utilities
 
 // ============================================================================
 // ICONS - Tabler Icons for UI elements
@@ -55,9 +55,8 @@ import {
   IconGripVertical, // Drag handle icon
   IconLayoutColumns, // Column visibility toggle
   IconLoader, // Loading spinner
-  IconPlus, // Add/create buttons
   IconTrendingUp, // Status trend indicators
-} from "@tabler/icons-react";
+} from '@tabler/icons-react'
 
 // ============================================================================
 // TABLE FUNCTIONALITY - TanStack Table for advanced table features
@@ -76,29 +75,28 @@ import {
   SortingState, // Sort state management
   useReactTable, // Main table hook
   VisibilityState, // Column show/hide state
-} from "@tanstack/react-table";
+} from '@tanstack/react-table'
 
 // ============================================================================
 // CHARTS & UTILITIES
 // ============================================================================
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"; // Chart components
-import { toast } from "sonner"; // Toast notifications for user feedback
-import { z } from "zod"; // Schema validation
+import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts' // Chart components
+import { z } from 'zod' // Schema validation
 
 // ============================================================================
 // LOCAL HOOKS & UI COMPONENTS
 // ============================================================================
-import { useIsMobile } from "@/hooks/use-mobile"; // Responsive design hook
-import { cn } from "@/lib/utils"; // Utility for merging Tailwind classes
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { useIsMobile } from '@/hooks/use-mobile' // Responsive design hook
+import { cn } from '@/lib/utils' // Utility for merging Tailwind classes
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart";
-import { Checkbox } from "@/components/ui/checkbox";
+} from '@/components/ui/chart'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Drawer,
   DrawerClose,
@@ -108,7 +106,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "@/components/ui/drawer";
+} from '@/components/ui/drawer'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -116,17 +114,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+} from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -134,8 +132,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export const schema = z.object({
   id: z.number(),
@@ -143,13 +141,13 @@ export const schema = z.object({
   type: z.string(),
   status: z.string(),
   location: z.string(),
-});
+})
 
 // Create a separate component for the drag handle
 function DragHandle({ id }: { id: number }) {
   const { attributes, listeners } = useSortable({
     id,
-  });
+  })
 
   return (
     <Button
@@ -162,23 +160,23 @@ function DragHandle({ id }: { id: number }) {
       <IconGripVertical className="text-muted-foreground size-3" />
       <span className="sr-only">Drag to reorder</span>
     </Button>
-  );
+  )
 }
 
 const columns: ColumnDef<z.infer<typeof schema>>[] = [
   {
-    id: "drag",
+    id: 'drag',
     header: () => null,
     cell: ({ row }) => <DragHandle id={row.original.id} />,
   },
   {
-    id: "select",
+    id: 'select',
     header: ({ table }) => (
       <div className="flex items-center justify-center">
         <Checkbox
           checked={
             table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
+            (table.getIsSomePageRowsSelected() && 'indeterminate')
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label="Select all"
@@ -198,16 +196,16 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: "name",
-    header: "Name",
+    accessorKey: 'name',
+    header: 'Name',
     cell: ({ row }) => {
-      return <TableCellViewer item={row.original} />;
+      return <TableCellViewer item={row.original} />
     },
     enableHiding: false,
   },
   {
-    accessorKey: "type",
-    header: "Type",
+    accessorKey: 'type',
+    header: 'Type',
     cell: ({ row }) => (
       <div className="w-32">
         <Badge variant="outline" className="text-muted-foreground px-1.5">
@@ -217,11 +215,11 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     ),
   },
   {
-    accessorKey: "status",
-    header: "Status",
+    accessorKey: 'status',
+    header: 'Status',
     cell: ({ row }) => (
       <Badge variant="outline" className="text-muted-foreground px-1.5">
-        {row.original.status === "Done" ? (
+        {row.original.status === 'Done' ? (
           <IconCircleCheckFilled className="fill-green-500 dark:fill-green-400" />
         ) : (
           <IconLoader />
@@ -231,8 +229,8 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     ),
   },
   {
-    accessorKey: "location",
-    header: "Location",
+    accessorKey: 'location',
+    header: 'Location',
     cell: ({ row }) => (
       <div className="w-32">
         <Badge variant="outline" className="text-muted-foreground px-1.5">
@@ -242,7 +240,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     ),
   },
   {
-    id: "actions",
+    id: 'actions',
     cell: () => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -265,16 +263,16 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
       </DropdownMenu>
     ),
   },
-];
+]
 
 function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
-  });
+  })
 
   return (
     <TableRow
-      data-state={row.getIsSelected() && "selected"}
+      data-state={row.getIsSelected() && 'selected'}
       data-dragging={isDragging}
       ref={setNodeRef}
       className="relative z-0 data-[dragging=true]:z-10 data-[dragging=true]:opacity-80"
@@ -289,7 +287,7 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
         </TableCell>
       ))}
     </TableRow>
-  );
+  )
 }
 
 export function DataTable({
@@ -297,51 +295,47 @@ export function DataTable({
   staffData,
   driverData,
 }: {
-  restaurantData: z.infer<typeof schema>[];
-  staffData: z.infer<typeof schema>[];
-  driverData: z.infer<typeof schema>[];
+  restaurantData: z.infer<typeof schema>[]
+  staffData: z.infer<typeof schema>[]
+  driverData: z.infer<typeof schema>[]
 }) {
-  const [activeTab, setActiveTab] = React.useState("restaurants");
+  const [activeTab, setActiveTab] = React.useState('restaurants')
 
   // TODO: Replace with useEffect hooks to fetch data from backend APIs
   // TODO: Add loading states and error handling for API calls
-  const getCurrentData = () => {
+  const getCurrentData = React.useCallback(() => {
     switch (activeTab) {
-      case "restaurants":
-        return restaurantData;
-      case "staff":
-        return staffData;
-      case "drivers":
-        return driverData;
+      case 'restaurants':
+        return restaurantData
+      case 'staff':
+        return staffData
+      case 'drivers':
+        return driverData
       default:
-        return restaurantData;
+        return restaurantData
     }
-  };
+  }, [activeTab, driverData, restaurantData, staffData])
 
-  const initialData = getCurrentData();
-  const [data, setData] = React.useState(() => initialData);
+  const [data, setData] = React.useState(() => getCurrentData())
 
   // Update data when tab changes
   React.useEffect(() => {
-    setData(getCurrentData());
-  }, [activeTab, restaurantData, staffData, driverData]);
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
-  );
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+    setData(getCurrentData())
+  }, [getCurrentData])
+  const [rowSelection, setRowSelection] = React.useState({})
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [sorting, setSorting] = React.useState<SortingState>([])
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 10,
-  });
-  const sortableId = React.useId();
+  })
+  const sortableId = React.useId()
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
     useSensor(KeyboardSensor, {}),
-  );
+  )
 
   // =========================================================================
   // DRAG & DROP DATA PREPARATION
@@ -350,7 +344,7 @@ export function DataTable({
   const dataIds = React.useMemo<UniqueIdentifier[]>(
     () => data?.map(({ id }) => id) || [],
     [data],
-  );
+  )
 
   // ==========================================================================
   // REACT TABLE CONFIGURATION
@@ -392,16 +386,16 @@ export function DataTable({
     getSortedRowModel: getSortedRowModel(), // Column sorting
     getFacetedRowModel: getFacetedRowModel(), // Filter dropdowns
     getFacetedUniqueValues: getFacetedUniqueValues(), // Unique filter values
-  });
+  })
 
   function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
+    const { active, over } = event
     if (active && over && active.id !== over.id) {
       setData((data) => {
-        const oldIndex = dataIds.indexOf(active.id);
-        const newIndex = dataIds.indexOf(over.id);
-        return arrayMove(data, oldIndex, newIndex);
-      });
+        const oldIndex = dataIds.indexOf(active.id)
+        const newIndex = dataIds.indexOf(over.id)
+        return arrayMove(data, oldIndex, newIndex)
+      })
     }
   }
 
@@ -431,10 +425,10 @@ export function DataTable({
         </Select>
 
         {/* Tailwind breakdown::
-         * In the JSX: "<Badge variant="secondary">5</Badge>" renders as 
+         * In the JSX: "<Badge variant="secondary">5</Badge>" renders as
          * "<span data-slot="badge" class="...">5</span>"
          *
-         * 
+         *
          * "**:data-[slot=badge]:bg-muted-foreground/30" breaks down like this:
          * - **: = Universal selector (targets ALL descendant elements)
          * - data-[slot=badge] = Elements with data-slot="badge" attribute
@@ -446,12 +440,12 @@ export function DataTable({
         <TabsList
           className={cn(
             // Badge styling - applies to nested Badge components
-            "**:data-[slot=badge]:bg-muted-foreground/30",
-            "**:data-[slot=badge]:size-5",
-            "**:data-[slot=badge]:rounded-full",
-            "**:data-[slot=badge]:px-1",
+            '**:data-[slot=badge]:bg-muted-foreground/30',
+            '**:data-[slot=badge]:size-5',
+            '**:data-[slot=badge]:rounded-full',
+            '**:data-[slot=badge]:px-1',
             // Responsive visibility - hidden on mobile, show on larger screens
-            "hidden @4xl/main:flex"
+            'hidden @4xl/main:flex',
           )}
         >
           <TabsTrigger value="restaurants">
@@ -479,8 +473,7 @@ export function DataTable({
                 .getAllColumns()
                 .filter(
                   (column) =>
-                    typeof column.accessorFn !== "undefined" &&
-                    column.getCanHide(),
+                    typeof column.accessorFn !== 'undefined' && column.getCanHide(),
                 )
                 .map((column) => {
                   return (
@@ -488,13 +481,11 @@ export function DataTable({
                       key={column.id}
                       className="capitalize"
                       checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
+                      onCheckedChange={(value) => column.toggleVisibility(!!value)}
                     >
                       {column.id}
                     </DropdownMenuCheckboxItem>
-                  );
+                  )
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -526,27 +517,21 @@ export function DataTable({
                                 header.getContext(),
                               )}
                         </TableHead>
-                      );
+                      )
                     })}
                   </TableRow>
                 ))}
               </TableHeader>
               <TableBody className="**:data-[slot=table-cell]:first:w-8">
                 {table.getRowModel().rows?.length ? (
-                  <SortableContext
-                    items={dataIds}
-                    strategy={verticalListSortingStrategy}
-                  >
+                  <SortableContext items={dataIds} strategy={verticalListSortingStrategy}>
                     {table.getRowModel().rows.map((row) => (
                       <DraggableRow key={row.id} row={row} />
                     ))}
                   </SortableContext>
                 ) : (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center"
-                    >
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
                       No results.
                     </TableCell>
                   </TableRow>
@@ -557,7 +542,7 @@ export function DataTable({
         </div>
         <div className="flex items-center justify-between px-4">
           <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
+            {table.getFilteredSelectedRowModel().rows.length} of{' '}
             {table.getFilteredRowModel().rows.length} row(s) selected.
           </div>
           <div className="flex w-full items-center gap-8 lg:w-fit">
@@ -568,13 +553,11 @@ export function DataTable({
               <Select
                 value={`${table.getState().pagination.pageSize}`}
                 onValueChange={(value) => {
-                  table.setPageSize(Number(value));
+                  table.setPageSize(Number(value))
                 }}
               >
                 <SelectTrigger size="sm" className="w-20" id="rows-per-page">
-                  <SelectValue
-                    placeholder={table.getState().pagination.pageSize}
-                  />
+                  <SelectValue placeholder={table.getState().pagination.pageSize} />
                 </SelectTrigger>
                 <SelectContent side="top">
                   {[10, 20, 30, 40, 50].map((pageSize) => (
@@ -586,8 +569,7 @@ export function DataTable({
               </Select>
             </div>
             <div className="flex w-fit items-center justify-center text-sm font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {table.getPageCount()}
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
             </div>
             <div className="ml-auto flex items-center gap-2 lg:ml-0">
               <Button
@@ -659,7 +641,7 @@ export function DataTable({
                                 header.getContext(),
                               )}
                         </TableHead>
-                      );
+                      )
                     })}
                   </TableRow>
                 ))}
@@ -672,15 +654,10 @@ export function DataTable({
                   {table.getRowModel().rows?.length ? (
                     table
                       .getRowModel()
-                      .rows.map((row) => (
-                        <DraggableRow key={row.id} row={row} />
-                      ))
+                      .rows.map((row) => <DraggableRow key={row.id} row={row} />)
                   ) : (
                     <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                      >
+                      <TableCell colSpan={columns.length} className="h-24 text-center">
                         No staff members found.
                       </TableCell>
                     </TableRow>
@@ -717,7 +694,7 @@ export function DataTable({
                                 header.getContext(),
                               )}
                         </TableHead>
-                      );
+                      )
                     })}
                   </TableRow>
                 ))}
@@ -730,15 +707,10 @@ export function DataTable({
                   {table.getRowModel().rows?.length ? (
                     table
                       .getRowModel()
-                      .rows.map((row) => (
-                        <DraggableRow key={row.id} row={row} />
-                      ))
+                      .rows.map((row) => <DraggableRow key={row.id} row={row} />)
                   ) : (
                     <TableRow>
-                      <TableCell
-                        colSpan={columns.length}
-                        className="h-24 text-center"
-                      >
+                      <TableCell colSpan={columns.length} className="h-24 text-center">
                         No drivers found.
                       </TableCell>
                     </TableRow>
@@ -750,34 +722,34 @@ export function DataTable({
         </div>
       </TabsContent>
     </Tabs>
-  );
+  )
 }
 
 const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-];
+  { month: 'January', desktop: 186, mobile: 80 },
+  { month: 'February', desktop: 305, mobile: 200 },
+  { month: 'March', desktop: 237, mobile: 120 },
+  { month: 'April', desktop: 73, mobile: 190 },
+  { month: 'May', desktop: 209, mobile: 130 },
+  { month: 'June', desktop: 214, mobile: 140 },
+]
 
 const chartConfig = {
   desktop: {
-    label: "Desktop",
-    color: "var(--primary)",
+    label: 'Desktop',
+    color: 'var(--primary)',
   },
   mobile: {
-    label: "Mobile",
-    color: "var(--primary)",
+    label: 'Mobile',
+    color: 'var(--primary)',
   },
-} satisfies ChartConfig;
+} satisfies ChartConfig
 
 function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile()
 
   return (
-    <Drawer direction={isMobile ? "bottom" : "right"}>
+    <Drawer direction={isMobile ? 'bottom' : 'right'}>
       <DrawerTrigger asChild>
         <Button variant="link" className="text-foreground w-fit px-0 text-left">
           {item.name}
@@ -836,13 +808,11 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
               <Separator />
               <div className="grid gap-2">
                 <div className="flex gap-2 leading-none font-medium">
-                  Trending up by 5.2% this month{" "}
-                  <IconTrendingUp className="size-4" />
+                  Trending up by 5.2% this month <IconTrendingUp className="size-4" />
                 </div>
                 <div className="text-muted-foreground">
-                  Showing total visitors for the last 6 months. This is just
-                  some random text to test the layout. It spans multiple lines
-                  and should wrap around.
+                  Showing total visitors for the last 6 months. This is just some random
+                  text to test the layout. It spans multiple lines and should wrap around.
                 </div>
               </div>
               <Separator />
@@ -861,20 +831,12 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
                     <SelectValue placeholder="Select a type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Table of Contents">
-                      Table of Contents
-                    </SelectItem>
-                    <SelectItem value="Executive Summary">
-                      Executive Summary
-                    </SelectItem>
-                    <SelectItem value="Technical Approach">
-                      Technical Approach
-                    </SelectItem>
+                    <SelectItem value="Table of Contents">Table of Contents</SelectItem>
+                    <SelectItem value="Executive Summary">Executive Summary</SelectItem>
+                    <SelectItem value="Technical Approach">Technical Approach</SelectItem>
                     <SelectItem value="Design">Design</SelectItem>
                     <SelectItem value="Capabilities">Capabilities</SelectItem>
-                    <SelectItem value="Focus Documents">
-                      Focus Documents
-                    </SelectItem>
+                    <SelectItem value="Focus Documents">Focus Documents</SelectItem>
                     <SelectItem value="Narrative">Narrative</SelectItem>
                     <SelectItem value="Cover Page">Cover Page</SelectItem>
                   </SelectContent>
@@ -908,5 +870,5 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
-  );
+  )
 }

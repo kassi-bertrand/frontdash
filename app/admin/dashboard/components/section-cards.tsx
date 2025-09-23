@@ -1,6 +1,6 @@
-import { IconClock, IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
+import { IconClock, IconTrendingDown, IconTrendingUp } from '@tabler/icons-react'
 
-import { Badge } from "@/components/ui/badge"
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardAction,
@@ -8,7 +8,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from '@/components/ui/card'
 
 export function SectionCards() {
   return (
@@ -30,9 +30,7 @@ export function SectionCards() {
           <div className="line-clamp-1 flex gap-2 font-medium">
             8 new registrations this week <IconTrendingUp className="size-4" />
           </div>
-          <div className="text-muted-foreground">
-            Platform growth continues
-          </div>
+          <div className="text-muted-foreground">Platform growth continues</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
@@ -52,14 +50,12 @@ export function SectionCards() {
           <div className="line-clamp-1 flex gap-2 font-medium">
             Awaiting approval in queue <IconClock className="size-4" />
           </div>
-          <div className="text-muted-foreground">
-            Requires admin review
-          </div>
+          <div className="text-muted-foreground">Requires admin review</div>
         </CardFooter>
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Today's Orders</CardDescription>
+          <CardDescription>Today&apos;s Orders</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             1,847
           </CardTitle>

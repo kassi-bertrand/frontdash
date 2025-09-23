@@ -1,150 +1,92 @@
-"use client"
+// STORY-C001 landing experience: lists every restaurant and routes customers
+// into the individual menu pages.
+'use client'
 
-import Link from "next/link"
-import { motion } from "framer-motion"
+import Link from 'next/link'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { RestaurantCard } from '@/components/customer/restaurant-card'
+import { demoCustomerRestaurants } from '@/lib/demo-restaurants'
+
+/**
+ * Customer homepage: hero copy + full restaurant grid sourced from the demo
+ * dataset. Replace the data hook once the public browse API exists.
+ */
 export default function Home() {
-  // Dummy restaurants with fixed statuses
-  const demoRestaurants = [
-    {
-      id: 1,
-      name: "Bella Italia",
-      image: "https://images.pexels.com/photos/2619967/pexels-photo-2619967.jpeg",
-      status: "OPEN",
-    },
-    {
-      id: 2,
-      name: "Sakura Sushi",
-      image: "https://images.pexels.com/photos/357756/pexels-photo-357756.jpeg",
-      status: "CLOSED",
-    },
-    {
-      id: 3,
-      name: "Taco Bar",
-      image: "https://images.pexels.com/photos/461198/pexels-photo-461198.jpeg",
-      status: "OPEN",
-    },
-    {
-      id: 4,
-      name: "Burger Barn",
-      image: "https://images.pexels.com/photos/2983101/pexels-photo-2983101.jpeg",
-      status: "CLOSED",
-    },
-  ]
+  const openNow = demoCustomerRestaurants.filter((restaurant) => restaurant.isOpen).length
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Navbar */}
-      <header className="flex items-center justify-between px-6 sm:px-10 py-4 border-b-2 border-red-600 bg-red-600">
-        <motion.div
-          initial={{ x: -40, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          className="text-2xl font-bold text-white"
-        >
-          Front<span className="text-black">Dash</span>
-        </motion.div>
-        <motion.nav
-          initial={{ x: 40, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="space-x-6"
-        >
-          <Link href="/register-restaurant" className="text-white font-semibold hover:text-red-200">
-            Register a Restaurant
+    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+          <Link
+            href="/"
+            className="text-xl font-semibold tracking-tight text-neutral-900"
+          >
+            Front<span className="font-bold text-red-500">Dash</span>
           </Link>
-          <Link href="/login" className="text-white font-semibold hover:text-red-200">
-            Login
-          </Link>
-        </motion.nav>
+          <nav className="flex items-center gap-3">
+            <Button asChild variant="ghost" className="rounded-xl px-4 text-sm">
+              <Link href="/login">Login</Link>
+            </Button>
+            <Button
+              asChild
+              className="rounded-xl bg-neutral-900 px-4 text-sm hover:bg-neutral-800"
+            >
+              <Link href="/register-restaurant">Register a Restaurant</Link>
+            </Button>
+          </nav>
+        </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 flex flex-col">
-        {/* Hero */}
-        <section
-          className="relative h-[60vh] min-h-[300px] flex items-center justify-center text-white"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1600891964599-f61ba0e24092')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="bg-black/50 p-10 rounded-lg text-center"
-          >
-            <h1 className="text-4xl sm:text-6xl font-extrabold">
-              Welcome To <span className="text-red-500">FrontDash!</span>
-            </h1>
-          </motion.div>
+      <main>
+        {/* Overview hero keeps customers oriented before they dive into the grid. */}
+        <section className="border-b border-neutral-200 bg-gradient-to-b from-white via-white to-neutral-50">
+          <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+            <div className="space-y-5 lg:col-span-2">
+              <Badge
+                variant="secondary"
+                className="border border-neutral-200 bg-neutral-100/80 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500"
+              >
+                Discover & order
+              </Badge>
+              <h1 className="text-4xl font-semibold tracking-tight text-neutral-900 sm:text-5xl">
+                Dinner plans in one place.
+              </h1>
+              <p className="max-w-xl text-base leading-7 text-neutral-600 sm:text-lg">
+                Browse every partner restaurant in real time and jump straight into the
+                menu when inspiration strikes. No logins required—just pick, order, and
+                enjoy.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
+                <span>{demoCustomerRestaurants.length} restaurants</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-neutral-300" aria-hidden />
+                <span>{openNow} open right now</span>
+              </div>
+            </div>
+          </div>
         </section>
 
-        {/* Restaurants */}
-        <section className="flex-1 bg-red-50 py-10 border-t-2 border-red-600">
-          <div className="px-4 sm:px-6 lg:px-10">
-            <motion.h2
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6 }}
-              className="text-2xl font-bold text-red-600 mb-6"
-            >
-              Hungry? Browse Our Restaurants!
-            </motion.h2>
+        {/* Full catalogue satisfies STORY-C001 by showing every restaurant. */}
+        <section className="mx-auto w-full max-w-6xl px-6 py-12">
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold tracking-tight">
+              Explore every restaurant
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500">
+              All available partners appear here—tap any card to continue to the
+              restaurant menu.
+            </p>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {demoRestaurants.map((r, i) => (
-                <motion.div
-                  key={r.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 * i, duration: 0.5 }}
-                  className="group shadow-md rounded-xl overflow-hidden border hover:shadow-xl transition relative"
-                >
-                  <img
-                    src={r.image}
-                    alt={r.name}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
-                  />
-
-                  {/* Open/Closed Badge */}
-                  <span
-                    className={`absolute top-2 left-2 px-2 py-1 rounded text-sm font-semibold ${
-                      r.status === "OPEN" ? "bg-green-500 text-white" : "bg-gray-400 text-white"
-                    }`}
-                  >
-                    {r.status}
-                  </span>
-
-                  <p className="p-3 text-center font-semibold text-red-600">
-                    <Link href={`/restaurant/${r.id}`}>{r.name}</Link>
-                  </p>
-                </motion.div>
-              ))}
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1, duration: 0.6 }}
-              className="mt-6 text-right"
-            >
-              <Link
-                href="/restaurants"
-                className="inline-block bg-red-600 text-white px-5 py-2 rounded-lg hover:bg-red-700 transition"
-              >
-                Show More →
-              </Link>
-            </motion.div>
+          <div id="restaurants-grid" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {demoCustomerRestaurants.map((restaurant) => (
+              <RestaurantCard key={restaurant.id} restaurant={restaurant} />
+            ))}
           </div>
         </section>
       </main>
     </div>
   )
 }
-
-
-
