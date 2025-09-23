@@ -1,0 +1,15 @@
+<svg width="320" height="320" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title>Sweet Finish Artwork</title>
+  <desc>A dessert-inspired placeholder illustration for menu photography.</desc>
+  <defs>
+    <linearGradient id="gradient6" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cfd9df" />
+      <stop offset="100%" stop-color="#e2ebf0" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" rx="28" fill="url(#gradient6)" />
+  <g fill="rgba(255,255,255,0.6)">
+    <rect x="40" y="120" width="110" height="110" rx="24" />
+    <rect x="170" y="70" width="110" height="160" rx="30" />
+  </g>
+</svg>

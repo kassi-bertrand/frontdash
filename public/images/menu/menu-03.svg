@@ -1,0 +1,16 @@
+<svg width="320" height="320" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title>Chef Recommendation Artwork</title>
+  <desc>A vibrant abstract used as menu photography placeholder.</desc>
+  <defs>
+    <linearGradient id="gradient3" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f6d365" />
+      <stop offset="100%" stop-color="#fda085" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" rx="28" fill="url(#gradient3)" />
+  <g fill="rgba(255,255,255,0.65)">
+    <rect x="60" y="70" width="80" height="80" rx="18" />
+    <rect x="180" y="40" width="80" height="120" rx="24" />
+    <rect x="110" y="180" width="150" height="90" rx="26" />
+  </g>
+</svg>
