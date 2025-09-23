@@ -5,9 +5,12 @@
  */
 
 export type RestaurantMenuItem = {
+  id: string
   name: string
   description?: string
-  price: string
+  priceCents: number
+  imageUrl?: string
+  isAvailable: boolean
 }
 
 export type RestaurantMenuSection = {
@@ -37,7 +40,7 @@ export type CustomerRestaurant = {
 }
 
 /**
- * Static list of restaurants used for STORY-C001/C002. Replace with API data
+ * Static list of restaurants used for STORY-C001/C002/C003. Replace with API data
  * once services are wired up.
  */
 export const demoCustomerRestaurants: CustomerRestaurant[] = [
@@ -59,33 +62,63 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
         title: 'Small Plates',
         items: [
           {
+            id: 'citrus-small-olives',
             name: 'Citrus-marinated olives',
             description: 'Orange zest, rosemary',
-            price: '$7',
+            priceCents: 700,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
           },
-          { name: 'Whipped feta', description: 'Honey, thyme, sesame', price: '$11' },
+          {
+            id: 'citrus-small-whipped-feta',
+            name: 'Whipped feta',
+            description: 'Honey, thyme, sesame',
+            priceCents: 1100,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: false,
+          },
         ],
       },
       {
         title: 'Mains',
         items: [
           {
+            id: 'citrus-mains-herb-roasted-chicken',
             name: 'Herb roasted chicken',
             description: 'Charred lemon, jus',
-            price: '$24',
+            priceCents: 2400,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: true,
           },
           {
+            id: 'citrus-mains-summer-risotto',
             name: 'Summer risotto',
             description: 'Zucchini, basil, pecorino',
-            price: '$21',
+            priceCents: 2100,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: true,
           },
         ],
       },
       {
         title: 'Desserts',
         items: [
-          { name: 'Olive oil cake', description: 'Citrus glaze', price: '$9' },
-          { name: 'Pistachio gelato', description: 'Fresh mint', price: '$6' },
+          {
+            id: 'citrus-desserts-olive-oil-cake',
+            name: 'Olive oil cake',
+            description: 'Citrus glaze',
+            priceCents: 900,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'citrus-desserts-pistachio-gelato',
+            name: 'Pistachio gelato',
+            description: 'Fresh mint',
+            priceCents: 600,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],
@@ -107,22 +140,64 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
       {
         title: 'Nigiri',
         items: [
-          { name: 'Bluefin toro', description: 'Soy-brushed, fresh wasabi', price: '$8' },
-          { name: 'Golden eye snapper', description: 'Yuzu kosho', price: '$7' },
+          {
+            id: 'sakura-nigiri-bluefin-toro',
+            name: 'Bluefin toro',
+            description: 'Soy-brushed, fresh wasabi',
+            priceCents: 800,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'sakura-nigiri-golden-eye-snapper',
+            name: 'Golden eye snapper',
+            description: 'Yuzu kosho',
+            priceCents: 700,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Rolls',
         items: [
-          { name: 'Sunrise roll', description: 'Salmon, mango, avocado', price: '$16' },
-          { name: 'Tempura garden', description: 'Sweet potato, shiso', price: '$14' },
+          {
+            id: 'sakura-rolls-sunrise-roll',
+            name: 'Sunrise roll',
+            description: 'Salmon, mango, avocado',
+            priceCents: 1600,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'sakura-rolls-tempura-garden',
+            name: 'Tempura garden',
+            description: 'Sweet potato, shiso',
+            priceCents: 1400,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: false,
+          },
         ],
       },
       {
         title: 'Extras',
         items: [
-          { name: 'Miso soup', description: 'Tofu, scallion, wakame', price: '$4' },
-          { name: 'Matcha custard', description: 'Black sesame crumble', price: '$7' },
+          {
+            id: 'sakura-extras-miso-soup',
+            name: 'Miso soup',
+            description: 'Tofu, scallion, wakame',
+            priceCents: 400,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'sakura-extras-matcha-custard',
+            name: 'Matcha custard',
+            description: 'Black sesame crumble',
+            priceCents: 700,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],
@@ -144,22 +219,64 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
       {
         title: 'Tacos',
         items: [
-          { name: 'Al pastor', description: 'Pineapple salsa, cilantro', price: '$4' },
-          { name: 'Crispy cauliflower', description: 'Chipotle crema', price: '$4' },
+          {
+            id: 'verde-tacos-al-pastor',
+            name: 'Al pastor',
+            description: 'Pineapple salsa, cilantro',
+            priceCents: 400,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'verde-tacos-crispy-cauliflower',
+            name: 'Crispy cauliflower',
+            description: 'Chipotle crema',
+            priceCents: 400,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Sides',
         items: [
-          { name: 'Street corn', description: 'Cotija, tajin, lime', price: '$6' },
-          { name: 'Black beans', description: 'Queso fresco', price: '$5' },
+          {
+            id: 'verde-sides-street-corn',
+            name: 'Street corn',
+            description: 'Cotija, tajin, lime',
+            priceCents: 600,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: false,
+          },
+          {
+            id: 'verde-sides-black-beans',
+            name: 'Black beans',
+            description: 'Queso fresco',
+            priceCents: 500,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Desserts',
         items: [
-          { name: 'Churros', description: 'Cinnamon sugar, chocolate', price: '$6' },
-          { name: 'Flan', description: 'Burnt caramel', price: '$5' },
+          {
+            id: 'verde-desserts-churros',
+            name: 'Churros',
+            description: 'Cinnamon sugar, chocolate',
+            priceCents: 600,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'verde-desserts-flan',
+            name: 'Flan',
+            description: 'Burnt caramel',
+            priceCents: 500,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],
@@ -181,22 +298,62 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
       {
         title: 'Broths',
         items: [
-          { name: 'Tonkotsu', description: '12-hour pork bone', price: '$15' },
-          { name: 'Spicy miso', description: 'Chili oil, sesame', price: '$16' },
+          {
+            id: 'solstice-broths-tonkotsu',
+            name: 'Tonkotsu',
+            description: '12-hour pork bone',
+            priceCents: 1500,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'solstice-broths-spicy-miso',
+            name: 'Spicy miso',
+            description: 'Chili oil, sesame',
+            priceCents: 1600,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Add-ons',
         items: [
-          { name: 'Ajitama egg', price: '$2' },
-          { name: 'Bamboo shoots', price: '$2' },
+          {
+            id: 'solstice-addons-ajitama-egg',
+            name: 'Ajitama egg',
+            priceCents: 200,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'solstice-addons-bamboo-shoots',
+            name: 'Bamboo shoots',
+            priceCents: 200,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: false,
+          },
         ],
       },
       {
         title: 'Sides',
         items: [
-          { name: 'Shishito peppers', description: 'Smoked sea salt', price: '$7' },
-          { name: 'Seaweed salad', description: 'Ponzu', price: '$6' },
+          {
+            id: 'solstice-sides-shishito-peppers',
+            name: 'Shishito peppers',
+            description: 'Smoked sea salt',
+            priceCents: 700,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'solstice-sides-seaweed-salad',
+            name: 'Seaweed salad',
+            description: 'Ponzu',
+            priceCents: 600,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],
@@ -218,22 +375,62 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
       {
         title: 'Cuts',
         items: [
-          { name: 'Dry-aged ribeye', description: 'Bone-in, 16oz', price: '$48' },
-          { name: 'Filet mignon', description: 'Center cut', price: '$44' },
+          {
+            id: 'ember-cuts-dry-aged-ribeye',
+            name: 'Dry-aged ribeye',
+            description: 'Bone-in, 16oz',
+            priceCents: 4800,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'ember-cuts-filet-mignon',
+            name: 'Filet mignon',
+            description: 'Center cut',
+            priceCents: 4400,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Sides',
         items: [
-          { name: 'Truffle mash', description: 'Brown butter', price: '$9' },
-          { name: 'Charred broccolini', description: 'Garlic chili crisp', price: '$8' },
+          {
+            id: 'ember-sides-truffle-mash',
+            name: 'Truffle mash',
+            description: 'Brown butter',
+            priceCents: 900,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'ember-sides-charred-broccolini',
+            name: 'Charred broccolini',
+            description: 'Garlic chili crisp',
+            priceCents: 800,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: false,
+          },
         ],
       },
       {
         title: 'Sauces',
         items: [
-          { name: 'Herb chimichurri', price: '$3' },
-          { name: 'Bone marrow butter', price: '$4' },
+          {
+            id: 'ember-sauces-herb-chimichurri',
+            name: 'Herb chimichurri',
+            priceCents: 300,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'ember-sauces-bone-marrow-butter',
+            name: 'Bone marrow butter',
+            priceCents: 400,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],
@@ -255,22 +452,63 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
       {
         title: 'Curries',
         items: [
-          { name: 'Green curry', description: 'Thai basil, bamboo', price: '$14' },
-          { name: 'Panang curry', description: 'Roasted peanuts', price: '$15' },
+          {
+            id: 'lotus-curries-green-curry',
+            name: 'Green curry',
+            description: 'Thai basil, bamboo',
+            priceCents: 1400,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'lotus-curries-panang-curry',
+            name: 'Panang curry',
+            description: 'Roasted peanuts',
+            priceCents: 1500,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Noodles',
         items: [
-          { name: 'Pad thai', description: 'Tamarind, peanuts', price: '$13' },
-          { name: 'Drunken noodles', description: 'Thai basil, chili', price: '$13' },
+          {
+            id: 'lotus-noodles-pad-thai',
+            name: 'Pad thai',
+            description: 'Tamarind, peanuts',
+            priceCents: 1300,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'lotus-noodles-drunken-noodles',
+            name: 'Drunken noodles',
+            description: 'Thai basil, chili',
+            priceCents: 1300,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: false,
+          },
         ],
       },
       {
         title: 'Desserts',
         items: [
-          { name: 'Mango sticky rice', description: 'Coconut cream', price: '$7' },
-          { name: 'Thai tea panna cotta', price: '$6' },
+          {
+            id: 'lotus-desserts-mango-sticky-rice',
+            name: 'Mango sticky rice',
+            description: 'Coconut cream',
+            priceCents: 700,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'lotus-desserts-thai-tea-panna-cotta',
+            name: 'Thai tea panna cotta',
+            priceCents: 600,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],
@@ -292,22 +530,64 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
       {
         title: 'Morning',
         items: [
-          { name: 'Almond croissant', description: 'House almond cream', price: '$5' },
-          { name: 'Seasonal quiche', description: 'Greens side', price: '$9' },
+          {
+            id: 'golden-morning-almond-croissant',
+            name: 'Almond croissant',
+            description: 'House almond cream',
+            priceCents: 500,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'golden-morning-seasonal-quiche',
+            name: 'Seasonal quiche',
+            description: 'Greens side',
+            priceCents: 900,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Midday',
         items: [
-          { name: 'Smoked salmon toast', description: 'Herb cheese', price: '$12' },
-          { name: 'Roasted veggie panini', description: 'Pesto aioli', price: '$11' },
+          {
+            id: 'golden-midday-smoked-salmon-toast',
+            name: 'Smoked salmon toast',
+            description: 'Herb cheese',
+            priceCents: 1200,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'golden-midday-roasted-veggie-panini',
+            name: 'Roasted veggie panini',
+            description: 'Pesto aioli',
+            priceCents: 1100,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: false,
+          },
         ],
       },
       {
         title: 'Coffee',
         items: [
-          { name: 'Honey latte', description: 'Oat milk', price: '$5' },
-          { name: 'Cold brew', description: 'Vanilla bean', price: '$4' },
+          {
+            id: 'golden-coffee-honey-latte',
+            name: 'Honey latte',
+            description: 'Oat milk',
+            priceCents: 500,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'golden-coffee-cold-brew',
+            name: 'Cold brew',
+            description: 'Vanilla bean',
+            priceCents: 400,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],
@@ -330,29 +610,63 @@ export const demoCustomerRestaurants: CustomerRestaurant[] = [
         title: 'Starters',
         items: [
           {
+            id: 'harvest-starters-heirloom-tomato-salad',
             name: 'Heirloom tomato salad',
             description: 'Stracciatella, basil oil',
-            price: '$12',
+            priceCents: 1200,
+            imageUrl: '/images/menu/menu-01.svg',
+            isAvailable: true,
           },
-          { name: 'Charred peaches', description: 'Prosciutto, ricotta', price: '$11' },
+          {
+            id: 'harvest-starters-charred-peaches',
+            name: 'Charred peaches',
+            description: 'Prosciutto, ricotta',
+            priceCents: 1100,
+            imageUrl: '/images/menu/menu-02.svg',
+            isAvailable: true,
+          },
         ],
       },
       {
         title: 'Family Style',
         items: [
-          { name: 'Roasted chicken', description: 'Herb jus, fingerlings', price: '$32' },
-          { name: 'Grilled vegetable board', description: 'Lemon tahini', price: '$28' },
+          {
+            id: 'harvest-family-roasted-chicken',
+            name: 'Roasted chicken',
+            description: 'Herb jus, fingerlings',
+            priceCents: 3200,
+            imageUrl: '/images/menu/menu-03.svg',
+            isAvailable: true,
+          },
+          {
+            id: 'harvest-family-grilled-vegetable-board',
+            name: 'Grilled vegetable board',
+            description: 'Lemon tahini',
+            priceCents: 2800,
+            imageUrl: '/images/menu/menu-04.svg',
+            isAvailable: false,
+          },
         ],
       },
       {
         title: 'Dessert',
         items: [
           {
+            id: 'harvest-dessert-stone-fruit-crumble',
             name: 'Stone fruit crumble',
             description: 'Vanilla bean ice cream',
-            price: '$9',
+            priceCents: 900,
+            imageUrl: '/images/menu/menu-05.svg',
+            isAvailable: true,
           },
-          { name: 'Chocolate budino', description: 'Sea salt, olive oil', price: '$9' },
+          {
+            id: 'harvest-dessert-chocolate-budino',
+            name: 'Chocolate budino',
+            description: 'Sea salt, olive oil',
+            priceCents: 900,
+            imageUrl: '/images/menu/menu-06.svg',
+            isAvailable: true,
+          },
         ],
       },
     ],

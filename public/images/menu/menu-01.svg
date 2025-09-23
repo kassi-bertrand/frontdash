@@ -1,0 +1,18 @@
+<svg width="320" height="320" viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title>Signature Dish Artwork</title>
+  <desc>Abstract gradient illustration used as a menu placeholder.</desc>
+  <defs>
+    <linearGradient id="gradient1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff9a9e" />
+      <stop offset="50%" stop-color="#fad0c4" />
+      <stop offset="100%" stop-color="#fad0c4" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" rx="28" fill="url(#gradient1)" />
+  <g fill="#ffffff" fill-opacity="0.75">
+    <circle cx="90" cy="110" r="28" />
+    <circle cx="220" cy="80" r="36" />
+    <circle cx="200" cy="210" r="44" />
+    <circle cx="120" cy="230" r="52" />
+  </g>
+</svg>
