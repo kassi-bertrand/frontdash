@@ -247,177 +247,198 @@ export function OrderReview({ restaurantSlug }: OrderReviewProps) {
         </div>
 
         {hasItems ? (
-          <Card className="rounded-3xl border border-neutral-200 bg-white shadow-[0_25px_70px_-45px_rgba(15,23,42,0.35)]">
-            <CardHeader className="border-b border-neutral-200 pb-6">
-              <CardTitle className="text-2xl font-semibold text-neutral-900">
-                {cart?.restaurant.name}
-              </CardTitle>
-              <CardDescription className="text-sm text-neutral-500">
-                Order started on {formattedTimestamp} • {totals.totalItems} item
-                {totals.totalItems === 1 ? '' : 's'}
-              </CardDescription>
-            </CardHeader>
+          <>
+            <Card className="rounded-3xl border border-neutral-200 bg-white shadow-[0_25px_70px_-45px_rgba(15,23,42,0.35)]">
+              <CardHeader className="border-b border-neutral-200 pb-6">
+                <CardTitle className="text-2xl font-semibold text-neutral-900">
+                  {cart?.restaurant.name}
+                </CardTitle>
+                <CardDescription className="text-sm text-neutral-500">
+                  Order started on {formattedTimestamp} • {totals.totalItems} item
+                  {totals.totalItems === 1 ? '' : 's'}
+                </CardDescription>
+              </CardHeader>
 
-            <CardContent className="space-y-6 p-6">
-              <div className="overflow-hidden rounded-2xl border border-neutral-200">
-                <table className="min-w-full divide-y divide-neutral-200 text-sm">
-                  <thead className="bg-neutral-100/80 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                    <tr>
-                      <th scope="col" className="px-5 py-3 text-left">
-                        Item
-                      </th>
-                      <th scope="col" className="px-5 py-3 text-right">
-                        Price
-                      </th>
-                      <th scope="col" className="px-5 py-3 text-center">
-                        Quantity
-                      </th>
-                      <th scope="col" className="px-5 py-3 text-right">
-                        Subtotal
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-200 bg-white">
-                    {items.map((item) => {
-                      const lineTotalCents = item.priceCents * item.quantity
+              <CardContent className="space-y-6 p-6">
+                <div className="overflow-hidden rounded-2xl border border-neutral-200">
+                  <table className="min-w-full divide-y divide-neutral-200 text-sm">
+                    <thead className="bg-neutral-100/80 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      <tr>
+                        <th scope="col" className="px-5 py-3 text-left">
+                          Item
+                        </th>
+                        <th scope="col" className="px-5 py-3 text-right">
+                          Price
+                        </th>
+                        <th scope="col" className="px-5 py-3 text-center">
+                          Quantity
+                        </th>
+                        <th scope="col" className="px-5 py-3 text-right">
+                          Subtotal
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200 bg-white">
+                      {items.map((item) => {
+                        const lineTotalCents = item.priceCents * item.quantity
 
-                      return (
-                        <tr key={item.id} className="align-top">
-                          <td className="px-5 py-4">
-                            <div className="font-medium text-neutral-900">
-                              {item.name}
-                            </div>
-                            {item.description ? (
-                              <p className="mt-1 text-xs text-neutral-500">
-                                {item.description}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="px-5 py-4 text-right text-sm text-neutral-600">
-                            {formatCurrency(item.priceCents)}
-                          </td>
-                          <td className="px-5 py-4 text-center text-sm text-neutral-600">
-                            {item.quantity}
-                          </td>
-                          <td className="px-5 py-4 text-right text-sm font-semibold text-neutral-900">
-                            {formatCurrency(lineTotalCents)}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        return (
+                          <tr key={item.id} className="align-top">
+                            <td className="px-5 py-4">
+                              <div className="font-medium text-neutral-900">
+                                {item.name}
+                              </div>
+                              {item.description ? (
+                                <p className="mt-1 text-xs text-neutral-500">
+                                  {item.description}
+                                </p>
+                              ) : null}
+                            </td>
+                            <td className="px-5 py-4 text-right text-sm text-neutral-600">
+                              {formatCurrency(item.priceCents)}
+                            </td>
+                            <td className="px-5 py-4 text-center text-sm text-neutral-600">
+                              {item.quantity}
+                            </td>
+                            <td className="px-5 py-4 text-right text-sm font-semibold text-neutral-900">
+                              {formatCurrency(lineTotalCents)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-              <div className="space-y-4 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-5">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-semibold text-neutral-900">Add a tip (optional)</h2>
-                  <p className="text-sm text-neutral-500">
-                    Choose a percentage of the subtotal or enter a fixed dollar amount.
+                <div className="space-y-4 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-5">
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-semibold text-neutral-900">
+                      Add a tip (optional)
+                    </h2>
+                    <p className="text-sm text-neutral-500">
+                      Choose a percentage of the subtotal or enter a fixed dollar amount.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    {/* Toggle buttons wrap on small screens so the options never overlap. */}
+                    <ToggleGroup
+                      type="single"
+                      value={tipState.mode === 'none' ? 'none' : tipState.mode}
+                      onValueChange={handleTipModeChange}
+                      className="w-full flex-wrap gap-2 sm:w-auto"
+                    >
+                      <ToggleGroupItem
+                        className="basis-full grow-0 sm:basis-auto sm:grow"
+                        value="none"
+                      >
+                        No tip
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        className="basis-full grow-0 sm:basis-auto sm:grow"
+                        value="percent"
+                      >
+                        Percent
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        className="basis-full grow-0 sm:basis-auto sm:grow"
+                        value="fixed"
+                      >
+                        Custom amount
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+
+                    {tipState.mode === 'percent' ? (
+                      <div className="flex w-full flex-col gap-2 sm:w-48">
+                        <Label htmlFor="tip-percent">Tip percentage</Label>
+                        <Input
+                          id="tip-percent"
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          max={TIP_PERCENT_MAX}
+                          step="0.5"
+                          placeholder="e.g. 18"
+                          value={percentInput}
+                          onChange={handlePercentChange}
+                        />
+                        <p className="text-xs text-neutral-500">
+                          Applied to the subtotal before service charge.
+                        </p>
+                      </div>
+                    ) : tipState.mode === 'fixed' ? (
+                      <div className="flex w-full flex-col gap-2 sm:w-48">
+                        <Label htmlFor="tip-fixed">Tip amount</Label>
+                        <Input
+                          id="tip-fixed"
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          step="0.01"
+                          placeholder="e.g. 5"
+                          value={fixedInput}
+                          onChange={handleFixedChange}
+                        />
+                        <p className="text-xs text-neutral-500">
+                          Rounded to the nearest cent.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-neutral-500">
+                        Select a tip style to enter an amount.
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="text-sm font-medium text-neutral-600">
+                    Current tip total: {formatCurrency(totals.tipCents)}
                   </p>
                 </div>
+              </CardContent>
 
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  {/* Toggle buttons wrap on small screens so the options never overlap. */}
-                  <ToggleGroup
-                    type="single"
-                    value={tipState.mode === 'none' ? 'none' : tipState.mode}
-                    onValueChange={handleTipModeChange}
-                    className="w-full flex-wrap gap-2 sm:w-auto"
-                  >
-                    <ToggleGroupItem
-                      className="basis-full grow-0 sm:basis-auto sm:grow"
-                      value="none"
-                    >
-                      No tip
-                    </ToggleGroupItem>
-                    <ToggleGroupItem
-                      className="basis-full grow-0 sm:basis-auto sm:grow"
-                      value="percent"
-                    >
-                      Percent
-                    </ToggleGroupItem>
-                    <ToggleGroupItem
-                      className="basis-full grow-0 sm:basis-auto sm:grow"
-                      value="fixed"
-                    >
-                      Custom amount
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-
-                  {tipState.mode === 'percent' ? (
-                    <div className="flex w-full flex-col gap-2 sm:w-48">
-                      <Label htmlFor="tip-percent">Tip percentage</Label>
-                      <Input
-                        id="tip-percent"
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        max={TIP_PERCENT_MAX}
-                        step="0.5"
-                        placeholder="e.g. 18"
-                        value={percentInput}
-                        onChange={handlePercentChange}
-                      />
-                      <p className="text-xs text-neutral-500">
-                        Applied to the subtotal before service charge.
-                      </p>
-                    </div>
-                  ) : tipState.mode === 'fixed' ? (
-                    <div className="flex w-full flex-col gap-2 sm:w-48">
-                      <Label htmlFor="tip-fixed">Tip amount</Label>
-                      <Input
-                        id="tip-fixed"
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.01"
-                        placeholder="e.g. 5"
-                        value={fixedInput}
-                        onChange={handleFixedChange}
-                      />
-                      <p className="text-xs text-neutral-500">
-                        Rounded to the nearest cent.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-neutral-500">
-                      Select a tip style to enter an amount.
-                    </p>
-                  )}
+              <CardFooter className="flex flex-col items-stretch gap-3 border-t border-neutral-200 py-6">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-500">
+                    Subtotal (before service charge)
+                  </span>
+                  <span className="font-medium text-neutral-900">
+                    {formatCurrency(totals.subtotalCents)}
+                  </span>
                 </div>
-
-                <p className="text-sm font-medium text-neutral-600">
-                  Current tip total: {formatCurrency(totals.tipCents)}
-                </p>
-              </div>
-            </CardContent>
-
-            <CardFooter className="flex flex-col items-stretch gap-3 border-t border-neutral-200 py-6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-500">Subtotal (before service charge)</span>
-                <span className="font-medium text-neutral-900">
-                  {formatCurrency(totals.subtotalCents)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-500">Service charge (8.25%)</span>
-                <span className="font-medium text-neutral-900">
-                  {formatCurrency(totals.serviceChargeCents)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-500">{tipSummaryLabel}</span>
-                <span className="font-medium text-neutral-900">
-                  {formatCurrency(totals.tipCents)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-t border-neutral-200 pt-3 text-base font-semibold text-neutral-900">
-                <span>Grand total</span>
-                <span>{formatCurrency(totals.grandTotalCents)}</span>
-              </div>
-            </CardFooter>
-          </Card>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-500">Service charge (8.25%)</span>
+                  <span className="font-medium text-neutral-900">
+                    {formatCurrency(totals.serviceChargeCents)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-neutral-500">{tipSummaryLabel}</span>
+                  <span className="font-medium text-neutral-900">
+                    {formatCurrency(totals.tipCents)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-neutral-200 pt-3 text-base font-semibold text-neutral-900">
+                  <span>Grand total</span>
+                  <span>{formatCurrency(totals.grandTotalCents)}</span>
+                </div>
+              </CardFooter>
+            </Card>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                asChild
+                variant="outline"
+                className="h-11 w-full rounded-lg border border-neutral-300 px-5 text-sm font-semibold text-neutral-700 hover:bg-neutral-100 sm:w-auto"
+              >
+                <Link href={`/restaurant/${restaurantSlug}`}>Modify order</Link>
+              </Button>
+              <Button
+                asChild
+                className="h-11 w-full rounded-lg bg-neutral-900 px-5 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto"
+              >
+                <Link href={`/payment/${restaurantSlug}`}>Proceed to payment</Link>
+              </Button>
+            </div>
+          </>
         ) : (
           <div className="flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border border-dashed border-neutral-300 bg-white/80 p-12 text-center">
             <h2 className="text-xl font-semibold text-neutral-900">Your cart is empty</h2>
