@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Minus, Plus, ShoppingBag, Star } from 'lucide-react'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { CustomerRestaurant, RestaurantMenuItem } from '@/lib/demo-restaurants'
+import { useCartStore } from '@/stores/use-cart-store'
 
 const compactNumber = new Intl.NumberFormat('en-US', {
   notation: 'compact',
@@ -35,13 +36,6 @@ type RestaurantDetailProps = {
   restaurant: CustomerRestaurant
 }
 
-type ItemQuantities = Record<string, number>
-
-type SelectedItem = {
-  item: RestaurantMenuItem
-  quantity: number
-}
-
 const formatPrice = (cents: number) => currencyFormatter.format(cents / 100)
 
 const availabilityBadge = (isAvailable: boolean) =>
@@ -50,41 +44,35 @@ const availabilityBadge = (isAvailable: boolean) =>
     : { label: 'Unavailable', className: 'bg-neutral-200 text-neutral-500' }
 
 export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
-  const [quantities, setQuantities] = useState<ItemQuantities>({})
-
   const statusKey = restaurant.isOpen ? 'open' : 'closed'
   const reviewLabel = compactNumber.format(restaurant.reviewCount)
 
-  const itemLookup = useMemo(() => {
-    const map = new Map<string, RestaurantMenuItem>()
+  const setActiveRestaurant = useCartStore((state) => state.setActiveRestaurant)
+  const incrementItem = useCartStore((state) => state.incrementItem)
+  const decrementItem = useCartStore((state) => state.decrementItem)
+  const cartForRestaurant = useCartStore(
+    (state) => state.cartsByRestaurant[restaurant.slug],
+  )
 
-    for (const section of restaurant.menu) {
-      for (const item of section.items) {
-        map.set(item.id, item)
-      }
+  // Register the current restaurant in the global store so its cart survives
+  // when the guest hops between menus.
+  useEffect(() => {
+    setActiveRestaurant({ slug: restaurant.slug, name: restaurant.name })
+  }, [restaurant.name, restaurant.slug, setActiveRestaurant])
+
+  // Flatten the stored cart items into an array for subtotal math and the sticky
+  // footer badge.
+  const selectedItems = useMemo(() => {
+    if (!cartForRestaurant) {
+      return []
     }
 
-    return map
-  }, [restaurant.menu])
-
-  const selectedItems = useMemo<SelectedItem[]>(() => {
-    return Object.entries(quantities)
-      .filter(([, quantity]) => quantity > 0)
-      .map(([itemId, quantity]) => {
-        const menuItem = itemLookup.get(itemId)
-
-        if (!menuItem) {
-          return undefined
-        }
-
-        return { item: menuItem, quantity }
-      })
-      .filter((entry): entry is SelectedItem => Boolean(entry))
-  }, [itemLookup, quantities])
+    return Object.values(cartForRestaurant.items)
+  }, [cartForRestaurant])
 
   const totalItems = selectedItems.reduce((acc, entry) => acc + entry.quantity, 0)
   const subtotalCents = selectedItems.reduce(
-    (acc, entry) => acc + entry.item.priceCents * entry.quantity,
+    (acc, entry) => acc + entry.priceCents * entry.quantity,
     0,
   )
 
@@ -93,26 +81,22 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       return
     }
 
-    setQuantities((prev) => ({
-      ...prev,
-      [menuItem.id]: (prev[menuItem.id] ?? 0) + 1,
-    }))
+    // Snapshot the essential item data in the store so we can render summaries
+    // outside of the menu context (e.g., on the checkout page).
+    incrementItem({
+      restaurant: { slug: restaurant.slug, name: restaurant.name },
+      item: {
+        id: menuItem.id,
+        name: menuItem.name,
+        priceCents: menuItem.priceCents,
+        description: menuItem.description,
+        imageUrl: menuItem.imageUrl,
+      },
+    })
   }
 
   const handleDecrease = (menuItem: RestaurantMenuItem) => {
-    setQuantities((prev) => {
-      const current = prev[menuItem.id] ?? 0
-      if (current <= 1) {
-        const nextState = { ...prev }
-        delete nextState[menuItem.id]
-        return nextState
-      }
-
-      return {
-        ...prev,
-        [menuItem.id]: current - 1,
-      }
-    })
+    decrementItem({ restaurantSlug: restaurant.slug, itemId: menuItem.id })
   }
 
   return (
@@ -174,7 +158,10 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                 )}
               >
                 <span
-                  className={cn('inline-block h-2 w-2 rounded-full', restaurantStatusDots[statusKey])}
+                  className={cn(
+                    'inline-block h-2 w-2 rounded-full',
+                    restaurantStatusDots[statusKey],
+                  )}
                 />
                 {restaurant.isOpen ? 'Open' : 'Closed'}
               </Badge>
@@ -206,15 +193,21 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
 
         <section className="mt-12 space-y-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-2xl font-semibold tracking-tight text-neutral-900">Menu</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-neutral-900">
+              Menu
+            </h2>
             <p className="text-sm text-neutral-500">
-              Tap items to build your order. Adjust quantities with the controls on each card.
+              Tap items to build your order. Adjust quantities with the controls on each
+              card.
             </p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
             {restaurant.menu.map((section) => (
-              <Card key={section.title} className="rounded-2xl border border-neutral-200 bg-white">
+              <Card
+                key={section.title}
+                className="rounded-2xl border border-neutral-200 bg-white"
+              >
                 <CardContent className="space-y-5 p-6">
                   <div>
                     <h3 className="text-base font-semibold uppercase tracking-wide text-neutral-700">
@@ -228,7 +221,7 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                       <MenuItemCard
                         key={item.id}
                         item={item}
-                        quantity={quantities[item.id] ?? 0}
+                        quantity={cartForRestaurant?.items[item.id]?.quantity ?? 0}
                         onIncrease={() => handleIncrease(item)}
                         onDecrease={() => handleDecrease(item)}
                       />
@@ -248,14 +241,18 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
                   <p className="text-sm font-semibold text-neutral-900">
                     {totalItems} item{totalItems > 1 ? 's' : ''} selected
                   </p>
-                  <p className="text-sm text-neutral-500">Subtotal {formatPrice(subtotalCents)}</p>
+                  <p className="text-sm text-neutral-500">
+                    Subtotal {formatPrice(subtotalCents)}
+                  </p>
                 </div>
                 <Button
+                  asChild
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-neutral-900 px-5 py-2 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto"
-                  disabled
                 >
-                  <ShoppingBag className="h-4 w-4" aria-hidden="true" />
-                  Review order (coming soon)
+                  <Link href={`/checkout/${restaurant.slug}`}>
+                    <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                    Review order
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
@@ -303,10 +300,17 @@ function MenuItemCard({ item, quantity, onIncrease, onDecrease }: MenuItemCardPr
                 <p className="text-sm text-neutral-500">{item.description}</p>
               ) : null}
             </div>
-            <span className="text-sm font-semibold text-neutral-800">{formatPrice(item.priceCents)}</span>
+            <span className="text-sm font-semibold text-neutral-800">
+              {formatPrice(item.priceCents)}
+            </span>
           </div>
 
-          <Badge className={cn('w-fit rounded-full px-3 py-1 text-xs font-medium', availability.className)}>
+          <Badge
+            className={cn(
+              'w-fit rounded-full px-3 py-1 text-xs font-medium',
+              availability.className,
+            )}
+          >
             {availability.label}
           </Badge>
         </div>
@@ -323,7 +327,9 @@ function MenuItemCard({ item, quantity, onIncrease, onDecrease }: MenuItemCardPr
               <Minus className="h-4 w-4" aria-hidden="true" />
               <span className="sr-only">Remove one {item.name}</span>
             </Button>
-            <span className="w-6 text-center text-sm font-semibold text-neutral-900">{quantity}</span>
+            <span className="w-6 text-center text-sm font-semibold text-neutral-900">
+              {quantity}
+            </span>
             <Button
               type="button"
               variant="outline"
