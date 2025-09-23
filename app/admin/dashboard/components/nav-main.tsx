@@ -1,13 +1,13 @@
-"use client"
+'use client'
 
-import { type Icon } from "@tabler/icons-react"
+import { type Icon } from '@tabler/icons-react'
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from '@/components/ui/sidebar'
 
 export function NavMain({
   items,

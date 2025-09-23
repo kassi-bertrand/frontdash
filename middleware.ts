@@ -74,5 +74,5 @@ export const config = {
     // - Favicon
     // - Login page (to avoid redirect loops)
     '/((?!api|_next/static|_next/image|favicon.ico|login).*)',
-  ]
+  ],
 }

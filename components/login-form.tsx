@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { useState } from "react"
+import { useState } from 'react'
 // Using useRouter from 'next/navigation' for programmatic navigation
 // Why next/navigation and not next/router?
 // 1. We're using Next.js App Router (not Pages Router)
@@ -11,21 +11,18 @@ import { useState } from "react"
 // - <Link> is for user-initiated navigation (clicking links)
 // - useRouter is for programmatic navigation (after form submission, API calls, etc.)
 // - Our use case: redirect after successful login authentication
-import { useRouter } from "next/navigation"
-import { Building } from "lucide-react"
+import { useRouter } from 'next/navigation'
+import { Building } from 'lucide-react'
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
-export function LoginForm({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
   const router = useRouter()
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,21 +76,18 @@ export function LoginForm({
         // Client-side navigation after successful "login"
         router.push('/admin/dashboard')
       } else {
-        alert("Please enter both username and password")
+        alert('Please enter both username and password')
       }
       setIsLoading(false)
     }, 1000)
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn('flex flex-col gap-6', className)} {...props}>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center gap-2">
-            <a
-              href="#"
-              className="flex flex-col items-center gap-2 font-medium"
-            >
+            <a href="#" className="flex flex-col items-center gap-2 font-medium">
               <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <Building className="size-6" />
               </div>
@@ -130,7 +124,7 @@ export function LoginForm({
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
           </div>
         </div>
