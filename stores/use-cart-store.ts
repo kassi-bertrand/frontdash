@@ -14,9 +14,18 @@ export type RestaurantSnapshot = {
   name: string
 }
 
+export type TipState =
+  | { mode: 'none' }
+  | { mode: 'percent'; percent: number }
+  | { mode: 'fixed'; cents: number }
+
+// Every restaurant cart snapshots the chosen tip so we can carry it through to
+// payment without coupling the UI directly to component state.
+
 export type RestaurantCart = {
   restaurant: RestaurantSnapshot
   items: Record<string, CartItemSnapshot>
+  tip: TipState
 }
 
 type CartState = {
@@ -32,7 +41,10 @@ type CartActions = {
   }) => void
   decrementItem: (payload: { restaurantSlug: string; itemId: string }) => void
   clearCart: (restaurantSlug: string) => void
+  setTip: (payload: { restaurantSlug: string; tip: TipState }) => void
 }
+
+const defaultTip: TipState = { mode: 'none' }
 
 /**
  * Global cart store keeps a separate cart per restaurant so guests can start
@@ -50,10 +62,16 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
         activeRestaurantSlug: restaurant.slug,
         cartsByRestaurant: {
           ...state.cartsByRestaurant,
-          [restaurant.slug]: existingCart ?? {
-            restaurant,
-            items: {},
-          },
+          [restaurant.slug]: existingCart
+            ? {
+                ...existingCart,
+                tip: existingCart.tip ?? defaultTip,
+              }
+            : {
+                restaurant,
+                items: {},
+                tip: defaultTip,
+              },
         },
       }
     }),
@@ -63,6 +81,7 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
       const cart = state.cartsByRestaurant[restaurant.slug] ?? {
         restaurant,
         items: {},
+        tip: defaultTip,
       }
 
       const existingQuantity = cart.items[item.id]?.quantity ?? 0
@@ -76,6 +95,7 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
             quantity: existingQuantity + 1,
           },
         },
+        tip: cart.tip ?? defaultTip,
       }
 
       return {
@@ -118,6 +138,7 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
           [restaurantSlug]: {
             restaurant: cart.restaurant,
             items: nextItems,
+            tip: cart.tip ?? defaultTip,
           },
         },
       }
@@ -138,6 +159,27 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
             ? undefined
             : state.activeRestaurantSlug,
         cartsByRestaurant: nextCarts,
+      }
+    }),
+
+  setTip: ({ restaurantSlug, tip }) =>
+    set((state) => {
+      const cart = state.cartsByRestaurant[restaurantSlug]
+      if (!cart) {
+        return state
+      }
+
+      // Only overwrite the tip portion, preserving the existing items snapshot.
+      return {
+        ...state,
+        cartsByRestaurant: {
+          ...state.cartsByRestaurant,
+          [restaurantSlug]: {
+            restaurant: cart.restaurant,
+            items: cart.items,
+            tip,
+          },
+        },
       }
     }),
 }))
