@@ -1,4 +1,4 @@
-import { LoginForm } from "@/components/login-form"
+import { LoginForm } from '@/components/login-form'
 
 export default function LoginPage() {
   return (
@@ -11,6 +11,6 @@ export default function LoginPage() {
 }
 
 export const metadata = {
-  title: "Login - FrontDash",
-  description: "Sign in to FrontDash portal for admin and staff access",
+  title: 'Login - FrontDash',
+  description: 'Sign in to FrontDash portal for admin and staff access',
 }

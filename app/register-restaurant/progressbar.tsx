@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react"
-import Confetti from "react-confetti"
-import { useWindowSize } from "@react-hook/window-size"
+import React, { useEffect, useState } from 'react'
+import Confetti from 'react-confetti'
+import { useWindowSize } from '@react-hook/window-size'
 
 interface ProgressBarProps {
   step: number
@@ -20,7 +20,6 @@ function ProgressBar({ step, steps }: ProgressBarProps) {
       return () => window.clearTimeout(t)
     }
   }, [step, steps.length])
-  
 
   return (
     <div className="mb-8 flex flex-col items-center gap-3">
@@ -29,14 +28,13 @@ function ProgressBar({ step, steps }: ProgressBarProps) {
         {steps.map((label, i) => {
           const completed = step > i + 1
           const active = step === i + 1
-          const content =
-            (completed || (active && i + 1 === steps.length)) ? "✓" : i + 1
+          const content = completed || (active && i + 1 === steps.length) ? '✓' : i + 1
 
           const bgColor = allDone
-            ? "bg-green-600 text-white"
+            ? 'bg-green-600 text-white'
             : completed || active
-            ? "bg-red-600 text-white"
-            : "bg-gray-200 text-gray-600"
+              ? 'bg-red-600 text-white'
+              : 'bg-gray-200 text-gray-600'
 
           return (
             <div key={i} className="flex flex-col items-center gap-1">
@@ -55,13 +53,13 @@ function ProgressBar({ step, steps }: ProgressBarProps) {
       {showConfetti && (
         <div
           style={{
-            position: "fixed",
+            position: 'fixed',
             bottom: 0,
             left: 0,
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-            overflow: "hidden",
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            overflow: 'hidden',
             zIndex: 9999,
           }}
         >
@@ -81,6 +79,3 @@ function ProgressBar({ step, steps }: ProgressBarProps) {
 }
 
 export default ProgressBar
-
-
-

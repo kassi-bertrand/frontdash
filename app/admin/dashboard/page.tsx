@@ -1,10 +1,9 @@
-
-import { ChartAreaInteractive } from "./components/chart-area-interactive"
-import { DataTable } from "./components/data-table"
-import { SectionCards } from "./components/section-cards"
-import restaurantData from "./restaurant-data.json"
-import staffData from "./staff-data.json"
-import driverData from "./driver-data.json"
+import { ChartAreaInteractive } from './components/chart-area-interactive'
+import { DataTable } from './components/data-table'
+import { SectionCards } from './components/section-cards'
+import restaurantData from './restaurant-data.json'
+import staffData from './staff-data.json'
+import driverData from './driver-data.json'
 
 export default async function Page() {
   // TODO: Replace with actual API calls to backend
