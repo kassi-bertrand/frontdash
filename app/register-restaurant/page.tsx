@@ -89,10 +89,29 @@ export default function RegisterRestaurant() {
 
   // -------- Handlers --------
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setRestaurant((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+  
+    // Update restaurant state
+    setRestaurant((prev) => ({ ...prev, [name]: value }));
+  
+    // Clear field error if the field is now valid
+    setFieldErrors((prev) => ({
+      ...prev,
+      [name]:
+        name === 'email'
+          ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || value.trim() === ''
+            ? 'Valid Email is required'
+            : ''
+          : value.trim() === ''
+          ? `${name} is required`
+          : '',
+    }));
+  
+    // Optionally hide the general Step 1 error if no errors remain
+    setShowStep1Error(false);
+  };
 
+  
   const [imageUploaded, setImageUploaded] = useState(false)
 
   const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,33 +144,44 @@ export default function RegisterRestaurant() {
   )
 
   const handlePhoneChange = (index: number, value: string) => {
-    let digits = value.replace(/\D/g, '')
-    let error = ''
-
+    let digits = value.replace(/\D/g, '');
+    let error = '';
+  
+    // Check for leading 0
     if (digits.startsWith('0')) {
-      error = 'Phone numbers cannot start with 0!'
-      digits = ''
+      error = 'Phone numbers cannot start with 0!';
+      digits = '';
     }
-
-    digits = digits.slice(0, 10)
-
-    let formatted = digits
+  
+    // Limit to 10 digits
+    digits = digits.slice(0, 10);
+  
+    // Format the phone number
+    let formatted = digits;
     if (digits.length > 6) {
-      formatted = `(${digits.slice(0, 3)})-${digits.slice(3, 6)}-${digits.slice(6)}`
+      formatted = `(${digits.slice(0, 3)})-${digits.slice(3, 6)}-${digits.slice(6)}`;
     } else if (digits.length > 3) {
-      formatted = `(${digits.slice(0, 3)})-${digits.slice(3)}`
+      formatted = `(${digits.slice(0, 3)})-${digits.slice(3)}`;
     } else if (digits.length > 0) {
-      formatted = `(${digits}`
+      formatted = `(${digits}`;
     }
-
-    const newPhones = [...restaurant.phones]
-    newPhones[index] = formatted
-    setRestaurant((prev) => ({ ...prev, phones: newPhones }))
-
-    const newErrors = [...phoneErrors]
-    newErrors[index] = error
-    setPhoneErrors(newErrors)
-  }
+  
+    // Update restaurant phones
+    const newPhones = [...restaurant.phones];
+    newPhones[index] = formatted;
+    setRestaurant((prev) => ({ ...prev, phones: newPhones }));
+  
+    // Update phone errors
+    const newErrors = [...phoneErrors];
+    newErrors[index] = 
+      error || (digits.length === 10 ? '' : 'Phone number must be 10 digits');
+    setPhoneErrors(newErrors);
+  
+    if (!newErrors.some((err) => err)) {
+      setShowStep1Error(false);
+    }
+  };
+  
 
   const addPhone = () =>
     setRestaurant((prev) => ({ ...prev, phones: [...prev.phones, ''] }))
@@ -180,6 +210,52 @@ export default function RegisterRestaurant() {
   const [showStep2Error, setShowStep2Error] = useState<string>('')
 
   const [showMenu, setShowMenu] = useState(false)
+
+ // Add this at the top of your component
+ const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+
+ const newFieldErrors: typeof fieldErrors = {
+   name: !restaurant.name.trim() ? 'Restaurant Name is required' : '',
+   contactPerson: !restaurant.contactPerson.trim() ? 'Contact Person is required' : '',
+   building: !restaurant.building.trim() ? 'Building is required' : '',
+   street: !restaurant.street.trim() ? 'Street is required' : '',
+   city: !restaurant.city.trim() ? 'City is required' : '',
+   state: !restaurant.state.trim() ? 'State is required' : '',
+   email:
+     !restaurant.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurant.email)
+       ? 'Valid Email is required'
+       : '',
+ };
+ 
+// Updated Next button handler for Step 1
+const handleStep1Next = () => {
+  const errors: { [key: string]: string } = {};
+
+  errors.name = !restaurant.name.trim() ? 'Restaurant Name is required' : '';
+  errors.contactPerson = !restaurant.contactPerson.trim() ? 'Contact Person is required' : '';
+  errors.building = !restaurant.building.trim() ? 'Building is required' : '';
+  errors.street = !restaurant.street.trim() ? 'Street is required' : '';
+  errors.city = !restaurant.city.trim() ? 'City is required' : '';
+  errors.state = !restaurant.state.trim() ? 'State is required' : '';
+  errors.email =
+    !restaurant.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurant.email)
+      ? 'Valid Email is required'
+      : '';
+  errors.phones =
+    restaurant.phones.length === 0 || restaurant.phones.some((phone) => phone.trim() === '')
+      ? 'At least one phone number is required'
+      : '';
+
+  setFieldErrors(errors);
+
+  const hasErrors = Object.values(errors).some((v) => v !== ''); // any non-empty string means error
+
+  if (!hasErrors) {
+    setStep(step + 1);
+  }
+};
+
+
 
   const handleMenuChange = (
     index: number,
@@ -304,174 +380,149 @@ export default function RegisterRestaurant() {
           <ProgressBar step={step} steps={steps} />
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6 sm:gap-8">
-            {/* Step 1: Restaurant Info */}
-            {step === 1 && (
-              <div className="flex flex-col gap-6">
-                {/* Name + Contact Person */}
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="font-semibold mb-1 block">Restaurant Name</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={restaurant.name}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="font-semibold mb-1 block">Contact Person</label>
-                    <input
-                      type="text"
-                      name="contactPerson"
-                      value={restaurant.contactPerson}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                </div>
+        {/* Step 1: Restaurant Info */}
+{step === 1 && (
+  <div className="flex flex-col gap-6">
+    {/* Name + Contact Person */}
+    <div className="flex flex-col md:flex-row gap-4">
+      <div className="flex-1">
+        <label className="font-semibold mb-1 block">Restaurant Name</label>
+        <input
+          type="text"
+          name="name"
+          value={restaurant.name}
+          onChange={handleChange}
+          className={`p-3 rounded-lg border focus:ring-2 focus:ring-red-500 w-full ${
+            fieldErrors.name ? 'border-red-600 animate-pulse' : 'border-gray-300'
+          }`}
+        />
+        {fieldErrors.name && (
+          <p className="text-red-600 text-sm mt-1">Restaurant Name is required</p>
+        )}
+      </div>
+      <div className="flex-1">
+        <label className="font-semibold mb-1 block">Contact Person</label>
+        <input
+          type="text"
+          name="contactPerson"
+          value={restaurant.contactPerson}
+          onChange={handleChange}
+          className={`p-3 rounded-lg border focus:ring-2 focus:ring-red-500 w-full ${
+            fieldErrors.contactPerson ? 'border-red-600 animate-pulse' : 'border-gray-300'
+          }`}
+        />
+        {fieldErrors.contactPerson && (
+          <p className="text-red-600 text-sm mt-1">Contact Person is required</p>
+        )}
+      </div>
+    </div>
 
-                {/* Address */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="font-semibold mb-1 block">Building #</label>
-                    <input
-                      type="text"
-                      name="building"
-                      value={restaurant.building}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold mb-1 block">Street</label>
-                    <input
-                      type="text"
-                      name="street"
-                      value={restaurant.street}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold mb-1 block">City</label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={restaurant.city}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold mb-1 block">State</label>
-                    <input
-                      type="text"
-                      name="state"
-                      value={restaurant.state}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                </div>
+    {/* Address */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {['building','street','city','state'].map((field) => (
+        <div key={field}>
+          <label className="font-semibold mb-1 block">{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+          <input
+            type="text"
+            name={field}
+            value={restaurant[field as keyof typeof restaurant] as string}
+            onChange={handleChange}
+            className={`p-3 rounded-lg border focus:ring-2 focus:ring-red-500 w-full ${
+              fieldErrors[field as keyof typeof restaurant] ? 'border-red-600 animate-pulse' : 'border-gray-300'
+            }`}
+          />
+          {fieldErrors[field as keyof typeof restaurant] && (
+            <p className="text-red-600 text-sm mt-1">{field.charAt(0).toUpperCase() + field.slice(1)} is required</p>
+          )}
+        </div>
+      ))}
+    </div>
 
-                {/* Email */}
-                <div>
-                  <label className="font-semibold mb-1 block">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={restaurant.email}
-                    onChange={handleChange}
-                    pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
-                    title="Please enter a valid email address (e.g. name@example.com)"
-                    className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                    required
-                  />
-                </div>
+    {/* Email */}
+    <div>
+      <label className="font-semibold mb-1 block">Email</label>
+      <input
+        type="email"
+        name="email"
+        value={restaurant.email}
+        onChange={handleChange}
+        pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
+        className={`p-3 rounded-lg border focus:ring-2 focus:ring-red-500 w-full ${
+          fieldErrors.email ? 'border-red-600 animate-pulse' : 'border-gray-300'
+        }`}
+      />
+      {fieldErrors.email && (
+        <p className="text-red-600 text-sm mt-1">Valid Email is required</p>
+      )}
+    </div>
 
-                {/* Phones + Restaurant Image */}
-                <div className="flex flex-col md:flex-row gap-4 items-start">
-                  {/* Phone Numbers */}
-                  <div className="flex-1 flex flex-col gap-2">
-                    <p className="font-semibold">Phone Number(s)</p>
-                    {restaurant.phones.map((phone, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => handlePhoneChange(index, e.target.value)}
-                          placeholder="(123)-456-7890"
-                          required
-                          className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                        />
-                        {restaurant.phones.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removePhone(index)}
-                            className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={addPhone}
-                      className="self-start px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                    >
-                      Add Phone
-                    </button>
-                  </div>
+    {/* Phones */}
+    <div className="flex flex-col md:flex-row gap-4 items-start">
+    <div className="flex-1 flex flex-col gap-2">
+  <p className="font-semibold">Phone Number(s)</p>
+  {restaurant.phones.map((phone, index) => (
+    <div key={index} className="flex flex-col gap-1">
+      <div className="flex gap-2 items-center">
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => handlePhoneChange(index, e.target.value)}
+          placeholder="(123)-456-7890"
+          required
+          className={`flex-1 p-2 rounded-lg border w-full focus:ring-2 ${
+            phoneErrors[index]
+              ? 'border-red-600 focus:ring-red-500'
+              : 'border-gray-300 focus:ring-red-500'
+          }`}
+        />
+        {restaurant.phones.length > 1 && (
+          <button
+            type="button"
+            onClick={() => removePhone(index)}
+            className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            Remove
+          </button>
+        )}
+      </div>
+      {/* Inline phone error */}
+      {phoneErrors[index] && (
+        <p className="text-red-600 text-sm">{phoneErrors[index]}</p>
+      )}
+    </div>
+  ))}
+  <button
+    type="button"
+    onClick={addPhone}
+    className="self-start px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+  >
+    Add Phone
+  </button>
+</div>
 
-                  {/* Restaurant Image Upload */}
-                  <div className="flex-1 flex flex-col gap-2">
-                    <p className="font-semibold">Upload Restaurant Image (Optional)</p>
-                    <label
-                      htmlFor="restaurantImage"
-                      className="flex flex-col items-center rounded-lg p-4 text-white bg-red-600 shadow-sm sm:p-6 cursor-pointer hover:bg-red-700 w-full"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-6 h-6"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m0-3-3-3m0 0-3 3m3-3v11.25m6-2.25h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75"
-                        />
-                      </svg>
-                      <span className="mt-4 font-medium">Browse Files</span>
-                      <input
-                        type="file"
-                        id="restaurantImage"
-                        accept="image/*"
-                        onChange={handlePictureChange}
-                        className="sr-only"
-                      />
-                    </label>
 
-                    {/* Success message */}
-                    {imageUploaded && (
-                      <p className="text-green-600 text-sm mt-2">
-                        Image successfully updated!
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* Restaurant Image */}
+      <div className="flex-1 flex flex-col gap-2">
+        <p className="font-semibold">Upload Restaurant Image (Optional)</p>
+        <label
+          htmlFor="restaurantImage"
+          className="flex flex-col items-center rounded-lg p-4 text-white bg-red-600 shadow-sm sm:p-6 cursor-pointer hover:bg-red-700 w-full"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m0-3-3-3m0 0-3 3m3-3v11.25m6-2.25h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75"/>
+          </svg>
+          <span className="mt-4 font-medium">Browse Files</span>
+          <input type="file" id="restaurantImage" accept="image/*" onChange={handlePictureChange} className="sr-only"/>
+        </label>
+
+        {imageUploaded && (
+          <p className="text-green-600 text-sm mt-2">Image successfully updated!</p>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
             {/* Step 2: Menu Upload + Opening Hours */}
             {step === 2 && (
               <div className="flex flex-col gap-6">
@@ -872,44 +923,59 @@ export default function RegisterRestaurant() {
                   </button>
                 )}
 
-                {/* Step 1: Next button with inline error */}
-                {step === 1 && (
-                  <div className="flex flex-col items-end gap-2">
-                    {showStep1Error && (
-                      <p className="text-red-600 text-sm self-start">
-                        Please check that you have correctly filled out all required
-                        fields before continuing.
-                      </p>
-                    )}
+{step === 1 && (
+  <div className="flex flex-col items-end gap-2">
+    {/* General Step Error */}
+    {showStep1Error && (
+      <p className="text-red-600 text-sm self-start">
+        Please check that you have correctly filled out all required fields before continuing.
+      </p>
+    )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const hasMissingFields =
-                          !restaurant.name.trim() ||
-                          !restaurant.contactPerson.trim() ||
-                          !restaurant.building.trim() ||
-                          !restaurant.street.trim() ||
-                          !restaurant.city.trim() ||
-                          !restaurant.state.trim() ||
-                          !restaurant.email.trim() ||
-                          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurant.email) || // regex check
-                          restaurant.phones.length === 0 ||
-                          restaurant.phones.some((phone) => phone.trim() === '')
+    {/* Next Button */}
+    <button
+      type="button"
+      onClick={() => {
+        // Validate fields
+        const newFieldErrors: typeof fieldErrors = {
+          name: !restaurant.name.trim() ? 'Restaurant Name is required' : '',
+          contactPerson: !restaurant.contactPerson.trim() ? 'Contact Person is required' : '',
+          building: !restaurant.building.trim() ? 'Building is required' : '',
+          street: !restaurant.street.trim() ? 'Street is required' : '',
+          city: !restaurant.city.trim() ? 'City is required' : '',
+          state: !restaurant.state.trim() ? 'State is required' : '',
+          email:
+            !restaurant.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurant.email)
+              ? 'Valid Email is required'
+              : '',
+        }
 
-                        if (hasMissingFields) {
-                          setShowStep1Error(true) // show alert
-                        } else {
-                          setShowStep1Error(false)
-                          setStep(step + 1) // go to next step
-                        }
-                      }}
-                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
+        // Validate phones
+        const newPhoneErrors = restaurant.phones.map(
+          (phone) => (phone.trim() === '' ? 'Phone is required' : '')
+        )
+
+        setFieldErrors(newFieldErrors)
+        setPhoneErrors(newPhoneErrors)
+
+        // Check if any errors exist
+        const hasErrors =
+          Object.values(newFieldErrors).some((msg) => msg !== '') ||
+          newPhoneErrors.some((msg) => msg !== '')
+
+        if (hasErrors) {
+          setShowStep1Error(true)
+        } else {
+          setShowStep1Error(false)
+          setStep(step + 1)
+        }
+      }}
+      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800"
+    >
+      Next
+    </button>
+  </div>
+)}
 
                 {/* Step 2: Next button with validation */}
                 {step === 2 && (
