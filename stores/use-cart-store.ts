@@ -22,10 +22,21 @@ export type TipState =
 // Every restaurant cart snapshots the chosen tip so we can carry it through to
 // payment without coupling the UI directly to component state.
 
+export type DeliveryDetails = {
+  buildingNumber: string
+  streetName: string
+  apartment?: string
+  city: string
+  state: string
+  contactName: string
+  contactPhone: string
+}
+
 export type RestaurantCart = {
   restaurant: RestaurantSnapshot
   items: Record<string, CartItemSnapshot>
   tip: TipState
+  delivery?: DeliveryDetails
 }
 
 type CartState = {
@@ -42,6 +53,7 @@ type CartActions = {
   decrementItem: (payload: { restaurantSlug: string; itemId: string }) => void
   clearCart: (restaurantSlug: string) => void
   setTip: (payload: { restaurantSlug: string; tip: TipState }) => void
+  setDelivery: (payload: { restaurantSlug: string; delivery: DeliveryDetails }) => void
 }
 
 const defaultTip: TipState = { mode: 'none' }
@@ -66,6 +78,7 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
             ? {
                 ...existingCart,
                 tip: existingCart.tip ?? defaultTip,
+                delivery: existingCart.delivery,
               }
             : {
                 restaurant,
@@ -96,6 +109,7 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
           },
         },
         tip: cart.tip ?? defaultTip,
+        delivery: cart.delivery,
       }
 
       return {
@@ -139,6 +153,7 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
             restaurant: cart.restaurant,
             items: nextItems,
             tip: cart.tip ?? defaultTip,
+            delivery: cart.delivery,
           },
         },
       }
@@ -178,6 +193,26 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
             restaurant: cart.restaurant,
             items: cart.items,
             tip,
+            delivery: cart.delivery,
+          },
+        },
+      }
+    }),
+
+  setDelivery: ({ restaurantSlug, delivery }) =>
+    set((state) => {
+      const cart = state.cartsByRestaurant[restaurantSlug]
+      if (!cart) {
+        return state
+      }
+
+      return {
+        ...state,
+        cartsByRestaurant: {
+          ...state.cartsByRestaurant,
+          [restaurantSlug]: {
+            ...cart,
+            delivery,
           },
         },
       }
