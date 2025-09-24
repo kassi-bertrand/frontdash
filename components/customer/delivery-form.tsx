@@ -217,6 +217,7 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
 
     setDelivery({ restaurantSlug, delivery: deliveryPayload })
     setIsSaved(true)
+    router.push(`/order/confirmation/${restaurantSlug}`)
   }
 
   return (
@@ -356,8 +357,7 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
 
           {isSaved ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-              Delivery details saved. Order confirmation and driver dispatch are coming in
-              the next step.
+              Redirecting to order confirmation…
             </div>
           ) : null}
         </CardContent>
@@ -370,7 +370,7 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
             Back to payment
           </Button>
           <Button type="submit" className="w-full sm:w-auto">
-            Save delivery details
+            Save & continue
           </Button>
         </CardFooter>
       </form>
