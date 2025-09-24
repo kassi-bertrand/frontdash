@@ -222,7 +222,8 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
           Order #{snapshot.orderNumber}
         </CardTitle>
         <CardDescription className="text-sm text-neutral-500">
-          Placed on {dateFormatter.format(snapshot.placedAt)} at {timeFormatter.format(snapshot.placedAt)}
+          Placed on {dateFormatter.format(snapshot.placedAt)} at{' '}
+          {timeFormatter.format(snapshot.placedAt)}
         </CardDescription>
       </CardHeader>
 
@@ -233,7 +234,8 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
             <div>
               <p className="text-sm font-medium text-neutral-600">Estimated arrival</p>
               <p className="text-lg font-semibold text-neutral-900">
-                {timeFormatter.format(snapshot.estimatedStart)} – {timeFormatter.format(snapshot.estimatedEnd)}
+                {timeFormatter.format(snapshot.estimatedStart)} –{' '}
+                {timeFormatter.format(snapshot.estimatedEnd)}
               </p>
               <p className="text-xs text-neutral-500">
                 We’ll notify you when the driver is on your block.
@@ -246,7 +248,9 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
             <div className="flex items-start gap-3 text-sm text-neutral-600">
               <MapPin className="mt-1 h-4 w-4 text-neutral-400" aria-hidden="true" />
               <div>
-                <p className="font-medium text-neutral-900">{snapshot.delivery.contactName}</p>
+                <p className="font-medium text-neutral-900">
+                  {snapshot.delivery.contactName}
+                </p>
                 {deliveryLines.map((line) => (
                   <p key={line}>{line}</p>
                 ))}
@@ -259,13 +263,17 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-neutral-900">Items in this order</h2>
+            <h2 className="text-lg font-semibold text-neutral-900">
+              Items in this order
+            </h2>
             <ul className="space-y-3 text-sm text-neutral-700">
               {snapshot.items.map((item) => (
                 <li key={item.id} className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-neutral-900">{item.name}</p>
-                    <p className="text-xs text-neutral-500">{currency.format(item.priceCents / 100)} each</p>
+                    <p className="text-xs text-neutral-500">
+                      {currency.format(item.priceCents / 100)} each
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-neutral-900">×{item.quantity}</p>
@@ -288,7 +296,9 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
                 <div
                   key={total.label}
                   className={`flex items-center justify-between ${
-                    total.emphasize ? 'border-t border-neutral-200 pt-3 text-base font-semibold text-neutral-900' : ''
+                    total.emphasize
+                      ? 'border-t border-neutral-200 pt-3 text-base font-semibold text-neutral-900'
+                      : ''
                   }`}
                 >
                   <dt>{total.label}</dt>
