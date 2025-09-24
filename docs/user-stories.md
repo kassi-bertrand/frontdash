@@ -204,7 +204,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Provide contact person name (*"Contact person's name"*)
 - Provide contact phone number (*"Contact person's phone number"*)
 
-#### STORY-C008: Receive Order Confirmation
+#### ✅ STORY-C008: Receive Order Confirmation
 **As a** customer  
 **I want to** receive an order number and delivery estimate  
 **So that** I know when to expect my food

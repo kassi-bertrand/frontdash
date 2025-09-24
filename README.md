@@ -484,12 +484,11 @@ This architecture satisfies the requirement that "all three components can be de
 #### Customer Flow
 ```typescript
 '/'                                     // ✅ Homepage - Browse all restaurants
-'/'                                     // ✅ Homepage - Browse all restaurants
 '/restaurant/[slug]'                    // ✅ Restaurant detail + menu experience
 '/checkout/[slug]'                      // ✅ Order review/confirmation with tips
 '/payment/[slug]'                       // ✅ Payment form with verification
 '/delivery/[slug]'                      // ✅ Delivery address form
-'/order/[orderId]/confirmation'         // 🔄 Order complete with tracking number
+'/order/confirmation/[slug]'            // ✅ Order complete with order number & ETA
 ```
 
 #### Registration Pages (Public)
@@ -732,9 +731,9 @@ This architecture satisfies the requirement that "all three components can be de
   - [x] State
   - [x] Contact person name
   - [x] Contact phone (10 digits validation)
-- [ ] Generate order number
-- [ ] Calculate and display estimated delivery time
-- [ ] Order confirmation page
+- [x] Generate order number
+- [x] Calculate and display estimated delivery time
+- [x] Order confirmation page
 
 ### 3. Administrator Module
 
