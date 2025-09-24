@@ -484,10 +484,11 @@ This architecture satisfies the requirement that "all three components can be de
 #### Customer Flow
 ```typescript
 '/'                                     // ✅ Homepage - Browse all restaurants
-'/restaurant/[id]'                      // 🔄 View specific restaurant menu
-'/checkout'                             // 🔄 Order review/confirmation
-'/checkout/payment'                     // 🔄 Payment form
-'/checkout/delivery'                    // 🔄 Delivery address form
+'/'                                     // ✅ Homepage - Browse all restaurants
+'/restaurant/[slug]'                    // ✅ Restaurant detail + menu experience
+'/checkout/[slug]'                      // ✅ Order review/confirmation with tips
+'/payment/[slug]'                       // ✅ Payment form with verification
+'/delivery/[slug]'                      // ✅ Delivery address form
 '/order/[orderId]/confirmation'         // 🔄 Order complete with tracking number
 ```
 
@@ -723,14 +724,14 @@ This architecture satisfies the requirement that "all three components can be de
 - [ ] Payment confirmation
 
 #### Delivery Information
-- [ ] Delivery address form:
-  - [ ] Building number
-  - [ ] Street name
-  - [ ] Apartment/unit number (optional)
-  - [ ] City
-  - [ ] State
-  - [ ] Contact person name
-  - [ ] Contact phone (10 digits validation)
+- [x] Delivery address form:
+  - [x] Building number
+  - [x] Street name
+  - [x] Apartment/unit number (optional)
+  - [x] City
+  - [x] State
+  - [x] Contact person name
+  - [x] Contact phone (10 digits validation)
 - [ ] Generate order number
 - [ ] Calculate and display estimated delivery time
 - [ ] Order confirmation page

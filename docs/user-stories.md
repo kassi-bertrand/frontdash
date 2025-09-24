@@ -189,7 +189,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Enter 3-digit security code (*"Security code - three digits"*)
 - Card verified through third-party (*"it should be verified through a third-party software"*)
 
-#### STORY-C007: Provide Delivery Address
+#### ✅ STORY-C007: Provide Delivery Address
 **As a** customer  
 **I want to** provide my delivery address  
 **So that** the driver knows where to deliver
