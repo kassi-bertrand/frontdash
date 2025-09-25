@@ -651,14 +651,13 @@ This architecture satisfies the requirement that "all three components can be de
 - [ ] Email credentials upon approval
 - [x] Mock credential notification for frontend demo
 
-#### Restaurant Portal
-- [ ] Login page with username/password
+- [x] Login page with username/password (restaurant + staff tabs)
 - [ ] Logout functionality
-- [ ] Change password feature
-  - [ ] Minimum 6 characters validation
-  - [ ] At least 1 uppercase letter
-  - [ ] At least 1 lowercase letter
-  - [ ] At least 1 number
+- [x] Change password feature (mocked client-side)
+  - [x] Minimum 6 characters validation
+  - [x] At least 1 uppercase letter
+  - [x] At least 1 lowercase letter
+  - [x] At least 1 number
 - [ ] Dashboard with restaurant info display
 - [ ] Edit menu functionality
   - [ ] Add new items
