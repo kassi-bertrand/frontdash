@@ -1,6 +1,7 @@
 'use client'
 
 import { ChangeEvent, useMemo, useState } from 'react'
+import Link from 'next/link'
 import Image from 'next/image'
 
 import { Badge } from '@/components/ui/badge'
@@ -196,9 +197,10 @@ export default function RegisterRestaurant() {
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved'>('pending')
-  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(
-    null,
-  )
+  const [credentials, setCredentials] = useState<{
+    username: string
+    password: string
+  } | null>(null)
 
   const resetForm = () => {
     setForm(createInitialState())
@@ -424,7 +426,11 @@ export default function RegisterRestaurant() {
   }
 
   const generateCredentials = () => {
-    const safeName = form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const safeName = form.name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
     const suffix = Math.random().toString(36).slice(2, 6)
     const username = `${safeName || 'frontdash-restaurant'}-${suffix}`
     const password = Math.random().toString(36).slice(2, 10).toUpperCase()
@@ -483,33 +489,39 @@ export default function RegisterRestaurant() {
             <CardContent className="space-y-4 text-sm text-neutral-600">
               {approvalStatus === 'approved' ? (
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-left">
-                  <p className="text-sm font-semibold text-neutral-900">Shared credentials</p>
+                  <p className="text-sm font-semibold text-neutral-900">
+                    Shared credentials
+                  </p>
                   <p className="text-xs text-neutral-500">
                     Delivered to {form.email}. Share these only with authorized staff.
                   </p>
                   <dl className="mt-3 space-y-2 text-sm text-neutral-700">
                     <div className="flex items-center justify-between gap-3">
                       <dt>Username</dt>
-                      <dd className="font-mono text-neutral-900">{credentials?.username}</dd>
+                      <dd className="font-mono text-neutral-900">
+                        {credentials?.username}
+                      </dd>
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <dt>Password</dt>
-                      <dd className="font-mono text-neutral-900">{credentials?.password}</dd>
+                      <dd className="font-mono text-neutral-900">
+                        {credentials?.password}
+                      </dd>
                     </div>
                   </dl>
                 </div>
               ) : (
                 <>
                   <p>
-                    Need to make changes? You can resubmit the form at any time before approval.
-                    A staff member will reach out if anything looks off.
+                    Need to make changes? You can resubmit the form at any time before
+                    approval. A staff member will reach out if anything looks off.
                   </p>
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-amber-800">
                     <p className="text-sm font-semibold">Mock approval for demo</p>
                     <p className="text-xs">
-                      In the production app, an admin review triggers the real credential email.
-                      Use the button below to simulate that step while we’re still on a mocked
-                      backend.
+                      In the production app, an admin review triggers the real credential
+                      email. Use the button below to simulate that step while we’re still
+                      on a mocked backend.
                     </p>
                   </div>
                 </>
@@ -517,15 +529,19 @@ export default function RegisterRestaurant() {
             </CardContent>
             <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               {approvalStatus === 'pending' ? (
-                <Button variant="outline" onClick={handleSimulateApproval} aria-live="polite">
+                <Button
+                  variant="outline"
+                  onClick={handleSimulateApproval}
+                  aria-live="polite"
+                >
                   Simulate admin approval
                 </Button>
               ) : null}
               <Button variant="outline" onClick={resetForm}>
                 Register another restaurant
               </Button>
-              <Button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                Back to homepage
+              <Button asChild>
+                <Link href="/">Back to homepage</Link>
               </Button>
             </CardFooter>
           </Card>
