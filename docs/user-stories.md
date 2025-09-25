@@ -11,7 +11,7 @@ This document contains all user stories derived from the FrontDash project requi
 
 ### Registration & Onboarding
 
-#### STORY-R001: Restaurant Registration
+#### ✅ STORY-R001: Restaurant Registration
 **As a** restaurant owner  
 **I want to** register my restaurant on FrontDash  
 **So that** I can sell food through the platform

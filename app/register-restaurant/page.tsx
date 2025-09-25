@@ -1,982 +1,824 @@
 'use client'
 
+import { ChangeEvent, useMemo, useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { ChangeEvent, useState, useEffect } from 'react'
-import React from 'react'
-import ProgressBar from './progressbar'
-import { CheckCircle2 } from 'lucide-react'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
+
+const PHONE_DIGITS = 10
+
+const DEFAULT_HOURS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+].map((day) => ({ day, open: '', close: '', closed: false }))
+
+const US_STATES = new Set([
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'DC',
+])
 
 type Availability = 'AVAILABLE' | 'UNAVAILABLE'
+
+type MenuDraft = {
+  name: string
+  picture: File | null
+  price: string
+  availability: Availability
+}
+
+type RestaurantDraft = {
+  name: string
+  picture: File | null
+  buildingNumber: string
+  streetName: string
+  city: string
+  state: string
+  phones: string[]
+  contactPerson: string
+  email: string
+  hours: Array<{ day: string; open: string; close: string; closed: boolean }>
+  menu: MenuDraft[]
+}
+
+const createInitialState = (): RestaurantDraft => ({
+  name: '',
+  picture: null,
+  buildingNumber: '',
+  streetName: '',
+  city: '',
+  state: '',
+  phones: [''],
+  contactPerson: '',
+  email: '',
+  hours: DEFAULT_HOURS.map((entry) => ({ ...entry })),
+  menu: [
+    {
+      name: '',
+      picture: null,
+      price: '',
+      availability: 'AVAILABLE',
+    },
+  ],
+})
+
+type FieldErrors = Record<string, string>
 
 type FilePreviewProps = {
   file: File
   alt: string
-  width: number
-  height: number
   className?: string
 }
 
-/**
- * Renders a temporary preview for a locally uploaded image using Next/Image so
- * we get consistent styling without committing the asset.
- */
-function FilePreview({ file, alt, width, height, className }: FilePreviewProps) {
-  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    const url = URL.createObjectURL(file)
-    setPreviewUrl(url)
-    return () => URL.revokeObjectURL(url)
-  }, [file])
-
-  if (!previewUrl) {
-    return null
-  }
+function FilePreview({ file, alt, className }: FilePreviewProps) {
+  const previewUrl = useMemo(() => URL.createObjectURL(file), [file])
 
   return (
     <Image
       src={previewUrl}
       alt={alt}
-      width={width}
-      height={height}
-      className={className}
+      width={88}
+      height={88}
+      className={cn('h-16 w-16 rounded-xl object-cover', className)}
+      onLoad={() => URL.revokeObjectURL(previewUrl)}
       unoptimized
     />
   )
 }
 
-/**
- * Multi-step onboarding wizard used for restaurant self-registration. Holds
- * mock state and validation that the backend team can later replace with form
- * actions and API calls.
- */
+const steps = [
+  {
+    title: 'Restaurant profile',
+    description: 'Contact information and pickup address',
+  },
+  {
+    title: 'Operating hours',
+    description: 'Set availability for every day of the week',
+  },
+  {
+    title: 'Submit for approval',
+    description: 'Review and send your registration request',
+  },
+]
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const sanitizePhone = (value: string) =>
+  value.replace(/[^0-9]/g, '').slice(0, PHONE_DIGITS)
+
+const formatPhone = (digits: string) => {
+  if (!digits) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
 export default function RegisterRestaurant() {
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(0)
+  const [form, setForm] = useState<RestaurantDraft>(() => createInitialState())
+  const [errors, setErrors] = useState<FieldErrors>({})
+  const [phoneErrors, setPhoneErrors] = useState<string[]>([''])
+  const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [restaurant, setRestaurant] = useState({
-    name: '',
-    picture: null as File | null,
-    building: '',
-    street: '',
-    city: '',
-    state: '',
-    address: '',
-    phones: [''],
-    contactPerson: '',
-    email: '',
-    cuisine: '',
-    customCuisine: '',
-    hours: [
-      { day: 'Monday', open: '', close: '', closed: false },
-      { day: 'Tuesday', open: '', close: '', closed: false },
-      { day: 'Wednesday', open: '', close: '', closed: false },
-      { day: 'Thursday', open: '', close: '', closed: false },
-      { day: 'Friday', open: '', close: '', closed: false },
-      { day: 'Saturday', open: '', close: '', closed: false },
-      { day: 'Sunday', open: '', close: '', closed: false },
-    ],
-    menu: [
-      {
-        name: '',
-        picture: null as File | null,
-        price: '',
-        availability: 'AVAILABLE' as Availability,
-      },
-    ],
-  })
-
-  // -------- Handlers --------
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setRestaurant((prev) => ({ ...prev, [name]: value }))
+  const resetForm = () => {
+    setForm(createInitialState())
+    setErrors({})
+    setPhoneErrors([''])
+    setStep(0)
+    setSubmitted(false)
   }
 
-  const [imageUploaded, setImageUploaded] = useState(false)
-
-  const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-
-      setRestaurant({ ...restaurant, picture: file }) // save file in state if needed
-      setImageUploaded(true) // show success message
-    }
+  const handleFieldChange = (field: keyof RestaurantDraft, value: unknown) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleHoursChange = (index: number, field: 'open' | 'close', value: string) => {
-    const updatedHours = [...restaurant.hours]
-    updatedHours[index][field] = value
-    setRestaurant((prev) => ({ ...prev, hours: updatedHours }))
+  const handlePictureUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    handleFieldChange('picture', file)
   }
 
-  const toggleClosed = (index: number) => {
-    const updatedHours = [...restaurant.hours]
-    updatedHours[index].closed = !updatedHours[index].closed
-    if (updatedHours[index].closed) {
-      updatedHours[index].open = ''
-      updatedHours[index].close = ''
-    }
-    setRestaurant({ ...restaurant, hours: updatedHours })
-  }
+  const handlePhoneChange = (index: number, rawValue: string) => {
+    const digits = sanitizePhone(rawValue)
+    const formatted = formatPhone(digits)
 
-  const [phoneErrors, setPhoneErrors] = useState<string[]>(
-    restaurant.phones.map(() => ''),
-  )
+    const nextPhones = [...form.phones]
+    nextPhones[index] = formatted
+    handleFieldChange('phones', nextPhones)
 
-  const handlePhoneChange = (index: number, value: string) => {
-    let digits = value.replace(/\D/g, '')
-    let error = ''
-
-    if (digits.startsWith('0')) {
-      error = 'Phone numbers cannot start with 0!'
-      digits = ''
-    }
-
-    digits = digits.slice(0, 10)
-
-    let formatted = digits
-    if (digits.length > 6) {
-      formatted = `(${digits.slice(0, 3)})-${digits.slice(3, 6)}-${digits.slice(6)}`
-    } else if (digits.length > 3) {
-      formatted = `(${digits.slice(0, 3)})-${digits.slice(3)}`
-    } else if (digits.length > 0) {
-      formatted = `(${digits}`
-    }
-
-    const newPhones = [...restaurant.phones]
-    newPhones[index] = formatted
-    setRestaurant((prev) => ({ ...prev, phones: newPhones }))
-
-    const newErrors = [...phoneErrors]
-    newErrors[index] = error
-    setPhoneErrors(newErrors)
-  }
-
-  const addPhone = () =>
-    setRestaurant((prev) => ({ ...prev, phones: [...prev.phones, ''] }))
-  const removePhone = (index: number) =>
-    setRestaurant((prev) => ({
-      ...prev,
-      phones: prev.phones.filter((_, i) => i !== index),
-    }))
-
-  const [showStep1Error, setShowStep1Error] = useState(false)
-
-  useEffect(() => {
-    const hasMissingFields =
-      !restaurant.name.trim() ||
-      !restaurant.contactPerson.trim() ||
-      !restaurant.address.trim() ||
-      !restaurant.email.trim() ||
-      restaurant.phones.length === 0 ||
-      restaurant.phones.some((phone) => phone.trim() === '')
-
-    if (!hasMissingFields) {
-      setShowStep1Error(false)
-    }
-  }, [restaurant])
-
-  const [showStep2Error, setShowStep2Error] = useState<string>('')
-
-  const [showMenu, setShowMenu] = useState(false)
-
-  const handleMenuChange = (
-    index: number,
-    field: 'name' | 'price' | 'availability',
-    value: string,
-  ) => {
-    const newMenu = [...restaurant.menu]
-
-    if (field === 'price') {
-      const numberValue = parseFloat(value)
-      newMenu[index][field] =
-        isNaN(numberValue) || numberValue < 0 ? '0.00' : numberValue.toFixed(2)
-    } else if (field === 'availability') {
-      newMenu[index][field] = value as Availability
+    const nextErrors = [...phoneErrors]
+    if (!digits) {
+      nextErrors[index] = 'Phone is required.'
+    } else if (digits.startsWith('0')) {
+      nextErrors[index] = 'Phone cannot start with 0.'
+    } else if (digits.length !== PHONE_DIGITS) {
+      nextErrors[index] = 'Enter all 10 digits.'
     } else {
-      newMenu[index][field] = value
+      nextErrors[index] = ''
+    }
+    setPhoneErrors(nextErrors)
+  }
+
+  const addPhone = () => {
+    handleFieldChange('phones', [...form.phones, ''])
+    setPhoneErrors((prev) => [...prev, ''])
+  }
+
+  const removePhone = (index: number) => {
+    if (form.phones.length === 1) return
+    handleFieldChange(
+      'phones',
+      form.phones.filter((_, i) => i !== index),
+    )
+    setPhoneErrors((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleHoursChange = (
+    index: number,
+    field: 'open' | 'close' | 'closed',
+    value: string | boolean,
+  ) => {
+    const nextHours = [...form.hours]
+    if (field === 'closed') {
+      const closed = value as boolean
+      nextHours[index].closed = closed
+      if (closed) {
+        nextHours[index].open = ''
+        nextHours[index].close = ''
+      }
+    } else {
+      nextHours[index][field] = value as string
+    }
+    handleFieldChange('hours', nextHours)
+  }
+
+  const applyWeekdayHours = () => {
+    const [monday] = form.hours
+    if (!monday) return
+
+    const updated = form.hours.map((entry, index) => {
+      if (index === 0) return entry
+      if (index >= 1 && index <= 4) {
+        return {
+          ...entry,
+          closed: monday.closed,
+          open: monday.closed ? '' : monday.open,
+          close: monday.closed ? '' : monday.close,
+        }
+      }
+      return entry
+    })
+
+    handleFieldChange('hours', updated)
+  }
+
+  const validateStep = (currentStep: number) => {
+    const stepErrors: FieldErrors = {}
+
+    if (currentStep === 0) {
+      if (!form.name.trim()) stepErrors.name = 'Restaurant name is required.'
+      if (!form.contactPerson.trim())
+        stepErrors.contactPerson = 'Contact person is required.'
+
+      if (!form.email.trim()) {
+        stepErrors.email = 'Email is required.'
+      } else if (!emailPattern.test(form.email.trim())) {
+        stepErrors.email = 'Enter a valid email address.'
+      }
+
+      if (!form.buildingNumber.trim()) {
+        stepErrors.buildingNumber = 'Building number is required.'
+      }
+      if (!form.streetName.trim()) {
+        stepErrors.streetName = 'Street name is required.'
+      }
+      if (!form.city.trim()) {
+        stepErrors.city = 'City is required.'
+      }
+
+      const state = form.state.trim().toUpperCase()
+      if (!state) {
+        stepErrors.state = 'State is required.'
+      } else if (!US_STATES.has(state)) {
+        stepErrors.state = 'Use a valid two-letter U.S. state abbreviation.'
+      } else if (state !== form.state) {
+        handleFieldChange('state', state)
+      }
+
+      const digitsForPhones = form.phones.map((phone) => sanitizePhone(phone))
+      if (digitsForPhones.some((digits) => !digits)) {
+        stepErrors.phones = 'At least one phone number is required.'
+      }
+      if (digitsForPhones.some((digits) => digits.startsWith('0'))) {
+        stepErrors.phones = 'Phone numbers cannot start with 0.'
+      }
+      if (digitsForPhones.some((digits) => digits.length !== PHONE_DIGITS)) {
+        stepErrors.phones = 'Each phone number must contain 10 digits.'
+      }
     }
 
-    setRestaurant((prev) => ({ ...prev, menu: newMenu }))
+    if (currentStep === 1) {
+      const invalidDay = form.hours.find((hour) => {
+        if (hour.closed) return false
+        if (!hour.open || !hour.close) return true
+        return hour.open >= hour.close
+      })
+
+      if (invalidDay) {
+        stepErrors.hours = `Set valid opening hours for ${invalidDay.day}.`
+      }
+    }
+
+    setErrors(stepErrors)
+    return Object.keys(stepErrors).length === 0
   }
 
-  const handleMenuPictureChange = (index: number, file: File) => {
-    const newMenu = [...restaurant.menu]
-    newMenu[index].picture = file
-    setRestaurant((prev) => ({ ...prev, menu: newMenu }))
+  const goToNext = () => {
+    if (validateStep(step)) {
+      setStep((prev) => Math.min(prev + 1, steps.length - 1))
+    }
   }
 
-  const [activeImageTab, setActiveImageTab] = useState<'restaurant' | 'menu'>(
-    'restaurant',
+  const goToPrevious = () => setStep((prev) => Math.max(prev - 1, 0))
+
+  const handleSubmit = () => {
+    if (!validateStep(1)) {
+      setStep(1)
+      return
+    }
+
+    setIsSubmitting(true)
+    setTimeout(() => {
+      setIsSubmitting(false)
+      setSubmitted(true)
+    }, 1200)
+  }
+
+  const renderStepIndicator = () => (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.18em] text-rose-500">
+        <span>Step {step + 1}</span>
+        <span>{steps.length} total</span>
+      </div>
+      <div className="flex overflow-hidden rounded-full bg-rose-100">
+        <div
+          className="h-2 rounded-full bg-rose-500 transition-all"
+          style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+        />
+      </div>
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold text-neutral-900">{steps[step].title}</h2>
+        <p className="text-sm text-neutral-500">{steps[step].description}</p>
+      </div>
+    </div>
   )
 
-  const formatTime = (time: string) => {
-    if (!time) return ''
-    const [hour, minute] = time.split(':').map(Number)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const hour12 = hour % 12 === 0 ? 12 : hour % 12
-    return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-orange-50 py-16">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 text-center">
+          <Badge className="mx-auto w-fit rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-sm font-semibold text-emerald-700">
+            Registration pending review
+          </Badge>
+          <Card className="border border-neutral-200 bg-white/90 shadow-xl">
+            <CardHeader>
+              <CardTitle className="text-3xl font-semibold text-neutral-900">
+                Thanks for registering!
+              </CardTitle>
+              <CardDescription className="text-base text-neutral-600">
+                We’ve routed your application to the FrontDash admin team. Expect an email
+                with credentials after approval.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-neutral-600">
+              <p>
+                Need to make changes? You can resubmit the form at any time before
+                approval. A staff member will reach out if anything looks off.
+              </p>
+            </CardContent>
+            <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Button variant="outline" onClick={resetForm}>
+                Register another restaurant
+              </Button>
+              <Button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                Back to homepage
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    )
   }
-  const [menuIndex, setMenuIndex] = useState(0)
-
-  const addMenuItem = () =>
-    setRestaurant((prev) => ({
-      ...prev,
-      menu: [
-        ...prev.menu,
-        {
-          name: '',
-          picture: null,
-          price: '',
-          availability: 'AVAILABLE',
-        },
-      ],
-    }))
-
-  const removeMenuItem = (index: number) =>
-    setRestaurant((prev) => ({
-      ...prev,
-      menu: prev.menu.filter((_, i) => i !== index),
-    }))
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('Restaurant registration data:', restaurant)
-    setStep(4) // jump to "success" screen
-  }
-
-  // define steps here
-  const steps = [
-    'Restaurant Info',
-    'Menu & Hours Of Operation',
-    'Vertification',
-    'Go Live',
-  ]
 
   return (
-    <div
-      className="min-h-screen flex flex-col bg-cover bg-center bg-fixed"
-      style={{
-        backgroundImage:
-          "url('https://images.unsplash.com/photo-1600891964599-f61ba0e24092')",
-      }}
-    >
-      {/* Navbar */}
-      <header className="flex items-center justify-between px-10 py-4 border-b-2 border-red-600 bg-red-600">
-        <motion.div
-          initial={{ x: -40, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          className="text-2xl font-bold text-white"
-        >
-          Front<span className="text-black">Dash</span>
-        </motion.div>
-        <motion.nav
-          initial={{ x: 40, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="space-x-6"
-        >
-          <Link href="/" className="text-white font-semibold hover:text-red-200">
-            Home
-          </Link>
-          <Link href="/login" className="text-white font-semibold hover:text-red-200">
-            Login
-          </Link>
-        </motion.nav>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-orange-50 py-16">
+      <div className="mx-auto w-full max-w-4xl px-6">
+        <div className="mb-8 space-y-2 text-center">
+          <Badge className="rounded-full border border-rose-200 bg-rose-100 px-4 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">
+            Restaurant onboarding
+          </Badge>
+          <h1 className="text-3xl font-semibold text-neutral-900 sm:text-4xl">
+            Join the FrontDash marketplace
+          </h1>
+          <p className="mx-auto max-w-2xl text-sm leading-6 text-neutral-600">
+            Tell us about your restaurant, set your weekly hours, and submit your details
+            for approval. Once the FrontDash team reviews your request, we’ll send
+            credentials so you can start managing your menu.
+          </p>
+        </div>
 
-      <main className="flex justify-center mt-12 px-4">
-        <div className="w-full max-w-6xl p-6 bg-red-50 rounded-xl shadow-lg">
-          <h2 className="text-3xl font-bold text-center text-red-600 mb-8">
-            Get Your Restaurant On FrontDash!
-          </h2>
+        <Card className="border border-neutral-200 bg-white/95 shadow-xl">
+          <CardHeader className="border-b border-neutral-200 bg-neutral-50/60">
+            {renderStepIndicator()}
+          </CardHeader>
 
-          {/* Step-specific message */}
-          <div className="text-left mb-6 text-gray-600 font-semibold text-lg">
-            {step === 1 && 'Tell Us About Your Restaurant!'}
-            {step === 2 && 'Upload Your Menu & Set Opening Hours!'}
-            {step === 3 && 'Verify Your Details Before Submission!'}
-            {step === 4 && 'All Done! 🎉'}
-          </div>
-
-          <ProgressBar step={step} steps={steps} />
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-6 sm:gap-8">
-            {/* Step 1: Restaurant Info */}
-            {step === 1 && (
-              <div className="flex flex-col gap-6">
-                {/* Name + Contact Person */}
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="font-semibold mb-1 block">Restaurant Name</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={restaurant.name}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="font-semibold mb-1 block">Contact Person</label>
-                    <input
-                      type="text"
-                      name="contactPerson"
-                      value={restaurant.contactPerson}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Address */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="font-semibold mb-1 block">Building #</label>
-                    <input
-                      type="text"
-                      name="building"
-                      value={restaurant.building}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold mb-1 block">Street</label>
-                    <input
-                      type="text"
-                      name="street"
-                      value={restaurant.street}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold mb-1 block">City</label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={restaurant.city}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold mb-1 block">State</label>
-                    <input
-                      type="text"
-                      name="state"
-                      value={restaurant.state}
-                      onChange={handleChange}
-                      className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="font-semibold mb-1 block">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={restaurant.email}
-                    onChange={handleChange}
-                    pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
-                    title="Please enter a valid email address (e.g. name@example.com)"
-                    className="p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                    required
-                  />
-                </div>
-
-                {/* Phones + Restaurant Image */}
-                <div className="flex flex-col md:flex-row gap-4 items-start">
-                  {/* Phone Numbers */}
-                  <div className="flex-1 flex flex-col gap-2">
-                    <p className="font-semibold">Phone Number(s)</p>
-                    {restaurant.phones.map((phone, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => handlePhoneChange(index, e.target.value)}
-                          placeholder="(123)-456-7890"
-                          required
-                          className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                        />
-                        {restaurant.phones.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removePhone(index)}
-                            className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={addPhone}
-                      className="self-start px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                    >
-                      Add Phone
-                    </button>
-                  </div>
-
-                  {/* Restaurant Image Upload */}
-                  <div className="flex-1 flex flex-col gap-2">
-                    <p className="font-semibold">Upload Restaurant Image (Optional)</p>
-                    <label
-                      htmlFor="restaurantImage"
-                      className="flex flex-col items-center rounded-lg p-4 text-white bg-red-600 shadow-sm sm:p-6 cursor-pointer hover:bg-red-700 w-full"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="w-6 h-6"
+          <CardContent className="space-y-8 p-6">
+            {step === 0 ? (
+              <div className="space-y-8">
+                <section className="space-y-4">
+                  <h3 className="text-lg font-semibold text-neutral-900">
+                    Basic details
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                    <div className="space-y-2">
+                      <Label htmlFor="restaurant-name">Restaurant name *</Label>
+                      <Input
+                        id="restaurant-name"
+                        value={form.name}
+                        onChange={(event) =>
+                          handleFieldChange('name', event.target.value)
+                        }
+                        placeholder="Rosemary & Thyme Bistro"
+                        aria-invalid={Boolean(errors.name)}
+                      />
+                      {errors.name ? (
+                        <p className="text-xs text-red-600">{errors.name}</p>
+                      ) : (
+                        <p className="text-xs text-neutral-500">
+                          We’ll check name uniqueness during admin review.
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="restaurant-picture">
+                        Restaurant picture (optional)
+                      </Label>
+                      <label
+                        htmlFor="restaurant-picture"
+                        className="flex h-32 cursor-pointer items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 text-xs font-medium text-neutral-500 hover:border-neutral-400"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75m0-3-3-3m0 0-3 3m3-3v11.25m6-2.25h.75a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-7.5a2.25 2.25 0 0 1-2.25-2.25v-.75"
-                        />
-                      </svg>
-                      <span className="mt-4 font-medium">Browse Files</span>
+                        {form.picture ? (
+                          <FilePreview
+                            file={form.picture}
+                            alt={form.name || 'Restaurant'}
+                          />
+                        ) : (
+                          <span>Click to upload JPG or PNG</span>
+                        )}
+                      </label>
                       <input
+                        id="restaurant-picture"
                         type="file"
-                        id="restaurantImage"
                         accept="image/*"
-                        onChange={handlePictureChange}
+                        onChange={handlePictureUpload}
                         className="sr-only"
                       />
-                    </label>
-
-                    {/* Success message */}
-                    {imageUploaded && (
-                      <p className="text-green-600 text-sm mt-2">
-                        Image successfully updated!
-                      </p>
-                    )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
-            {/* Step 2: Menu Upload + Opening Hours */}
-            {step === 2 && (
-              <div className="flex flex-col gap-6">
-                {/* Cuisine Selector (not collapsible) */}
-                <div className="flex flex-col gap-2">
-                  <p className="font-semibold text-red-600 text-lg">Cuisine Type</p>
-                  <select
-                    value={restaurant.cuisine}
-                    onChange={(e) =>
-                      setRestaurant({ ...restaurant, cuisine: e.target.value })
-                    }
-                    className="p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 w-full"
-                  >
-                    <option value="">Select Cuisine</option>
-                    <option value="Italian">Italian</option>
-                    <option value="Mexican">Mexican</option>
-                    <option value="Chinese">Chinese</option>
-                    <option value="Japanese">Japanese</option>
-                    <option value="Indian">Indian</option>
-                    <option value="French">French</option>
-                    <option value="Mediterranean">Mediterranean</option>
-                    <option value="American">American</option>
-                    <option value="Vegan">Vegan</option>
-                    <option value="Other">Other</option>
-                  </select>
+                </section>
 
-                  {restaurant.cuisine === 'Other' && (
-                    <input
-                      type="text"
-                      placeholder="Enter cuisine"
-                      value={restaurant.customCuisine ?? ''}
-                      onChange={(e) =>
-                        setRestaurant({ ...restaurant, customCuisine: e.target.value })
-                      }
-                      className="p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
-                    />
-                  )}
-                </div>
+                <Separator />
 
-                {/* Collapsible: Menu Upload */}
-                <details className="border rounded-lg">
-                  <summary className="cursor-pointer bg-red-600 text-white px-4 py-2 rounded-t-lg font-semibold">
-                    Menu Upload
-                  </summary>
-                  <div className="p-4 space-y-4">
-                    {restaurant.menu.map((item, index) => (
-                      <div
-                        key={index}
-                        className="border rounded-lg p-4 space-y-3 bg-gray-50"
+                <section className="space-y-4">
+                  <h3 className="text-lg font-semibold text-neutral-900">
+                    Pickup address
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-[minmax(0,140px)_minmax(0,1fr)]">
+                    <div className="space-y-2">
+                      <Label htmlFor="building-number">Building number *</Label>
+                      <Input
+                        id="building-number"
+                        value={form.buildingNumber}
+                        onChange={(event) =>
+                          handleFieldChange('buildingNumber', event.target.value)
+                        }
+                        placeholder="123"
+                        aria-invalid={Boolean(errors.buildingNumber)}
+                      />
+                      {errors.buildingNumber && (
+                        <p className="text-xs text-red-600">{errors.buildingNumber}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="street-name">Street name *</Label>
+                      <Input
+                        id="street-name"
+                        value={form.streetName}
+                        onChange={(event) =>
+                          handleFieldChange('streetName', event.target.value)
+                        }
+                        placeholder="Market Street"
+                        aria-invalid={Boolean(errors.streetName)}
+                      />
+                      {errors.streetName && (
+                        <p className="text-xs text-red-600">{errors.streetName}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City *</Label>
+                      <Input
+                        id="city"
+                        value={form.city}
+                        onChange={(event) =>
+                          handleFieldChange('city', event.target.value)
+                        }
+                        placeholder="San Francisco"
+                        aria-invalid={Boolean(errors.city)}
+                      />
+                      {errors.city && (
+                        <p className="text-xs text-red-600">{errors.city}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">State *</Label>
+                      <Input
+                        id="state"
+                        value={form.state}
+                        onChange={(event) =>
+                          handleFieldChange(
+                            'state',
+                            event.target.value
+                              .toUpperCase()
+                              .replace(/[^A-Z]/g, '')
+                              .slice(0, 2),
+                          )
+                        }
+                        placeholder="CA"
+                        aria-invalid={Boolean(errors.state)}
+                      />
+                      <p
+                        className={cn(
+                          'text-xs',
+                          errors.state ? 'text-red-600' : 'text-neutral-500',
+                        )}
                       >
-                        {/* Name + Price */}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={item.name}
-                            onChange={(e) =>
-                              handleMenuChange(index, 'name', e.target.value)
-                            }
-                            placeholder="Dish Name"
-                            className="flex-1 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
-                          />
-
-                          <input
-                            type="number"
-                            value={item.price}
-                            onChange={(e) =>
-                              handleMenuChange(index, 'price', e.target.value)
-                            }
-                            placeholder="Price"
-                            className="w-32 p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-
-                        {/* File Upload with Thumbnail */}
-                        <div>
-                          <span className="text-sm text-gray-600">
-                            Upload Image (Optional)
-                          </span>
-                          <div
-                            className="mt-1 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:border-red-500 transition"
-                            onClick={() => {
-                              const el = document.getElementById(
-                                `menu-file-${index}`,
-                              ) as HTMLInputElement | null
-                              el?.click()
-                            }}
-                          >
-                            <input
-                              id={`menu-file-${index}`}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file) handleMenuPictureChange(index, file)
-                              }}
-                            />
-                            {item.picture ? (
-                              <div className="flex items-center gap-2">
-                                <FilePreview
-                                  file={item.picture}
-                                  alt="Menu item preview"
-                                  width={48}
-                                  height={48}
-                                  className="h-12 w-12 rounded object-cover"
-                                />
-                                <span className="text-green-600 text-sm">
-                                  Image Uploaded
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-gray-500">Click to upload</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Availability as Pill Toggle */}
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium">
-                              Availability (Toggle On/Off):{' '}
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleMenuChange(
-                                  index,
-                                  'availability',
-                                  item.availability === 'AVAILABLE'
-                                    ? 'UNAVAILABLE'
-                                    : 'AVAILABLE',
-                                )
-                              }
-                              className={`px-3 py-1 rounded-full text-xs font-semibold transition ${
-                                item.availability === 'AVAILABLE'
-                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
-                              }`}
-                            >
-                              {item.availability}
-                            </button>
-                          </div>
-
-                          {restaurant.menu.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeMenuItem(index)}
-                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-
-                    <button
-                      type="button"
-                      onClick={addMenuItem}
-                      className="self-start px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                    >
-                      Add Menu Item
-                    </button>
-                  </div>
-                </details>
-
-                {/* Collapsible: Opening Hours */}
-                <details className="border rounded-lg">
-                  <summary className="cursor-pointer bg-red-600 text-white px-4 py-2 rounded-t-lg font-semibold">
-                    Opening Hours
-                  </summary>
-                  <div className="p-4 space-y-3">
-                    {restaurant.hours.map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-col sm:flex-row items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200"
-                      >
-                        <span className="w-24 font-medium">{h.day}</span>
-                        <input
-                          type="time"
-                          value={h.open}
-                          onChange={(e) => handleHoursChange(i, 'open', e.target.value)}
-                          disabled={h.closed}
-                          className="p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 flex-1"
-                        />
-                        <span className="mx-1">to</span>
-                        <input
-                          type="time"
-                          value={h.close}
-                          onChange={(e) => handleHoursChange(i, 'close', e.target.value)}
-                          disabled={h.closed}
-                          className="p-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 flex-1"
-                        />
-
-                        {/* Prettier toggle */}
-                        <button
-                          type="button"
-                          onClick={() => toggleClosed(i)}
-                          className={`px-4 py-2 rounded-full font-medium transition ${
-                            h.closed
-                              ? 'bg-gray-400 text-white'
-                              : 'bg-green-500 text-white hover:bg-green-600'
-                          }`}
-                        >
-                          {h.closed ? 'Closed' : 'Open'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              </div>
-            )}
-
-            {/* Step 3: Verification */}
-            {step === 3 && (
-              <div>
-                <h3 className="text-xl font-semibold mb-4 text-red-600">
-                  Like what you see?
-                </h3>
-
-                <div className="bg-white p-6 rounded-lg shadow-md space-y-8">
-                  {/* Restaurant Info */}
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="text-lg font-bold mb-2">Restaurant Info</h4>
-                      <p>
-                        <span className="font-semibold">Name:</span> {restaurant.name}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Contact Person:</span>{' '}
-                        {restaurant.contactPerson}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Email:</span> {restaurant.email}
-                      </p>
-
-                      {/* One-line Address */}
-                      <p>
-                        <span className="font-semibold">Address:</span>{' '}
-                        {restaurant.building} {restaurant.street}, {restaurant.city},{' '}
-                        {restaurant.state}
-                      </p>
-
-                      <p>
-                        <span className="font-semibold">Phone(s):</span>{' '}
-                        {restaurant.phones.join(', ')}
-                      </p>
-                      <p>
-                        <span className="font-semibold">Cuisine:</span>{' '}
-                        {restaurant.cuisine}
+                        {errors.state || 'Two-letter U.S. abbreviation'}
                       </p>
                     </div>
+                    <div className="hidden sm:block" />
+                  </div>
+                </section>
 
-                    {restaurant.picture && (
-                      <div className="flex justify-center">
-                        <FilePreview
-                          file={restaurant.picture}
-                          alt="Restaurant preview"
-                          width={192}
-                          height={192}
-                          className="h-48 w-48 rounded-lg border object-cover shadow"
-                        />
-                      </div>
-                    )}
+                <Separator />
+
+                <section className="space-y-4">
+                  <h3 className="text-lg font-semibold text-neutral-900">
+                    Primary contacts
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="contact-person">Contact person *</Label>
+                      <Input
+                        id="contact-person"
+                        value={form.contactPerson}
+                        onChange={(event) =>
+                          handleFieldChange('contactPerson', event.target.value)
+                        }
+                        placeholder="Jordan Ellis"
+                        aria-invalid={Boolean(errors.contactPerson)}
+                      />
+                      {errors.contactPerson && (
+                        <p className="text-xs text-red-600">{errors.contactPerson}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email address *</Label>
+                      <Input
+                        id="email"
+                        value={form.email}
+                        onChange={(event) =>
+                          handleFieldChange('email', event.target.value)
+                        }
+                        placeholder="owner@roseandthyme.com"
+                        aria-invalid={Boolean(errors.email)}
+                      />
+                      {errors.email && (
+                        <p className="text-xs text-red-600">{errors.email}</p>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Menu Items Carousel */}
-                  <div>
-                    <h4 className="text-lg font-bold mb-4">Menu Items</h4>
-                    {restaurant.menu.length > 0 && (
-                      <div className="relative w-full max-w-2xl mx-auto">
-                        <div className="bg-gray-50 p-6 rounded-lg shadow flex flex-col md:flex-row items-center gap-6">
-                          {/* Left: Info */}
-                          <div className="flex-1">
-                            <p>
-                              <span className="font-semibold">Item:</span>{' '}
-                              {restaurant.menu[menuIndex].name}
-                            </p>
-                            <p>
-                              <span className="font-semibold">Price:</span> $
-                              {restaurant.menu[menuIndex].price}
-                            </p>
-                            <p>
-                              <span className="font-semibold">Availability:</span>{' '}
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                  restaurant.menu[menuIndex].availability === 'AVAILABLE'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}
-                              >
-                                {restaurant.menu[menuIndex].availability}
-                              </span>
-                            </p>
-                          </div>
-
-                          {/* Right: Image */}
-                          {restaurant.menu[menuIndex].picture && (
-                            <FilePreview
-                              file={restaurant.menu[menuIndex].picture}
-                              alt={`Menu item ${restaurant.menu[menuIndex].name}`}
-                              width={160}
-                              height={160}
-                              className="h-40 w-40 rounded-lg border object-cover shadow"
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>Phone numbers *</Label>
+                      <Button variant="outline" size="sm" onClick={addPhone}>
+                        Add number
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {form.phones.map((phone, index) => (
+                        <div key={index} className="flex flex-col gap-1">
+                          <div className="flex items-center gap-3">
+                            <Input
+                              value={phone}
+                              onChange={(event) =>
+                                handlePhoneChange(index, event.target.value)
+                              }
+                              placeholder="(415) 867-5309"
+                              aria-invalid={Boolean(phoneErrors[index])}
                             />
+                            {form.phones.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="text-neutral-500 hover:text-red-600"
+                                onClick={() => removePhone(index)}
+                                aria-label="Remove phone"
+                              >
+                                ×
+                              </Button>
+                            )}
+                          </div>
+                          {phoneErrors[index] && (
+                            <p className="text-xs text-red-600">{phoneErrors[index]}</p>
                           )}
                         </div>
-
-                        {/* Overlay arrows */}
-                        {restaurant.menu.length > 1 && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setMenuIndex(
-                                  (menuIndex - 1 + restaurant.menu.length) %
-                                    restaurant.menu.length,
-                                )
-                              }
-                              className="absolute -left-12 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition"
-                            >
-                              ←
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setMenuIndex((menuIndex + 1) % restaurant.menu.length)
-                              }
-                              className="absolute -right-12 top-1/2 -translate-y-1/2 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition"
-                            >
-                              →
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
+                      ))}
+                      {errors.phones && (
+                        <p className="text-xs text-red-600">{errors.phones}</p>
+                      )}
+                    </div>
                   </div>
-
-                  {/* Opening Hours */}
-                  <div>
-                    <h4 className="text-lg font-bold mb-2">Opening Hours</h4>
-                    {restaurant.hours.map((h, i) => (
-                      <p key={i}>
-                        <span className="font-semibold">{h.day}:</span>{' '}
-                        {h.closed
-                          ? 'Closed'
-                          : `${formatTime(h.open)} – ${formatTime(h.close)}`}
-                      </p>
-                    ))}
-                  </div>
-                </div>
+                </section>
               </div>
-            )}
+            ) : null}
 
-            {/* Step 4: Success */}
-            {step === 4 && (
-              <div className="flex items-center justify-center py-16 bg-gradient-to-b from-red-50 to-white">
-                <div className="bg-white p-10 rounded-2xl shadow-lg text-center max-w-md w-full">
-                  <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-green-600">
-                    Registration Form Submitted!
-                  </h3>
-                  <p className="mt-3 text-gray-700">
-                    Please wait for an admin to verify and approve. <br />
-                    Check your email for updates.
+            {step === 1 ? (
+              <div className="space-y-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-neutral-600">
+                    Set your opening hours for each day. Mark a day as closed to skip
+                    start and end times.
                   </p>
-                  <p className="mt-2 text-gray-600">
-                    Thank you for choosing{' '}
-                    <span className="font-semibold text-red-600">FrontDash</span>!
-                  </p>
-
-                  {/* Back Home Button */}
-                  <div className="mt-8">
-                    <Link
-                      href="/"
-                      className="inline-block px-6 py-3 bg-red-600 text-white font-medium rounded-lg shadow hover:bg-red-700 transition transform hover:scale-105"
-                    >
-                      Go Back Home
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Navigation buttons */}
-            {step < 4 && (
-              <div
-                className={`flex mt-6 ${step === 1 ? 'flex-col items-end gap-2' : 'justify-between'}`}
-              >
-                {/* Back button */}
-                {step > 1 && (
-                  <button
+                  <Button
                     type="button"
-                    onClick={() => setStep(step - 1)}
-                    className="px-6 py-2 bg-gray-300 rounded-lg hover:bg-gray-400"
+                    variant="outline"
+                    size="sm"
+                    onClick={applyWeekdayHours}
+                    className="w-full sm:w-auto"
                   >
-                    Back
-                  </button>
-                )}
-
-                {/* Step 1: Next button with inline error */}
-                {step === 1 && (
-                  <div className="flex flex-col items-end gap-2">
-                    {showStep1Error && (
-                      <p className="text-red-600 text-sm self-start">
-                        Please check that you have correctly filled out all required
-                        fields before continuing.
-                      </p>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const hasMissingFields =
-                          !restaurant.name.trim() ||
-                          !restaurant.contactPerson.trim() ||
-                          !restaurant.building.trim() ||
-                          !restaurant.street.trim() ||
-                          !restaurant.city.trim() ||
-                          !restaurant.state.trim() ||
-                          !restaurant.email.trim() ||
-                          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(restaurant.email) || // regex check
-                          restaurant.phones.length === 0 ||
-                          restaurant.phones.some((phone) => phone.trim() === '')
-
-                        if (hasMissingFields) {
-                          setShowStep1Error(true) // show alert
-                        } else {
-                          setShowStep1Error(false)
-                          setStep(step + 1) // go to next step
-                        }
-                      }}
-                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-
-                {/* Step 2: Next button with validation */}
-                {step === 2 && (
-                  <div className="flex flex-col items-end gap-2">
-                    {showStep2Error && (
-                      <p className="text-red-600 text-sm self-start">{showStep2Error}</p>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const hasMenuItem = restaurant.menu.some(
-                          (item) =>
-                            item.name.trim() !== '' &&
-                            item.price !== '' &&
-                            item.price !== '0.00' && // ignore the default placeholder
-                            parseFloat(item.price) > 0,
-                        )
-
-                        const hasOpenDay = restaurant.hours.some(
-                          (day) =>
-                            !day.closed &&
-                            day.open?.trim() !== '' &&
-                            day.close?.trim() !== '',
-                        )
-
-                        console.log({ hasMenuItem, hasOpenDay })
-
-                        if (!hasMenuItem) {
-                          setShowStep2Error(
-                            'Please add at least one menu item with a name and price.',
-                          )
-                          return
-                        }
-
-                        if (!hasOpenDay) {
-                          setShowStep2Error(
-                            'Please ensure at least one time slot is filled out.',
-                          )
-                          return
-                        }
-
-                        // Passed validation
-                        setShowStep2Error('')
-                        setStep(step + 1)
-                      }}
-                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-800"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-
-                {/* Step 3: Submit button */}
-                {step === 3 && (
-                  <button
-                    type="submit"
-                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    Apply Monday hours to weekdays
+                  </Button>
+                </div>
+                {form.hours.map((hour, index) => (
+                  <div
+                    key={hour.day}
+                    className="flex flex-col gap-4 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    Submit
-                  </button>
-                )}
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-neutral-900">{hour.day}</p>
+                      <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <Switch
+                          checked={!hour.closed}
+                          onCheckedChange={(checked) =>
+                            handleHoursChange(index, 'closed', !checked)
+                          }
+                        />
+                        <span>{hour.closed ? 'Closed for customers' : 'Open'} </span>
+                      </div>
+                    </div>
+                    {!hour.closed ? (
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <div className="space-y-1">
+                          <Label htmlFor={`open-${hour.day}`}>Opens</Label>
+                          <Input
+                            id={`open-${hour.day}`}
+                            type="time"
+                            value={hour.open}
+                            onChange={(event) =>
+                              handleHoursChange(index, 'open', event.target.value)
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`close-${hour.day}`}>Closes</Label>
+                          <Input
+                            id={`close-${hour.day}`}
+                            type="time"
+                            value={hour.close}
+                            onChange={(event) =>
+                              handleHoursChange(index, 'close', event.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+                {errors.hours && <p className="text-xs text-red-600">{errors.hours}</p>}
               </div>
-            )}
-          </form>
-        </div>
-      </main>
+            ) : null}
+
+            {step === 2 ? (
+              <div className="space-y-6">
+                <section className="space-y-2">
+                  <h3 className="text-lg font-semibold text-neutral-900">
+                    Review before you submit
+                  </h3>
+                  <p className="text-sm text-neutral-600">
+                    FrontDash reviews every application within two business days. If
+                    everything looks good, you’ll receive credentials via email.
+                  </p>
+                </section>
+
+                <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5">
+                  <div className="space-y-1 text-sm">
+                    <p className="font-semibold text-neutral-900">
+                      {form.name || 'Restaurant name'}
+                    </p>
+                    <p className="text-neutral-600">
+                      {form.buildingNumber} {form.streetName}, {form.city}{' '}
+                      {form.state && `(${form.state})`}
+                    </p>
+                  </div>
+                  <div className="text-sm text-neutral-600">
+                    <p className="font-semibold text-neutral-900">Primary contact</p>
+                    <p>{form.contactPerson}</p>
+                    <p>{form.email}</p>
+                    <p>
+                      {form.phones.map((phone) => (
+                        <span key={phone} className="mr-2">
+                          {phone}
+                        </span>
+                      ))}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-900">
+                      Hours snapshot
+                    </p>
+                    <ul className="mt-2 grid gap-1 text-xs text-neutral-600 sm:grid-cols-2">
+                      {form.hours.map((hour) => (
+                        <li key={hour.day}>
+                          <span className="font-medium text-neutral-900">
+                            {hour.day}:
+                          </span>{' '}
+                          {hour.closed
+                            ? 'Closed'
+                            : `${hour.open || '—'} to ${hour.close || '—'}`}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+
+          <CardFooter className="flex flex-col gap-3 border-t border-neutral-200 bg-neutral-50/60 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-neutral-500">
+              {step < steps.length - 1
+                ? 'You can revisit details before submitting for review.'
+                : 'Submitting will queue this registration for admin approval.'}
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={step === 0 ? undefined : goToPrevious}
+                disabled={step === 0}
+              >
+                Back
+              </Button>
+              {step < steps.length - 1 ? (
+                <Button className="w-full sm:w-auto" onClick={goToNext}>
+                  Continue
+                </Button>
+              ) : (
+                <Button
+                  className="w-full sm:w-auto"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Sending…' : 'Submit for approval'}
+                </Button>
+              )}
+            </div>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }
