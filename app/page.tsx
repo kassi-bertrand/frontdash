@@ -1,92 +1,103 @@
-// STORY-C001 landing experience: lists every restaurant and routes customers
-// into the individual menu pages.
-'use client'
+import Image from "next/image";
 
-import Link from 'next/link'
-
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { RestaurantCard } from '@/components/customer/restaurant-card'
-import { demoCustomerRestaurants } from '@/lib/demo-restaurants'
-
-/**
- * Customer homepage: hero copy + full restaurant grid sourced from the demo
- * dataset. Replace the data hook once the public browse API exists.
- */
 export default function Home() {
-  const openNow = demoCustomerRestaurants.filter((restaurant) => restaurant.isOpen).length
-
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-20 border-b border-neutral-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <Link
-            href="/"
-            className="text-xl font-semibold tracking-tight text-neutral-900"
+    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+        <Image
+          className="dark:invert"
+          src="/next.svg"
+          alt="Next.js logo"
+          width={180}
+          height={38}
+          priority
+        />
+        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
+          <li className="mb-2 tracking-[-.01em]">
+            Get started by editing{" "}
+            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
+              app/page.tsx
+            </code>
+            .
+          </li>
+          <li className="tracking-[-.01em]">
+            Save and see your changes instantly.
+          </li>
+        </ol>
+
+        <div className="flex gap-4 items-center flex-col sm:flex-row">
+          <a
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
+            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            Front<span className="font-bold text-red-500">Dash</span>
-          </Link>
-          <nav className="flex items-center gap-3">
-            <Button asChild variant="ghost" className="rounded-xl px-4 text-sm">
-              <Link href="/login">Login</Link>
-            </Button>
-            <Button
-              asChild
-              className="rounded-xl bg-neutral-900 px-4 text-sm hover:bg-neutral-800"
-            >
-              <Link href="/register-restaurant">Register a Restaurant</Link>
-            </Button>
-          </nav>
+            <Image
+              className="dark:invert"
+              src="/vercel.svg"
+              alt="Vercel logomark"
+              width={20}
+              height={20}
+            />
+            Deploy now
+          </a>
+          <a
+            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
+            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Read our docs
+          </a>
         </div>
-      </header>
-
-      <main>
-        {/* Overview hero keeps customers oriented before they dive into the grid. */}
-        <section className="border-b border-neutral-200 bg-gradient-to-b from-white via-white to-neutral-50">
-          <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-            <div className="space-y-5 lg:col-span-2">
-              <Badge
-                variant="secondary"
-                className="border border-neutral-200 bg-neutral-100/80 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500"
-              >
-                Discover & order
-              </Badge>
-              <h1 className="text-4xl font-semibold tracking-tight text-neutral-900 sm:text-5xl">
-                Dinner plans in one place.
-              </h1>
-              <p className="max-w-xl text-base leading-7 text-neutral-600 sm:text-lg">
-                Browse every partner restaurant in real time and jump straight into the
-                menu when inspiration strikes. No logins required—just pick, order, and
-                enjoy.
-              </p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
-                <span>{demoCustomerRestaurants.length} restaurants</span>
-                <span className="h-1.5 w-1.5 rounded-full bg-neutral-300" aria-hidden />
-                <span>{openNow} open right now</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Full catalogue satisfies STORY-C001 by showing every restaurant. */}
-        <section className="mx-auto w-full max-w-6xl px-6 py-12">
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold tracking-tight">
-              Explore every restaurant
-            </h2>
-            <p className="mt-1 text-sm text-neutral-500">
-              All available partners appear here—tap any card to continue to the
-              restaurant menu.
-            </p>
-          </div>
-
-          <div id="restaurants-grid" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {demoCustomerRestaurants.map((restaurant) => (
-              <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-            ))}
-          </div>
-        </section>
       </main>
+      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/file.svg"
+            alt="File icon"
+            width={16}
+            height={16}
+          />
+          Learn
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/window.svg"
+            alt="Window icon"
+            width={16}
+            height={16}
+          />
+          Examples
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/globe.svg"
+            alt="Globe icon"
+            width={16}
+            height={16}
+          />
+          Go to nextjs.org →
+        </a>
+      </footer>
     </div>
-  )
+  );
 }

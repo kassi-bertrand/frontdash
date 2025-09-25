@@ -1,6 +1,6 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
+import { useState } from "react"
 // Using useRouter from 'next/navigation' for programmatic navigation
 // Why next/navigation and not next/router?
 // 1. We're using Next.js App Router (not Pages Router)
@@ -11,33 +11,22 @@ import { useState } from 'react'
 // - <Link> is for user-initiated navigation (clicking links)
 // - useRouter is for programmatic navigation (after form submission, API calls, etc.)
 // - Our use case: redirect after successful login authentication
-import { useRouter } from 'next/navigation'
-import { Building, UtensilsCrossed } from 'lucide-react'
+import { useRouter } from "next/navigation"
+import { Building } from "lucide-react"
 
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
-export type LoginVariant = 'staff' | 'restaurant'
-
-type LoginFormProps = React.ComponentProps<'div'> & {
-  variant: LoginVariant
-}
-
-export function LoginForm({ className, variant, ...props }: LoginFormProps) {
+export function LoginForm({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
   const router = useRouter()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-
-  const isRestaurant = variant === 'restaurant'
-  const title = isRestaurant ? 'Restaurant portal' : 'Welcome to FrontDash'
-  const description = isRestaurant
-    ? 'Use the shared credentials you received after approval to manage your restaurant.'
-    : 'Sign in to access your admin or staff dashboard.'
-  const submitLabel = isRestaurant ? 'Sign in as restaurant' : 'Sign in'
-  const destination = isRestaurant ? '/restaurant/dashboard' : '/admin/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,11 +63,7 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
     // Temporary demo behavior - remove when backend is ready
     setTimeout(() => {
       if (username && password) {
-        const userRole = isRestaurant
-          ? 'restaurant'
-          : username.toLowerCase().includes('admin')
-            ? 'admin'
-            : 'staff'
+        const userRole = username.toLowerCase().includes('admin') ? 'admin' : 'staff'
 
         // TODO: BACKEND TEAM - Remove this entire cookie-setting block
         // BetterAuth will automatically set httpOnly cookies on the SERVER
@@ -92,39 +77,38 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
         document.cookie = `username=${username}; path=/; max-age=3600`
 
         // Client-side navigation after successful "login"
-        router.push(destination)
+        router.push('/admin/dashboard')
       } else {
-        alert('Please enter both username and password')
+        alert("Please enter both username and password")
       }
       setIsLoading(false)
     }, 1000)
   }
 
   return (
-    <div className={cn('flex flex-col gap-6', className)} {...props}>
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center gap-2">
-            <a href="#" className="flex flex-col items-center gap-2 font-medium">
+            <a
+              href="#"
+              className="flex flex-col items-center gap-2 font-medium"
+            >
               <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                {isRestaurant ? (
-                  <UtensilsCrossed className="size-6" />
-                ) : (
-                  <Building className="size-6" />
-                )}
+                <Building className="size-6" />
               </div>
               <span className="sr-only">FrontDash</span>
             </a>
-            <h1 className="text-xl font-bold text-neutral-900">{title}</h1>
-            <div className="text-center text-sm text-muted-foreground">{description}</div>
+            <h1 className="text-xl font-bold">Welcome to FrontDash</h1>
+            <div className="text-center text-sm text-muted-foreground">
+              Sign in to access your dashboard
+            </div>
           </div>
           <div className="flex flex-col gap-6">
             <div className="grid gap-3">
-              <Label htmlFor={`username-${variant}`}>
-                {isRestaurant ? 'Restaurant username' : 'Username'}
-              </Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id={`username-${variant}`}
+                id="username"
                 type="text"
                 placeholder="Enter username"
                 value={username}
@@ -134,9 +118,9 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
               />
             </div>
             <div className="grid gap-3">
-              <Label htmlFor={`password-${variant}`}>Password</Label>
+              <Label htmlFor="password">Password</Label>
               <Input
-                id={`password-${variant}`}
+                id="password"
                 type="password"
                 placeholder="Enter password"
                 value={password}
@@ -146,15 +130,13 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Signing in…' : submitLabel}
+              {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </div>
         </div>
       </form>
       <div className="text-muted-foreground text-center text-xs text-balance">
-        {isRestaurant
-          ? 'Need help? Contact FrontDash support to reset your shared credentials.'
-          : 'FrontDash portal – authorized personnel only.'}
+        FrontDash Portal - Authorized personnel only
       </div>
     </div>
   )

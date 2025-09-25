@@ -11,7 +11,7 @@ This document contains all user stories derived from the FrontDash project requi
 
 ### Registration & Onboarding
 
-#### ✅ STORY-R001: Restaurant Registration
+#### STORY-R001: Restaurant Registration
 **As a** restaurant owner  
 **I want to** register my restaurant on FrontDash  
 **So that** I can sell food through the platform
@@ -26,7 +26,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Must set operating hours for each day (*"hours of opening - must indicate the duration for each day of the week"*)
 - Registration goes to queue for admin approval (*"registration process by a restaurant only makes a request to FrontDash"*)
 
-#### ✅ STORY-R002: Menu Creation During Registration
+#### STORY-R002: Menu Creation During Registration
 **As a** restaurant owner  
 **I want to** create my menu during registration  
 **So that** customers can see what food I offer
@@ -38,7 +38,7 @@ This document contains all user stories derived from the FrontDash project requi
 - For each item, must set price (*"price of the item"*)
 - For each item, must set availability status (*"availability - AVAILABLE or UNAVAILABLE"*)
 
-#### ✅ STORY-R003: Receive Login Credentials
+#### STORY-R003: Receive Login Credentials
 **As a** restaurant owner  
 **I want to** receive login credentials after approval  
 **So that** I can access my restaurant account
@@ -117,7 +117,7 @@ This document contains all user stories derived from the FrontDash project requi
 
 ### Browsing & Ordering (No Login Required)
 
-#### ✅ STORY-C001: Browse Restaurants
+#### STORY-C001: Browse Restaurants
 **As a** customer  
 **I want to** browse available restaurants  
 **So that** I can choose where to order from
@@ -128,7 +128,7 @@ This document contains all user stories derived from the FrontDash project requi
 - See restaurant logo/icon (*"optional icon/logo for the restaurant"*)
 - See open/closed status (*"status indicating whether the restaurant is open at that time"*)
 
-#### ✅ STORY-C002: Select Restaurant
+#### STORY-C002: Select Restaurant
 **As a** customer  
 **I want to** select a restaurant  
 **So that** I can view their menu
@@ -137,7 +137,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Click on restaurant to view menu (*"Customer should be able to select a restaurant for the next step"*)
 - Navigate to restaurant's menu page
 
-#### ✅ STORY-C003: Browse Menu
+#### STORY-C003: Browse Menu
 **As a** customer  
 **I want to** browse the restaurant's menu  
 **So that** I can choose what to order
@@ -149,7 +149,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Select multiple items (*"Customer should be able to select one or more food items from the menu"*)
 - Specify quantity for each item (*"customer should be able to indicate a quantity as well"*)
 
-#### ✅ STORY-C004: Confirm Order
+#### STORY-C004: Confirm Order
 **As a** customer  
 **I want to** review my order  
 **So that** I can verify everything before payment
@@ -165,7 +165,7 @@ This document contains all user stories derived from the FrontDash project requi
 - View total before service charge (*"Total of all subtotals before service charge"*)
 - View 8.25% service charge (*"Service charge - 8.25% for this problem"*)
 
-#### ✅ STORY-C005: Add Tips
+#### STORY-C005: Add Tips
 **As a** customer  
 **I want to** add tips to my order  
 **So that** I can tip the delivery driver
@@ -175,7 +175,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Can enter percentage or fixed amount (*"customer should be able to enter the tips - you can use percentage or fixed amount"*)
 - Grand total updates after tips (*"Grand total, after customer enters the tips"*)
 
-#### ✅ STORY-C006: Pay with Credit Card
+#### STORY-C006: Pay with Credit Card
 **As a** customer  
 **I want to** pay for my order with a credit card  
 **So that** I can complete my purchase
@@ -189,7 +189,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Enter 3-digit security code (*"Security code - three digits"*)
 - Card verified through third-party (*"it should be verified through a third-party software"*)
 
-#### ✅ STORY-C007: Provide Delivery Address
+#### STORY-C007: Provide Delivery Address
 **As a** customer  
 **I want to** provide my delivery address  
 **So that** the driver knows where to deliver
@@ -204,7 +204,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Provide contact person name (*"Contact person's name"*)
 - Provide contact phone number (*"Contact person's phone number"*)
 
-#### ✅ STORY-C008: Receive Order Confirmation
+#### STORY-C008: Receive Order Confirmation
 **As a** customer  
 **I want to** receive an order number and delivery estimate  
 **So that** I know when to expect my food

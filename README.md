@@ -484,11 +484,11 @@ This architecture satisfies the requirement that "all three components can be de
 #### Customer Flow
 ```typescript
 '/'                                     // ✅ Homepage - Browse all restaurants
-'/restaurant/[slug]'                    // ✅ Restaurant detail + menu experience
-'/checkout/[slug]'                      // ✅ Order review/confirmation with tips
-'/payment/[slug]'                       // ✅ Payment form with verification
-'/delivery/[slug]'                      // ✅ Delivery address form
-'/order/confirmation/[slug]'            // ✅ Order complete with order number & ETA
+'/restaurant/[id]'                      // 🔄 View specific restaurant menu
+'/checkout'                             // 🔄 Order review/confirmation
+'/checkout/payment'                     // 🔄 Payment form
+'/checkout/delivery'                    // 🔄 Delivery address form
+'/order/[orderId]/confirmation'         // 🔄 Order complete with tracking number
 ```
 
 #### Registration Pages (Public)
@@ -633,23 +633,22 @@ This architecture satisfies the requirement that "all three components can be de
 ### 1. Restaurant Module
 
 #### Registration System
-- [x] Restaurant name field with unique validation (UI messaging)
-- [x] Restaurant image upload (optional)
-- [x] Street address field (required for driver pickup)
-- [x] Phone number field with validation (10 digits, first digit not 0)
-- [x] Add multiple phone numbers functionality
-- [x] Contact person field
-- [x] Email address field (required)
-- [x] Hours of operation for each day of week
+- [ ] Restaurant name field with unique validation
+- [ ] Restaurant image upload (optional)
+- [ ] Street address field (required for driver pickup)
+- [ ] Phone number field with validation (10 digits, first digit not 0)
+- [ ] Add multiple phone numbers functionality
+- [ ] Contact person field
+- [ ] Email address field (required)
+- [ ] Hours of operation for each day of week
 - [ ] Menu creation with multiple items
--  - [x] Item name
--  - [x] Item image upload (optional placeholder allowed)
--  - [x] Item price
--  - [x] Availability status (AVAILABLE/UNAVAILABLE)
-- [x] Submit registration to queue (not immediate approval)
+  - [ ] Item name
+  - [ ] Item image upload
+  - [ ] Item price
+  - [ ] Availability status (AVAILABLE/UNAVAILABLE)
+- [ ] Submit registration to queue (not immediate approval)
 - [ ] Admin approval workflow
 - [ ] Email credentials upon approval
-- [x] Mock credential notification for frontend demo
 
 #### Restaurant Portal
 - [ ] Login page with username/password
@@ -681,60 +680,60 @@ This architecture satisfies the requirement that "all three components can be de
 ### 2. Customer Module (No Login Required)
 
 #### Browse & Select
-- [x] Homepage with restaurant grid
+- [ ] Homepage with restaurant grid
 - [ ] Restaurant cards showing:
-  - [x] Restaurant name
+  - [ ] Restaurant name
   - [ ] Restaurant logo/image
-  - [x] Open/Closed status based on current time
-- [x] Restaurant selection functionality
-- [x] Menu browsing page showing:
-  - [x] All menu items
-  - [x] Item images
-  - [x] Item prices
-  - [x] Availability status
-  - [x] Quantity selector for each item
-  - [x] Add to cart functionality
+  - [ ] Open/Closed status based on current time
+- [ ] Restaurant selection functionality
+- [ ] Menu browsing page showing:
+  - [ ] All menu items
+  - [ ] Item images
+  - [ ] Item prices
+  - [ ] Availability status
+  - [ ] Quantity selector for each item
+  - [ ] Add to cart functionality
 
 #### Order & Billing
-- [x] Order confirmation page displaying:
-  - [x] Restaurant name
-  - [x] Current date and time
-  - [x] Ordered items with:
-    - [x] Item name
-    - [x] Price per item
-    - [x] Quantity
-    - [x] Subtotal per item
-  - [x] Total before service charge
-  - [x] Service charge (8.25%)
-  - [x] Tips input field
-    - [x] Percentage-based option
-    - [x] Fixed amount option
-  - [x] Grand total calculation
+- [ ] Order confirmation page displaying:
+  - [ ] Restaurant name
+  - [ ] Current date and time
+  - [ ] Ordered items with:
+    - [ ] Item name
+    - [ ] Price per item
+    - [ ] Quantity
+    - [ ] Subtotal per item
+  - [ ] Total before service charge
+  - [ ] Service charge (8.25%)
+  - [ ] Tips input field
+    - [ ] Percentage-based option
+    - [ ] Fixed amount option
+  - [ ] Grand total calculation
 
 #### Payment Processing
-- [x] Credit card payment form:
-  - [x] Card type selection (VISA, MasterCard, Discover, etc.)
-  - [x] Card number field (16 digits validation)
-  - [x] Cardholder first name (min 2 letters)
-  - [x] Cardholder last name (min 2 letters)
-  - [x] Billing address
-  - [x] Expiry date (month/year)
-  - [x] Security code (3 digits)
-- [x] Third-party payment verification (mocked)
+- [ ] Credit card payment form:
+  - [ ] Card type selection (VISA, MasterCard, Discover, etc.)
+  - [ ] Card number field (16 digits validation)
+  - [ ] Cardholder first name (min 2 letters)
+  - [ ] Cardholder last name (min 2 letters)
+  - [ ] Billing address
+  - [ ] Expiry date (month/year)
+  - [ ] Security code (3 digits)
+- [ ] Third-party payment verification
 - [ ] Payment confirmation
 
 #### Delivery Information
-- [x] Delivery address form:
-  - [x] Building number
-  - [x] Street name
-  - [x] Apartment/unit number (optional)
-  - [x] City
-  - [x] State
-  - [x] Contact person name
-  - [x] Contact phone (10 digits validation)
-- [x] Generate order number
-- [x] Calculate and display estimated delivery time
-- [x] Order confirmation page
+- [ ] Delivery address form:
+  - [ ] Building number
+  - [ ] Street name
+  - [ ] Apartment/unit number (optional)
+  - [ ] City
+  - [ ] State
+  - [ ] Contact person name
+  - [ ] Contact phone (10 digits validation)
+- [ ] Generate order number
+- [ ] Calculate and display estimated delivery time
+- [ ] Order confirmation page
 
 ### 3. Administrator Module
 
