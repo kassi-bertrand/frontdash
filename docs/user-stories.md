@@ -49,7 +49,7 @@ This document contains all user stories derived from the FrontDash project requi
 
 ### Restaurant Management
 
-#### STORY-R004: Restaurant Login
+#### ✅ STORY-R004: Restaurant Login
 **As a** restaurant user  
 **I want to** login to my account  
 **So that** I can manage my restaurant
@@ -58,7 +58,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Login with username and password (*"login"*)
 - Password must be masked/hidden (*"Passwords should never be displayed"*)
 
-#### STORY-R005: Change Password
+#### ✅ STORY-R005: Change Password
 **As a** restaurant user  
 **I want to** change my password  
 **So that** I can maintain account security
