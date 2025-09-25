@@ -26,7 +26,7 @@ This document contains all user stories derived from the FrontDash project requi
 - Must set operating hours for each day (*"hours of opening - must indicate the duration for each day of the week"*)
 - Registration goes to queue for admin approval (*"registration process by a restaurant only makes a request to FrontDash"*)
 
-#### STORY-R002: Menu Creation During Registration
+#### ✅ STORY-R002: Menu Creation During Registration
 **As a** restaurant owner  
 **I want to** create my menu during registration  
 **So that** customers can see what food I offer
