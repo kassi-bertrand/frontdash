@@ -17,7 +17,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { MenuPlaceholder } from '@/components/customer/menu-placeholder'
 
 const PHONE_DIGITS = 10
 
@@ -90,6 +92,7 @@ type Availability = 'AVAILABLE' | 'UNAVAILABLE'
 type MenuDraft = {
   name: string
   picture: File | null
+  description: string
   price: string
   availability: Availability
 }
@@ -123,6 +126,7 @@ const createInitialState = (): RestaurantDraft => ({
     {
       name: '',
       picture: null,
+      description: '',
       price: '',
       availability: 'AVAILABLE',
     },
@@ -163,6 +167,10 @@ const steps = [
     description: 'Set availability for every day of the week',
   },
   {
+    title: 'Menu items',
+    description: 'Add dishes you want customers to see first',
+  },
+  {
     title: 'Submit for approval',
     description: 'Review and send your registration request',
   },
@@ -198,6 +206,34 @@ export default function RegisterRestaurant() {
 
   const handleFieldChange = (field: keyof RestaurantDraft, value: unknown) => {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleMenuChange = (
+    index: number,
+    field: keyof MenuDraft,
+    value: string | File | null,
+  ) => {
+    const nextMenu = [...form.menu]
+    nextMenu[index] = {
+      ...nextMenu[index],
+      [field]: value,
+    }
+    handleFieldChange('menu', nextMenu)
+  }
+
+  const addMenuItem = () => {
+    handleFieldChange('menu', [
+      ...form.menu,
+      { name: '', picture: null, description: '', price: '', availability: 'AVAILABLE' },
+    ])
+  }
+
+  const removeMenuItem = (index: number) => {
+    if (form.menu.length === 1) return
+    handleFieldChange(
+      'menu',
+      form.menu.filter((_, i) => i !== index),
+    )
   }
 
   const handlePictureUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -337,6 +373,23 @@ export default function RegisterRestaurant() {
       }
     }
 
+    if (currentStep === 2) {
+      if (form.menu.length === 0) {
+        stepErrors.menu = 'Add at least one menu item.'
+      }
+
+      form.menu.forEach((item, index) => {
+        if (!item.name.trim()) {
+          stepErrors[`menu-name-${index}`] = 'Item name is required.'
+        }
+
+        const priceValue = Number.parseFloat(item.price)
+        if (!item.price || Number.isNaN(priceValue) || priceValue <= 0) {
+          stepErrors[`menu-price-${index}`] = 'Enter a valid price.'
+        }
+      })
+    }
+
     setErrors(stepErrors)
     return Object.keys(stepErrors).length === 0
   }
@@ -350,8 +403,8 @@ export default function RegisterRestaurant() {
   const goToPrevious = () => setStep((prev) => Math.max(prev - 1, 0))
 
   const handleSubmit = () => {
-    if (!validateStep(1)) {
-      setStep(1)
+    if (!validateStep(2)) {
+      setStep(2)
       return
     }
 
@@ -734,6 +787,151 @@ export default function RegisterRestaurant() {
               <div className="space-y-6">
                 <section className="space-y-2">
                   <h3 className="text-lg font-semibold text-neutral-900">
+                    Add your signature dishes
+                  </h3>
+                  <p className="text-sm text-neutral-600">
+                    Include at least one menu item so customers know what to expect when
+                    your restaurant goes live.
+                  </p>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addMenuItem}
+                    >
+                      Add menu item
+                    </Button>
+                  </div>
+                </section>
+
+                <div className="space-y-4">
+                  {form.menu.map((item, index) => (
+                    <div
+                      key={index}
+                      className="grid gap-4 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+                    >
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`menu-name-${index}`}>Item name *</Label>
+                          <Input
+                            id={`menu-name-${index}`}
+                            value={item.name}
+                            onChange={(event) =>
+                              handleMenuChange(index, 'name', event.target.value)
+                            }
+                            placeholder="Lemon herb roasted chicken"
+                            aria-invalid={Boolean(errors[`menu-name-${index}`])}
+                          />
+                          {errors[`menu-name-${index}`] && (
+                            <p className="text-xs text-red-600">
+                              {errors[`menu-name-${index}`]}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`menu-description-${index}`}>
+                            Description (optional)
+                          </Label>
+                          <Textarea
+                            id={`menu-description-${index}`}
+                            value={item.description}
+                            onChange={(event) =>
+                              handleMenuChange(index, 'description', event.target.value)
+                            }
+                            placeholder="Charred lemon, thyme jus, roasted vegetables"
+                          />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor={`menu-price-${index}`}>Price *</Label>
+                            <Input
+                              id={`menu-price-${index}`}
+                              value={item.price}
+                              onChange={(event) =>
+                                handleMenuChange(index, 'price', event.target.value)
+                              }
+                              placeholder="24.00"
+                              aria-invalid={Boolean(errors[`menu-price-${index}`])}
+                            />
+                            {errors[`menu-price-${index}`] && (
+                              <p className="text-xs text-red-600">
+                                {errors[`menu-price-${index}`]}
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`menu-availability-${index}`}>
+                              Availability
+                            </Label>
+                            <select
+                              id={`menu-availability-${index}`}
+                              value={item.availability}
+                              onChange={(event) =>
+                                handleMenuChange(
+                                  index,
+                                  'availability',
+                                  event.target.value,
+                                )
+                              }
+                              className="h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm"
+                            >
+                              <option value="AVAILABLE">Available</option>
+                              <option value="UNAVAILABLE">Unavailable</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center gap-3">
+                        <label
+                          htmlFor={`menu-picture-${index}`}
+                          className="flex h-32 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white text-xs font-medium text-neutral-500 hover:border-neutral-400"
+                        >
+                          {item.picture ? (
+                            <FilePreview
+                              file={item.picture}
+                              alt={item.name || 'Menu item'}
+                            />
+                          ) : (
+                            <MenuPlaceholder />
+                          )}
+                        </label>
+                        <input
+                          id={`menu-picture-${index}`}
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) =>
+                            handleMenuChange(
+                              index,
+                              'picture',
+                              event.target.files?.[0] ?? null,
+                            )
+                          }
+                          className="sr-only"
+                        />
+                        {form.menu.length > 1 ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-neutral-500 hover:text-red-600"
+                            onClick={() => removeMenuItem(index)}
+                          >
+                            Remove item
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                  {errors.menu && <p className="text-xs text-red-600">{errors.menu}</p>}
+                </div>
+              </div>
+            ) : null}
+
+            {step === 3 ? (
+              <div className="space-y-6">
+                <section className="space-y-2">
+                  <h3 className="text-lg font-semibold text-neutral-900">
                     Review before you submit
                   </h3>
                   <p className="text-sm text-neutral-600">
@@ -742,41 +940,69 @@ export default function RegisterRestaurant() {
                   </p>
                 </section>
 
-                <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5">
-                  <div className="space-y-1 text-sm">
-                    <p className="font-semibold text-neutral-900">
-                      {form.name || 'Restaurant name'}
-                    </p>
-                    <p className="text-neutral-600">
-                      {form.buildingNumber} {form.streetName}, {form.city}{' '}
-                      {form.state && `(${form.state})`}
-                    </p>
+                <div className="space-y-4">
+                  <div className="grid gap-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5">
+                    <div className="space-y-1 text-sm">
+                      <p className="font-semibold text-neutral-900">
+                        {form.name || 'Restaurant name'}
+                      </p>
+                      <p className="text-neutral-600">
+                        {form.buildingNumber} {form.streetName}, {form.city}{' '}
+                        {form.state && `(${form.state})`}
+                      </p>
+                    </div>
+                    <div className="text-sm text-neutral-600">
+                      <p className="font-semibold text-neutral-900">Primary contact</p>
+                      <p>{form.contactPerson}</p>
+                      <p>{form.email}</p>
+                      <p>
+                        {form.phones.map((phone) => (
+                          <span key={phone} className="mr-2">
+                            {phone}
+                          </span>
+                        ))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">
+                        Hours snapshot
+                      </p>
+                      <ul className="mt-2 grid gap-1 text-xs text-neutral-600 sm:grid-cols-2">
+                        {form.hours.map((hour) => (
+                          <li key={hour.day}>
+                            <span className="font-medium text-neutral-900">
+                              {hour.day}:
+                            </span>{' '}
+                            {hour.closed
+                              ? 'Closed'
+                              : `${hour.open || '—'} to ${hour.close || '—'}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <div className="text-sm text-neutral-600">
-                    <p className="font-semibold text-neutral-900">Primary contact</p>
-                    <p>{form.contactPerson}</p>
-                    <p>{form.email}</p>
-                    <p>
-                      {form.phones.map((phone) => (
-                        <span key={phone} className="mr-2">
-                          {phone}
-                        </span>
-                      ))}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-neutral-900">
-                      Hours snapshot
-                    </p>
-                    <ul className="mt-2 grid gap-1 text-xs text-neutral-600 sm:grid-cols-2">
-                      {form.hours.map((hour) => (
-                        <li key={hour.day}>
-                          <span className="font-medium text-neutral-900">
-                            {hour.day}:
-                          </span>{' '}
-                          {hour.closed
-                            ? 'Closed'
-                            : `${hour.open || '—'} to ${hour.close || '—'}`}
+                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5">
+                    <p className="text-sm font-semibold text-neutral-900">Menu preview</p>
+                    <ul className="mt-3 space-y-2 text-xs text-neutral-600">
+                      {form.menu.map((item, index) => (
+                        <li
+                          key={index}
+                          className="flex items-start justify-between gap-3"
+                        >
+                          <div>
+                            <p className="font-medium text-neutral-900">
+                              {item.name || 'Unnamed item'}
+                            </p>
+                            {item.description ? <p>{item.description}</p> : null}
+                          </div>
+                          <div className="text-right text-neutral-500">
+                            <p>
+                              {item.availability === 'AVAILABLE'
+                                ? 'Available'
+                                : 'Unavailable'}
+                            </p>
+                            <p>{item.price ? `$${item.price}` : '$0.00'}</p>
+                          </div>
                         </li>
                       ))}
                     </ul>
