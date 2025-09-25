@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation'
 
-import { PaymentForm } from '@/components/customer/payment-form'
+import { OrderConfirmation } from '@/components/customer/order-confirmation'
 import { demoCustomerRestaurants } from '@/lib/demo-restaurants'
 
-type PaymentPageProps = {
+type ConfirmationPageProps = {
   params: Promise<{ slug: string }>
 }
 
@@ -11,7 +11,7 @@ export function generateStaticParams() {
   return demoCustomerRestaurants.map((restaurant) => ({ slug: restaurant.slug }))
 }
 
-export default async function PaymentPage({ params }: PaymentPageProps) {
+export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
   const { slug } = await params
   const restaurantExists = demoCustomerRestaurants.some(
     (restaurant) => restaurant.slug === slug,
@@ -23,8 +23,8 @@ export default async function PaymentPage({ params }: PaymentPageProps) {
 
   return (
     <div className="min-h-screen bg-neutral-50 py-12">
-      <main className="mx-auto w-full max-w-3xl px-6">
-        <PaymentForm restaurantSlug={slug} />
+      <main className="mx-auto w-full max-w-5xl px-6">
+        <OrderConfirmation restaurantSlug={slug} />
       </main>
     </div>
   )
