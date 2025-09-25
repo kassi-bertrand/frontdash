@@ -633,22 +633,23 @@ This architecture satisfies the requirement that "all three components can be de
 ### 1. Restaurant Module
 
 #### Registration System
-- [ ] Restaurant name field with unique validation
-- [ ] Restaurant image upload (optional)
-- [ ] Street address field (required for driver pickup)
-- [ ] Phone number field with validation (10 digits, first digit not 0)
-- [ ] Add multiple phone numbers functionality
-- [ ] Contact person field
-- [ ] Email address field (required)
-- [ ] Hours of operation for each day of week
+- [x] Restaurant name field with unique validation (UI messaging)
+- [x] Restaurant image upload (optional)
+- [x] Street address field (required for driver pickup)
+- [x] Phone number field with validation (10 digits, first digit not 0)
+- [x] Add multiple phone numbers functionality
+- [x] Contact person field
+- [x] Email address field (required)
+- [x] Hours of operation for each day of week
 - [ ] Menu creation with multiple items
-  - [ ] Item name
-  - [ ] Item image upload
-  - [ ] Item price
-  - [ ] Availability status (AVAILABLE/UNAVAILABLE)
-- [ ] Submit registration to queue (not immediate approval)
+-  - [x] Item name
+-  - [x] Item image upload (optional placeholder allowed)
+-  - [x] Item price
+-  - [x] Availability status (AVAILABLE/UNAVAILABLE)
+- [x] Submit registration to queue (not immediate approval)
 - [ ] Admin approval workflow
 - [ ] Email credentials upon approval
+- [x] Mock credential notification for frontend demo
 
 #### Restaurant Portal
 - [ ] Login page with username/password
