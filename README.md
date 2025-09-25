@@ -649,6 +649,7 @@ This architecture satisfies the requirement that "all three components can be de
 - [x] Submit registration to queue (not immediate approval)
 - [ ] Admin approval workflow
 - [ ] Email credentials upon approval
+- [x] Mock credential notification for frontend demo
 
 #### Restaurant Portal
 - [ ] Login page with username/password

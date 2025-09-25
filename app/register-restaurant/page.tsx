@@ -195,6 +195,10 @@ export default function RegisterRestaurant() {
   const [phoneErrors, setPhoneErrors] = useState<string[]>([''])
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [approvalStatus, setApprovalStatus] = useState<'pending' | 'approved'>('pending')
+  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(
+    null,
+  )
 
   const resetForm = () => {
     setForm(createInitialState())
@@ -202,6 +206,8 @@ export default function RegisterRestaurant() {
     setPhoneErrors([''])
     setStep(0)
     setSubmitted(false)
+    setApprovalStatus('pending')
+    setCredentials(null)
   }
 
   const handleFieldChange = (field: keyof RestaurantDraft, value: unknown) => {
@@ -412,7 +418,22 @@ export default function RegisterRestaurant() {
     setTimeout(() => {
       setIsSubmitting(false)
       setSubmitted(true)
+      setApprovalStatus('pending')
+      setCredentials(null)
     }, 1200)
+  }
+
+  const generateCredentials = () => {
+    const safeName = form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const suffix = Math.random().toString(36).slice(2, 6)
+    const username = `${safeName || 'frontdash-restaurant'}-${suffix}`
+    const password = Math.random().toString(36).slice(2, 10).toUpperCase()
+    setCredentials({ username, password })
+  }
+
+  const handleSimulateApproval = () => {
+    generateCredentials()
+    setApprovalStatus('approved')
   }
 
   const renderStepIndicator = () => (
@@ -438,8 +459,15 @@ export default function RegisterRestaurant() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-orange-50 py-16">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 text-center">
-          <Badge className="mx-auto w-fit rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-sm font-semibold text-emerald-700">
-            Registration pending review
+          <Badge
+            className={cn(
+              'mx-auto w-fit rounded-full px-4 py-1 text-sm font-semibold uppercase tracking-[0.18em]',
+              approvalStatus === 'approved'
+                ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border border-amber-200 bg-amber-50 text-amber-700',
+            )}
+          >
+            {approvalStatus === 'approved' ? 'Approved' : 'Registration pending review'}
           </Badge>
           <Card className="border border-neutral-200 bg-white/90 shadow-xl">
             <CardHeader>
@@ -447,17 +475,52 @@ export default function RegisterRestaurant() {
                 Thanks for registering!
               </CardTitle>
               <CardDescription className="text-base text-neutral-600">
-                We’ve routed your application to the FrontDash admin team. Expect an email
-                with credentials after approval.
+                {approvalStatus === 'approved'
+                  ? 'We approved your application and emailed shared credentials to your contact address.'
+                  : 'We’ve routed your application to the FrontDash admin team. You will receive credentials as soon as it is approved.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-neutral-600">
-              <p>
-                Need to make changes? You can resubmit the form at any time before
-                approval. A staff member will reach out if anything looks off.
-              </p>
+              {approvalStatus === 'approved' ? (
+                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-left">
+                  <p className="text-sm font-semibold text-neutral-900">Shared credentials</p>
+                  <p className="text-xs text-neutral-500">
+                    Delivered to {form.email}. Share these only with authorized staff.
+                  </p>
+                  <dl className="mt-3 space-y-2 text-sm text-neutral-700">
+                    <div className="flex items-center justify-between gap-3">
+                      <dt>Username</dt>
+                      <dd className="font-mono text-neutral-900">{credentials?.username}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt>Password</dt>
+                      <dd className="font-mono text-neutral-900">{credentials?.password}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ) : (
+                <>
+                  <p>
+                    Need to make changes? You can resubmit the form at any time before approval.
+                    A staff member will reach out if anything looks off.
+                  </p>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-amber-800">
+                    <p className="text-sm font-semibold">Mock approval for demo</p>
+                    <p className="text-xs">
+                      In the production app, an admin review triggers the real credential email.
+                      Use the button below to simulate that step while we’re still on a mocked
+                      backend.
+                    </p>
+                  </div>
+                </>
+              )}
             </CardContent>
             <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              {approvalStatus === 'pending' ? (
+                <Button variant="outline" onClick={handleSimulateApproval} aria-live="polite">
+                  Simulate admin approval
+                </Button>
+              ) : null}
               <Button variant="outline" onClick={resetForm}>
                 Register another restaurant
               </Button>

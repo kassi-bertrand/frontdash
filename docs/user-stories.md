@@ -38,7 +38,7 @@ This document contains all user stories derived from the FrontDash project requi
 - For each item, must set price (*"price of the item"*)
 - For each item, must set availability status (*"availability - AVAILABLE or UNAVAILABLE"*)
 
-#### STORY-R003: Receive Login Credentials
+#### ✅ STORY-R003: Receive Login Credentials
 **As a** restaurant owner  
 **I want to** receive login credentials after approval  
 **So that** I can access my restaurant account
