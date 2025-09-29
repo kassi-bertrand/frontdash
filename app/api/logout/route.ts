@@ -2,6 +2,6 @@ import { NextResponse } from "next/server";
 
 export async function POST() {
   const res = NextResponse.json({ success: true });
-  res.cookies.delete("fd_role", { path: "/" });
+  res.cookies.delete({ name: "fd_role", path: "/" });
   return res;
 }
