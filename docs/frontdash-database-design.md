@@ -498,6 +498,16 @@ This diagram illustrates the heart of the FrontDash business model, showing how 
 
 ```mermaid
 erDiagram
+    AUTH_ACCOUNTS {
+        int auth_id PK
+        string username UK
+        string password_hash
+        enum account_status
+        enum account_role
+        timestamp created_at
+        timestamp last_login_at
+    }
+
     RESTAURANTS {
         int restaurant_id PK
         string restaurant_name UK
@@ -510,13 +520,11 @@ erDiagram
         string secondary_phone
         string contact_person_name
         string email_address UK
-        string username UK
-        string password_hash
-        enum account_status
         timestamp created_at
         timestamp updated_at
         timestamp approved_at
         int approved_by FK
+        int auth_id FK
     }
     
     RESTAURANT_OPERATING_HOURS {
@@ -603,19 +611,22 @@ erDiagram
         int card_expiry_year
         string cvv_encrypted
         int loyalty_points
-        enum account_status
         timestamp created_at
         timestamp approved_at
         int approved_by FK
+        int auth_id FK
     }
     
-    %% Core Business Relationships
-    RESTAURANTS ||--o{ RESTAURANT_OPERATING_HOURS : "has operating hours"
-    RESTAURANTS ||--o{ MENU_ITEMS : "offers menu items"
-    RESTAURANTS ||--o{ ORDERS : "receives orders"
-    ORDERS ||--o{ ORDER_ITEMS : "contains order items"
-    MENU_ITEMS ||--o{ ORDER_ITEMS : "ordered as items"
-    CUSTOMERS ||--o{ ORDERS : "places orders"
+    AUTH_ACCOUNTS ||--o{ RESTAURANTS : authenticates
+    AUTH_ACCOUNTS ||--o{ CUSTOMERS : authenticates
+
+    RESTAURANTS ||--o{ RESTAURANT_OPERATING_HOURS : has
+    RESTAURANTS ||--o{ MENU_ITEMS : offers
+    RESTAURANTS ||--o{ ORDERS : receives
+    CUSTOMERS ||--o{ ORDERS : places
+    ORDERS ||--o{ ORDER_ITEMS : contains
+    MENU_ITEMS ||--o{ ORDER_ITEMS : ordered_as
+
 ```
 
 ### 5.2 User Management and Administration Diagram
@@ -628,9 +639,6 @@ erDiagram
         int admin_id PK
         string username UK
         string password_hash
-        string first_name
-        string last_name
-        string email_address
         timestamp last_login_at
         timestamp created_at
         boolean is_active
@@ -689,13 +697,11 @@ erDiagram
         enum order_status
     }
     
-    %% Administrative Relationships
     ADMINISTRATORS ||--o{ STAFF_ACCOUNTS : "creates and manages"
     ADMINISTRATORS ||--o{ DRIVERS : "hires and manages"
     ADMINISTRATORS ||--o{ RESTAURANTS : "approves registrations"
     ADMINISTRATORS ||--o{ CUSTOMERS : "approves loyalty accounts"
     
-    %% Operational Relationships
     STAFF_ACCOUNTS ||--o{ ORDERS : "processes orders"
     DRIVERS ||--o{ ORDERS : "delivers orders"
     DRIVERS ||--o| ORDERS : "current assignment"
