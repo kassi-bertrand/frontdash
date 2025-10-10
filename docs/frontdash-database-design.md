@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document presents the complete database design for the FrontDash food delivery web application. The design supports a three-sided marketplace connecting restaurants, customers, and delivery operations through a queue-based processing system with role-based access control.
+This document presents the complete database design for the FrontDash food delivery web application. The design supports a three-sided marketplace connecting restaurants, customers, and delivery operations through status-driven workflows with role-based access control.
 
 ## Table of Contents
 
@@ -12,10 +12,9 @@ This document presents the complete database design for the FrontDash food deliv
 4. [Detailed Table Schemas](#detailed-table-schemas)
 5. [Entity Relationship Diagram](#entity-relationship-diagram)
 6. [Relationship Documentation](#relationship-documentation)
-7. [Queue Management Strategy](#queue-management-strategy)
-8. [Security Implementation](#security-implementation)
-9. [Bonus Features Integration](#bonus-features-integration)
-10. [Constraints and Business Rules](#constraints-and-business-rules)
+7. [Security Implementation](#security-implementation)
+8. [Bonus Features Integration](#bonus-features-integration)
+9. [Constraints and Business Rules](#constraints-and-business-rules)
 
 ## Project Overview
 
@@ -29,7 +28,7 @@ FrontDash is a comprehensive food delivery platform facilitating connections bet
 - **Drivers**: Execute deliveries and report completion metrics
 
 ### Core Business Requirements
-- Queue-based processing for registrations, withdrawals, and orders
+- Status-driven processing for registrations, withdrawals, and orders
 - Independent component operation with concurrent usage capability
 - Real-time delivery time estimation and performance tracking
 - Comprehensive audit trails and security implementation
@@ -37,7 +36,7 @@ FrontDash is a comprehensive food delivery platform facilitating connections bet
 
 ## Database Architecture
 
-The database employs a relational model optimized for ACID compliance and concurrent operations. The design separates operational data from queue management systems while maintaining referential integrity across all components.
+The database employs a relational model optimized for ACID compliance and concurrent operations. The design maintains normalized operational data while relying on status transitions within core tables for approvals and workflow progression.
 
 ### Design Principles
 - **Normalization**: Tables normalized to 3NF to eliminate redundancy
@@ -56,13 +55,7 @@ The database employs a relational model optimized for ACID compliance and concur
 5. **Customers** - Optional accounts for loyalty program participation
 6. **Staff Accounts** - FrontDash employees processing orders and operations
 7. **Drivers** - Delivery personnel executing order fulfillment
-8. **Administrators** - Platform managers with full system access
-
-### Queue Management Entities
-1. **Restaurant Registration Queue** - Pending restaurant applications
-2. **Restaurant Withdrawal Queue** - Withdrawal requests awaiting approval
-3. **Order Processing Queue** - Customer orders awaiting staff assignment
-4. **Customer Registration Queue** - Loyalty program applications (bonus feature)
+8. **Account Logins** - Shared credential store for staff, restaurant, and loyalty logins
 
 ### Supporting Entities
 1. **Order Status History** - Audit trail for order state changes
@@ -82,17 +75,14 @@ CREATE TABLE restaurants (
     city VARCHAR(100) NOT NULL,
     state VARCHAR(50) NOT NULL,
     zip_code VARCHAR(10) NOT NULL,
-    primary_phone VARCHAR(10) NOT NULL,
-    secondary_phone VARCHAR(10),
+    phone_number VARCHAR(10) NOT NULL,
     contact_person_name VARCHAR(100) NOT NULL,
     email_address VARCHAR(255) NOT NULL UNIQUE,
-    username VARCHAR(50) UNIQUE,
-    password_hash VARCHAR(255),
+    account_login_id INT UNIQUE REFERENCES account_logins(account_login_id),
     account_status ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'WITHDRAWN') DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    approved_at TIMESTAMP NULL,
-    approved_by INT REFERENCES administrators(admin_id)
+    approved_at TIMESTAMP NULL
 );
 ```
 
@@ -100,6 +90,7 @@ CREATE TABLE restaurants (
 - Restaurant names must be unique across the platform
 - Phone numbers validated as 10 digits with first digit non-zero
 - Email addresses must be unique and properly formatted
+- Shared login credentials are stored in `account_logins` via `account_login_id`
 - Account status tracks the restaurant's current platform standing
 
 ### 2. Restaurant Operating Hours Table
@@ -164,10 +155,10 @@ CREATE TABLE customers (
     card_expiry_year INT CHECK (card_expiry_year >= YEAR(CURDATE())),
     cvv_encrypted VARCHAR(255),
     loyalty_points INT DEFAULT 0 CHECK (loyalty_points >= 0),
+    account_login_id INT UNIQUE REFERENCES account_logins(account_login_id),
     account_status ENUM('PENDING', 'ACTIVE', 'SUSPENDED') DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    approved_at TIMESTAMP NULL,
-    approved_by INT REFERENCES administrators(admin_id)
+    approved_at TIMESTAMP NULL
 );
 ```
 
@@ -175,8 +166,29 @@ CREATE TABLE customers (
 - Customer numbers are system-generated unique identifiers
 - Credit card information stored with encryption
 - Loyalty points cannot be negative
+- Loyalty members receive linked credentials in `account_logins` (optional)
 
-### 5. Orders Table
+### 5. Auth Accounts Table
+
+```sql
+CREATE TABLE account_logins (
+    account_login_id SERIAL PRIMARY KEY,
+    login_identifier VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    account_role ENUM('STAFF', 'RESTAURANT', 'CUSTOMER') NOT NULL,
+    account_state ENUM('ACTIVE', 'LOCKED', 'DISABLED') DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TIMESTAMP
+);
+```
+
+**Business Rules**:
+- Login identifiers are unique across all account types
+- Password hashes are stored using bcrypt (minimum 12 rounds)
+- Account state controls authentication availability (locks, disables, etc.)
+- The single FrontDash administrator account is hard-coded in application configuration and does not appear in this table
+
+### 6. Orders Table
 
 ```sql
 CREATE TABLE orders (
@@ -239,7 +251,7 @@ CREATE TABLE orders (
 - Service charge calculated as 8.25% of subtotal
 - Grand total must equal subtotal + service charge + tip - loyalty discount
 
-### 6. Order Items Table
+### 7. Order Items Table
 
 ```sql
 CREATE TABLE order_items (
@@ -260,33 +272,30 @@ CREATE TABLE order_items (
 - Subtotal calculated as item_price × quantity
 - Item name and price captured for historical accuracy
 
-### 7. Staff Accounts Table
+### 8. Staff Accounts Table
 
 ```sql
 CREATE TABLE staff_accounts (
     staff_id SERIAL PRIMARY KEY,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
-    full_name VARCHAR(101) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED UNIQUE,
     username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
     email_address VARCHAR(255),
     account_status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') DEFAULT 'ACTIVE',
     is_first_login BOOLEAN DEFAULT TRUE,
     last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by INT NOT NULL REFERENCES administrators(admin_id),
+    account_login_id INT UNIQUE REFERENCES account_logins(account_login_id),
     INDEX idx_username (username),
     INDEX idx_status (account_status)
 );
 ```
 
 **Business Rules**:
-- Full names must be unique across all staff
 - Username format: lastname + 2 digits (auto-generated)
-- Initial password auto-generated, must be changed on first login
+- Initial password is auto-generated within `account_logins` and must be changed on first login
 
-### 8. Drivers Table
+### 9. Drivers Table
 
 ```sql
 CREATE TABLE drivers (
@@ -298,7 +307,6 @@ CREATE TABLE drivers (
     total_deliveries INT DEFAULT 0,
     average_delivery_time DECIMAL(5,2),
     hired_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    hired_by INT NOT NULL REFERENCES administrators(admin_id),
     INDEX idx_driver_status (driver_status)
 );
 ```
@@ -308,144 +316,7 @@ CREATE TABLE drivers (
 - Only one driver can be assigned to an order at a time
 - Status tracking for efficient order assignment
 
-### 9. Administrators Table
-
-```sql
-CREATE TABLE administrators (
-    admin_id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL DEFAULT 'admin',
-    password_hash VARCHAR(255) NOT NULL,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    email_address VARCHAR(255) NOT NULL,
-    last_login_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
-);
-```
-
-**Business Rules**:
-- Single hardcoded administrator account
-- Username defaults to 'admin'
-- Account cannot be deleted, only deactivated
-
-### 10. Restaurant Registration Queue Table
-
-```sql
-CREATE TABLE restaurant_registration_queue (
-    queue_id SERIAL PRIMARY KEY,
-    restaurant_name VARCHAR(255) NOT NULL,
-    restaurant_image_url VARCHAR(500),
-    street_address TEXT NOT NULL,
-    city VARCHAR(100) NOT NULL,
-    state VARCHAR(50) NOT NULL,
-    zip_code VARCHAR(10) NOT NULL,
-    primary_phone VARCHAR(10) NOT NULL,
-    secondary_phone VARCHAR(10),
-    contact_person_name VARCHAR(100) NOT NULL,
-    email_address VARCHAR(255) NOT NULL,
-    
-    -- Operating Hours JSON
-    operating_hours JSON NOT NULL,
-    
-    -- Initial Menu Items JSON
-    initial_menu_items JSON NOT NULL,
-    
-    -- Queue Management
-    queue_status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
-    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    reviewed_at TIMESTAMP,
-    reviewed_by INT REFERENCES administrators(admin_id),
-    review_notes TEXT,
-    
-    -- Link to created restaurant (if approved)
-    created_restaurant_id INT REFERENCES restaurants(restaurant_id),
-    
-    INDEX idx_queue_status (queue_status),
-    INDEX idx_submission_date (submitted_at)
-);
-```
-
-**Business Rules**:
-- Queue processed in FIFO order based on submitted_at
-- Operating hours and menu items stored as JSON for flexibility
-- Links to created restaurant record upon approval
-
-### 11. Restaurant Withdrawal Queue Table
-
-```sql
-CREATE TABLE restaurant_withdrawal_queue (
-    withdrawal_id SERIAL PRIMARY KEY,
-    restaurant_id INT NOT NULL REFERENCES restaurants(restaurant_id),
-    withdrawal_reason TEXT NOT NULL,
-    financial_status ENUM('SETTLED', 'PENDING_PAYMENT', 'DISPUTED') NOT NULL,
-    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    reviewed_at TIMESTAMP,
-    reviewed_by INT REFERENCES administrators(admin_id),
-    review_status ENUM('PENDING', 'APPROVED', 'DENIED') DEFAULT 'PENDING',
-    review_notes TEXT,
-    INDEX idx_review_status (review_status),
-    INDEX idx_request_date (requested_at)
-);
-```
-
-**Business Rules**:
-- Restaurants can only have one pending withdrawal request
-- Financial status must be verified before approval
-- Approval results in restaurant account deactivation
-
-### 12. Order Processing Queue Table
-
-```sql
-CREATE TABLE order_processing_queue (
-    queue_id SERIAL PRIMARY KEY,
-    order_id INT NOT NULL UNIQUE REFERENCES orders(order_id),
-    priority_level INT DEFAULT 1,
-    queued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    assigned_to_staff INT REFERENCES staff_accounts(staff_id),
-    processing_started_at TIMESTAMP,
-    processing_status ENUM('QUEUED', 'PROCESSING', 'COMPLETED', 'CANCELLED') DEFAULT 'QUEUED',
-    INDEX idx_queue_order (priority_level DESC, queued_at ASC),
-    INDEX idx_staff_assignment (assigned_to_staff)
-);
-```
-
-**Business Rules**:
-- Orders processed in FIFO order unless priority assigned
-- Only one staff member can process an order at a time
-- Queue entry removed upon order completion
-
-### 13. Customer Registration Queue Table (Bonus Feature)
-
-```sql
-CREATE TABLE customer_registration_queue (
-    queue_id SERIAL PRIMARY KEY,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    email_address VARCHAR(255) NOT NULL,
-    phone_number VARCHAR(10) NOT NULL,
-    default_street_address TEXT NOT NULL,
-    default_city VARCHAR(100) NOT NULL,
-    default_state VARCHAR(50) NOT NULL,
-    default_zip_code VARCHAR(10) NOT NULL,
-    credit_card_number_encrypted VARCHAR(255) NOT NULL,
-    card_expiry_month INT NOT NULL,
-    card_expiry_year INT NOT NULL,
-    cvv_encrypted VARCHAR(255) NOT NULL,
-    
-    queue_status ENUM('PENDING', 'APPROVED', 'REJECTED') DEFAULT 'PENDING',
-    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    reviewed_at TIMESTAMP,
-    reviewed_by INT REFERENCES administrators(admin_id),
-    
-    created_customer_id INT REFERENCES customers(customer_id),
-    
-    INDEX idx_queue_status (queue_status),
-    INDEX idx_submission_date (submitted_at)
-);
-```
-
-### 14. Order Status History Table
+### 10. Order Status History Table
 
 ```sql
 CREATE TABLE order_status_history (
@@ -460,7 +331,7 @@ CREATE TABLE order_status_history (
 );
 ```
 
-### 15. Delivery Performance Metrics Table
+### 11. Delivery Performance Metrics Table
 
 ```sql
 CREATE TABLE delivery_performance_metrics (
@@ -492,414 +363,251 @@ CREATE TABLE delivery_performance_metrics (
 
 To ensure readability and proper PDF formatting, the complete database design is presented through four focused diagrams, each highlighting a specific domain area of the FrontDash system.
 
-### 5.1 Core Business Entities Diagram
-
-This diagram illustrates the heart of the FrontDash business model, showing how restaurants, their menus, and customer orders interconnect to form the primary transaction flow.
+### 5.1 Accounts & Roles
 
 ```mermaid
 erDiagram
-    AUTH_ACCOUNTS {
-        int auth_id PK
-        string username UK
-        string password_hash
-        enum account_status
-        enum account_role
-        timestamp created_at
-        timestamp last_login_at
-    }
+  ACCOUNT_LOGINS {
+    int account_login_id PK
+    string login_identifier UK
+    string password_hash
+    enum account_role
+    enum account_state
+    timestamp created_at
+    timestamp last_login_at
+  }
 
-    RESTAURANTS {
-        int restaurant_id PK
-        string restaurant_name UK
-        string restaurant_image_url
-        string street_address
-        string city
-        string state
-        string zip_code
-        string primary_phone
-        string secondary_phone
-        string contact_person_name
-        string email_address UK
-        timestamp created_at
-        timestamp updated_at
-        timestamp approved_at
-        int approved_by FK
-        int auth_id FK
-    }
-    
-    RESTAURANT_OPERATING_HOURS {
-        int hours_id PK
-        int restaurant_id FK
-        enum day_of_week
-        time opening_time
-        time closing_time
-        boolean is_closed
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    MENU_ITEMS {
-        int item_id PK
-        int restaurant_id FK
-        string item_name
-        text item_description
-        string item_image_url
-        decimal item_price
-        enum availability_status
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    ORDERS {
-        int order_id PK
-        string order_number UK
-        int restaurant_id FK
-        int customer_id FK
-        string customer_first_name
-        string customer_last_name
-        string customer_email
-        string customer_phone
-        string delivery_street_address
-        string delivery_city
-        string delivery_state
-        string delivery_zip_code
-        string delivery_contact_name
-        string delivery_contact_phone
-        decimal subtotal_amount
-        decimal service_charge
-        decimal tip_amount
-        decimal loyalty_discount
-        decimal grand_total
-        string payment_card_type
-        string payment_card_last_four
-        enum payment_status
-        enum order_status
-        timestamp estimated_delivery_time
-        timestamp actual_delivery_time
-        int delivery_duration_minutes
-        int assigned_staff_id FK
-        int assigned_driver_id FK
-        timestamp created_at
-        timestamp confirmed_at
-        timestamp completed_at
-    }
-    
-    ORDER_ITEMS {
-        int order_item_id PK
-        int order_id FK
-        int menu_item_id FK
-        string item_name
-        decimal item_price
-        int quantity
-        decimal subtotal
-        timestamp created_at
-    }
-    
-    CUSTOMERS {
-        int customer_id PK
-        string customer_number UK
-        string first_name
-        string last_name
-        string email_address UK
-        string phone_number
-        string default_street_address
-        string default_city
-        string default_state
-        string default_zip_code
-        string credit_card_number_encrypted
-        int card_expiry_month
-        int card_expiry_year
-        string cvv_encrypted
-        int loyalty_points
-        timestamp created_at
-        timestamp approved_at
-        int approved_by FK
-        int auth_id FK
-    }
-    
-    AUTH_ACCOUNTS ||--o{ RESTAURANTS : authenticates
-    AUTH_ACCOUNTS ||--o{ CUSTOMERS : authenticates
+  STAFF_MEMBERS {
+    int staff_id PK
+    string first_name
+    string last_name
+    string username UK
+    enum account_status
+    boolean is_first_login
+    timestamp created_at
+    int account_login_id FK
+  }
 
-    RESTAURANTS ||--o{ RESTAURANT_OPERATING_HOURS : has
-    RESTAURANTS ||--o{ MENU_ITEMS : offers
-    RESTAURANTS ||--o{ ORDERS : receives
-    CUSTOMERS ||--o{ ORDERS : places
-    ORDERS ||--o{ ORDER_ITEMS : contains
-    MENU_ITEMS ||--o{ ORDER_ITEMS : ordered_as
+  RESTAURANTS {
+    int restaurant_id PK
+    string restaurant_name UK
+    string email_address UK
+    string street_address
+    string city
+    string state
+    string zip_code
+    string phone_number
+    string contact_person_name
+    enum account_status
+    timestamp approved_at
+    int account_login_id FK
+  }
 
+  CUSTOMERS {
+    int customer_id PK
+    string customer_number UK
+    string first_name
+    string last_name
+    string email_address UK
+    string phone_number
+    enum account_status
+    int loyalty_points
+    int account_login_id FK
+  }
+
+  STAFF_MEMBERS ||--|| ACCOUNT_LOGINS : credentials
+  RESTAURANTS  ||--|| ACCOUNT_LOGINS : credentials
+  CUSTOMERS   o|--|| ACCOUNT_LOGINS : loyalty_login
 ```
 
-### 5.2 User Management and Administration Diagram
-
-This diagram focuses on the administrative structure of FrontDash, showing how administrators manage staff accounts and drivers, along with the authentication relationships that secure the system.
+### 5.2 Restaurant Catalog
 
 ```mermaid
 erDiagram
-    ADMINISTRATORS {
-        int admin_id PK
-        string username UK
-        string password_hash
-        timestamp last_login_at
-        timestamp created_at
-        boolean is_active
-    }
-    
-    STAFF_ACCOUNTS {
-        int staff_id PK
-        string first_name
-        string last_name
-        string full_name UK
-        string username UK
-        string password_hash
-        string email_address
-        enum account_status
-        boolean is_first_login
-        timestamp last_login_at
-        timestamp created_at
-        int created_by FK
-    }
-    
-    DRIVERS {
-        int driver_id PK
-        string driver_name UK
-        string phone_number
-        enum driver_status
-        int current_order_id FK
-        int total_deliveries
-        decimal average_delivery_time
-        timestamp hired_date
-        int hired_by FK
-    }
-    
-    RESTAURANTS {
-        int restaurant_id PK
-        string restaurant_name UK
-        string username UK
-        string password_hash
-        enum account_status
-        timestamp approved_at
-        int approved_by FK
-    }
-    
-    CUSTOMERS {
-        int customer_id PK
-        string customer_number UK
-        enum account_status
-        timestamp approved_at
-        int approved_by FK
-    }
-    
-    ORDERS {
-        int order_id PK
-        string order_number UK
-        int assigned_staff_id FK
-        int assigned_driver_id FK
-        enum order_status
-    }
-    
-    ADMINISTRATORS ||--o{ STAFF_ACCOUNTS : "creates and manages"
-    ADMINISTRATORS ||--o{ DRIVERS : "hires and manages"
-    ADMINISTRATORS ||--o{ RESTAURANTS : "approves registrations"
-    ADMINISTRATORS ||--o{ CUSTOMERS : "approves loyalty accounts"
-    
-    STAFF_ACCOUNTS ||--o{ ORDERS : "processes orders"
-    DRIVERS ||--o{ ORDERS : "delivers orders"
-    DRIVERS ||--o| ORDERS : "current assignment"
+  RESTAURANTS {
+    int restaurant_id PK
+    string restaurant_name UK
+    string email_address UK
+    string street_address
+    string city
+    string state
+    string zip_code
+    string phone_number
+    string contact_person_name
+    enum account_status
+    timestamp approved_at
+  }
+
+  RESTAURANT_OPERATING_HOURS {
+    int hours_id PK
+    int restaurant_id FK
+    string day_of_week
+    time opening_time
+    time closing_time
+    boolean is_closed
+  }
+
+  MENU_ITEMS {
+    int menu_item_id PK
+    int restaurant_id FK
+    string item_name
+    string item_description
+    string item_image_url
+    decimal item_price
+    string availability_status
+  }
+
+  RESTAURANTS ||--o{ RESTAURANT_OPERATING_HOURS : schedules
+  RESTAURANTS ||--o{ MENU_ITEMS : offers
 ```
 
-### 5.3 Queue Management System Diagram
-
-This diagram illustrates the queue-based workflow system that manages all approval processes and order processing within FrontDash, ensuring proper FIFO processing and administrative oversight.
+### 5.3 Ordering, Loyalty & Assignment
 
 ```mermaid
 erDiagram
-    RESTAURANT_REGISTRATION_QUEUE {
-        int queue_id PK
-        string restaurant_name
-        string restaurant_image_url
-        string street_address
-        string city
-        string state
-        string zip_code
-        string primary_phone
-        string secondary_phone
-        string contact_person_name
-        string email_address
-        json operating_hours
-        json initial_menu_items
-        enum queue_status
-        timestamp submitted_at
-        timestamp reviewed_at
-        int reviewed_by FK
-        text review_notes
-        int created_restaurant_id FK
-    }
-    
-    RESTAURANT_WITHDRAWAL_QUEUE {
-        int withdrawal_id PK
-        int restaurant_id FK
-        text withdrawal_reason
-        enum financial_status
-        timestamp requested_at
-        timestamp reviewed_at
-        int reviewed_by FK
-        enum review_status
-        text review_notes
-    }
-    
-    ORDER_PROCESSING_QUEUE {
-        int queue_id PK
-        int order_id FK
-        int priority_level
-        timestamp queued_at
-        int assigned_to_staff FK
-        timestamp processing_started_at
-        enum processing_status
-    }
-    
-    CUSTOMER_REGISTRATION_QUEUE {
-        int queue_id PK
-        string first_name
-        string last_name
-        string email_address
-        string phone_number
-        string default_street_address
-        string default_city
-        string default_state
-        string default_zip_code
-        string credit_card_number_encrypted
-        int card_expiry_month
-        int card_expiry_year
-        string cvv_encrypted
-        enum queue_status
-        timestamp submitted_at
-        timestamp reviewed_at
-        int reviewed_by FK
-        int created_customer_id FK
-    }
-    
-    ADMINISTRATORS {
-        int admin_id PK
-        string username UK
-        string first_name
-        string last_name
-    }
-    
-    STAFF_ACCOUNTS {
-        int staff_id PK
-        string first_name
-        string last_name
-        string username UK
-    }
-    
-    RESTAURANTS {
-        int restaurant_id PK
-        string restaurant_name UK
-        enum account_status
-    }
-    
-    CUSTOMERS {
-        int customer_id PK
-        string customer_number UK
-        enum account_status
-    }
-    
-    ORDERS {
-        int order_id PK
-        string order_number UK
-        enum order_status
-    }
-    
-    %% Queue Processing Relationships
-    RESTAURANT_REGISTRATION_QUEUE ||--o| RESTAURANTS : "creates upon approval"
-    RESTAURANTS ||--o{ RESTAURANT_WITHDRAWAL_QUEUE : "requests withdrawal"
-    ORDERS ||--|| ORDER_PROCESSING_QUEUE : "enters processing queue"
-    CUSTOMER_REGISTRATION_QUEUE ||--o| CUSTOMERS : "creates upon approval"
-    
-    %% Administrative Review Relationships
-    ADMINISTRATORS ||--o{ RESTAURANT_REGISTRATION_QUEUE : "reviews registrations"
-    ADMINISTRATORS ||--o{ RESTAURANT_WITHDRAWAL_QUEUE : "reviews withdrawals"
-    ADMINISTRATORS ||--o{ CUSTOMER_REGISTRATION_QUEUE : "reviews customer applications"
-    STAFF_ACCOUNTS ||--o{ ORDER_PROCESSING_QUEUE : "assigned to process"
+  CUSTOMERS {
+    int customer_id PK
+    string customer_number UK
+    string first_name
+    string last_name
+    string email_address UK
+    string phone_number
+    enum account_status
+    int loyalty_points
+    int account_login_id FK
+  }
+
+  RESTAURANTS {
+    int restaurant_id PK
+    string restaurant_name UK
+  }
+
+  MENU_ITEMS {
+    int menu_item_id PK
+    int restaurant_id FK
+    string item_name
+    string item_description
+    string item_image_url
+    decimal item_price
+    string availability_status
+  }
+
+  STAFF_MEMBERS {
+    int staff_id PK
+    string username UK
+    enum account_status
+    boolean is_first_login
+  }
+
+  DRIVERS {
+    int driver_id PK
+    string driver_name UK
+    enum driver_status
+    timestamp hired_date
+  }
+
+  ORDERS {
+    int order_id PK
+    string order_number UK
+    int restaurant_id FK
+    int customer_id FK
+    string guest_first_name
+    string guest_last_name
+    string guest_phone
+    string delivery_street_address
+    string delivery_city
+    string delivery_state
+    string delivery_zip_code
+    string delivery_contact_name
+    string delivery_contact_phone
+    decimal subtotal_amount
+    decimal service_charge
+    decimal tip_amount
+    decimal loyalty_discount
+    decimal grand_total
+    string payment_card_type
+    string payment_card_last_four
+    string order_status
+    timestamp placed_at
+    timestamp estimated_delivery_time
+    timestamp actual_delivery_time
+    int delivery_duration_minutes
+    int assigned_staff_id FK
+    int assigned_driver_id FK
+  }
+
+  ORDER_ITEMS {
+    int order_item_id PK
+    int order_id FK
+    int menu_item_id FK
+    string item_name
+    decimal item_price
+    int quantity
+  }
+
+  RESTAURANTS  ||--o{ ORDERS      : receives
+  CUSTOMERS   o|--o{ ORDERS      : places
+  ORDERS      ||--o{ ORDER_ITEMS : contains
+  MENU_ITEMS  ||--o{ ORDER_ITEMS : references
+  STAFF_MEMBERS ||--o{ ORDERS    : processes
+  DRIVERS       ||--o{ ORDERS    : fulfills
 ```
 
-### 5.4 Performance Tracking and Audit System Diagram
-
-This diagram shows the comprehensive audit trail and performance measurement system that enables FrontDash to track delivery efficiency and maintain detailed operational records.
+### 5.4 History & Delivery Performance
 
 ```mermaid
 erDiagram
-    ORDERS {
-        int order_id PK
-        string order_number UK
-        int restaurant_id FK
-        int assigned_staff_id FK
-        int assigned_driver_id FK
-        enum order_status
-        timestamp estimated_delivery_time
-        timestamp actual_delivery_time
-        int delivery_duration_minutes
-        timestamp created_at
-        timestamp confirmed_at
-        timestamp completed_at
-    }
-    
-    ORDER_STATUS_HISTORY {
-        int history_id PK
-        int order_id FK
-        string previous_status
-        string new_status
-        int changed_by_staff_id FK
-        timestamp changed_at
-        text notes
-    }
-    
-    DELIVERY_PERFORMANCE_METRICS {
-        int metric_id PK
-        int order_id FK
-        int restaurant_id FK
-        int driver_id FK
-        int estimated_prep_time_minutes
-        int actual_prep_time_minutes
-        int estimated_delivery_time_minutes
-        int actual_delivery_time_minutes
-        decimal distance_miles
-        string weather_conditions
-        string traffic_conditions
-        int customer_rating
-        text delivery_notes
-        timestamp recorded_at
-    }
-    
-    STAFF_ACCOUNTS {
-        int staff_id PK
-        string first_name
-        string last_name
-        string username UK
-    }
-    
-    DRIVERS {
-        int driver_id PK
-        string driver_name UK
-        enum driver_status
-        int total_deliveries
-        decimal average_delivery_time
-    }
-    
-    RESTAURANTS {
-        int restaurant_id PK
-        string restaurant_name UK
-    }
-    
-    %% Audit Trail Relationships
-    ORDERS ||--o{ ORDER_STATUS_HISTORY : "tracks status changes"
-    STAFF_ACCOUNTS ||--o{ ORDER_STATUS_HISTORY : "records status changes"
-    
-    %% Performance Measurement Relationships
-    ORDERS ||--o| DELIVERY_PERFORMANCE_METRICS : "measures delivery performance"
-    RESTAURANTS ||--o{ DELIVERY_PERFORMANCE_METRICS : "restaurant performance metrics"
-    DRIVERS ||--o{ DELIVERY_PERFORMANCE_METRICS : "driver performance metrics"
+  ORDERS {
+    int order_id PK
+    string order_number UK
+  }
+
+  ORDER_STATUS_HISTORY {
+    int history_id PK
+    int order_id FK
+    string previous_status
+    string new_status
+    int changed_by_staff_id FK
+    timestamp changed_at
+    string notes
+  }
+
+  DELIVERY_PERFORMANCE_METRICS {
+    int metric_id PK
+    int order_id FK
+    int restaurant_id FK
+    int driver_id FK
+    int estimated_prep_time_minutes
+    int actual_prep_time_minutes
+    int estimated_delivery_time_minutes
+    int actual_delivery_time_minutes
+    decimal distance_miles
+    string weather_conditions
+    string traffic_conditions
+    int customer_rating
+    string delivery_notes
+    timestamp recorded_at
+  }
+
+  STAFF_MEMBERS {
+    int staff_id PK
+  }
+
+  RESTAURANTS {
+    int restaurant_id PK
+  }
+
+  DRIVERS {
+    int driver_id PK
+  }
+
+  ORDERS        ||--o{ ORDER_STATUS_HISTORY        : logs
+  STAFF_MEMBERS ||--o{ ORDER_STATUS_HISTORY        : updates
+  ORDERS        ||--o{ DELIVERY_PERFORMANCE_METRICS : measures
+  RESTAURANTS   ||--o{ DELIVERY_PERFORMANCE_METRICS : has_metrics
+  DRIVERS       ||--o{ DELIVERY_PERFORMANCE_METRICS : fulfills
 ```
+
 
 ## Relationship Documentation
 
@@ -940,85 +648,40 @@ erDiagram
 **Orders to Staff Accounts (N:1)**
 - Staff members can process multiple orders
 - Order assignment tracked for performance metrics
-- Optional relationship until order enters processing queue
+- Optional relationship until a staff member claims the order and advances its status
 
 **Orders to Drivers (N:1)**
 - Drivers can deliver multiple orders
 - Current order assignment prevents double-booking
 - Delivery performance metrics linked to driver
 
-### Administrative Relationships
+### Operational Oversight
 
-**Administrators to Multiple Entities (1:N)**
-- Administrators approve restaurant registrations
-- Administrators create staff accounts with auto-generated credentials
-- Administrators hire and fire drivers
-- Administrators approve customer loyalty registrations
-
-### Queue Management Relationships
-
-**Queue to Entity Creation (1:1)**
-- Each queue entry can create at most one entity upon approval
-- Queue entries maintain links to created entities
-- Processing status prevents duplicate approvals
-
-## Queue Management Strategy
-
-### Queue Processing Order
-
-**First-In-First-Out (FIFO) Implementation**
-All queues implement FIFO processing based on submission timestamps with provisions for priority overrides in critical situations.
-
-```sql
--- Example FIFO query for restaurant registration queue
-SELECT * FROM restaurant_registration_queue 
-WHERE queue_status = 'PENDING' 
-ORDER BY submitted_at ASC 
-LIMIT 1;
-```
-
-### Queue Status Management
-
-**Restaurant Registration Queue**
-- PENDING: Awaiting administrative review
-- APPROVED: Restaurant account created, credentials sent
-- REJECTED: Application declined with review notes
-
-**Restaurant Withdrawal Queue**
-- PENDING: Awaiting financial and operational review
-- APPROVED: Restaurant account deactivated
-- DENIED: Withdrawal request rejected (typically for financial reasons)
-
-**Order Processing Queue**
-- QUEUED: Order verified and awaiting staff assignment
-- PROCESSING: Staff member assigned and processing order
-- COMPLETED: Order dispatched for delivery
-- CANCELLED: Order cancelled before processing
-
-**Customer Registration Queue (Bonus)**
-- PENDING: Awaiting verification and approval
-- APPROVED: Customer account created, number assigned
-- REJECTED: Registration declined
+**System Administrator Responsibilities (outside the database schema)**
+- Approves restaurant account changes; the resulting status is stored in `restaurants.account_status`
+- Triggers staff credential creation within `account_logins` when new team members are added
+- Oversees driver availability and deactivation while day-to-day operations remain with staff tools
+- Reviews loyalty customer enrolments before activating their `account_status`
 
 ### Concurrency Control
 
-**Queue Locking Mechanism**
-Implement row-level locking to prevent multiple staff members from processing the same queue item simultaneously.
+**Transactional Status Updates**
+Use row-level locks when multiple staff members may advance orders from `PLACED` to `PROCESSING` so that a ticket is only claimed once.
 
 ```sql
--- Example concurrent-safe queue retrieval
 BEGIN;
-SELECT * FROM order_processing_queue 
-WHERE processing_status = 'QUEUED' 
-ORDER BY priority_level DESC, queued_at ASC 
-LIMIT 1 
+SELECT order_id
+FROM orders
+WHERE order_status = 'PLACED'
+ORDER BY placed_at ASC
+LIMIT 1
 FOR UPDATE SKIP LOCKED;
--- Process order
-UPDATE order_processing_queue 
-SET processing_status = 'PROCESSING', 
-    assigned_to_staff = ?, 
-    processing_started_at = NOW() 
-WHERE queue_id = ?;
+
+UPDATE orders
+SET order_status = 'PROCESSING',
+    assigned_staff_id = ?,
+    confirmed_at = NOW()
+WHERE order_id = ?;
 COMMIT;
 ```
 
@@ -1083,7 +746,7 @@ User sessions tracked with secure token generation and automatic timeout policie
 
 **Customer Registration Workflow**
 1. Customer submits registration through web form
-2. Registration enters admin approval queue
+2. Registration is stored with `account_status = "PENDING"`
 3. Administrator reviews and approves/rejects
 4. Approved customers receive unique customer number via email
 5. Customer can use number for future orders to accumulate points
@@ -1097,7 +760,7 @@ Role-based authentication with JWT token management for secure session handling 
 - Public endpoints: Restaurant browsing, menu viewing, order placement
 - Restaurant endpoints: Account management, menu editing, hours management
 - Staff endpoints: Order processing, driver assignment, delivery tracking
-- Administrator endpoints: All approval queues, staff management, driver management
+- Administrator endpoints: Account approval tools, staff management, driver management
 
 ## Constraints and Business Rules
 
@@ -1132,7 +795,7 @@ Role-based authentication with JWT token management for secure session handling 
 - Primary keys automatically indexed
 - Foreign keys indexed for join performance
 - Composite indexes on frequently queried combinations
-- Partial indexes on status fields for queue processing
+- Partial indexes on status fields for efficient filtering (e.g., pending approvals, active orders)
 
 **Query Optimization**
 - Materialized views for complex reporting queries
@@ -1143,6 +806,6 @@ Role-based authentication with JWT token management for secure session handling 
 
 This comprehensive database design supports all FrontDash requirements including core functionality, bonus features, and operational scalability. The design emphasizes data integrity, security, and performance while maintaining flexibility for future enhancements.
 
-The queue-based architecture ensures proper workflow management while the independent component design allows concurrent operations across all user types. Security implementation meets industry standards for sensitive data protection and user authentication.
+Status-driven workflows ensure proper progression of approvals and order fulfillment while the independent component design allows concurrent operations across all user types. Security implementation meets industry standards for sensitive data protection and user authentication.
 
 The schema supports both immediate operational needs and long-term analytical requirements through comprehensive audit trails and performance metrics collection.
