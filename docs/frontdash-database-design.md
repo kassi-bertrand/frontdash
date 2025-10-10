@@ -10,7 +10,7 @@ This document presents the complete database design for the FrontDash food deliv
 2. [Database Architecture](#database-architecture)
 3. [Entity Identification](#entity-identification)
 4. [Detailed Table Schemas](#detailed-table-schemas)
-5. [Entity Relationship Diagram](#entity-relationship-diagram)
+5. [Entity Relationship Diagrams](#entity-relationship-diagrams)
 6. [Relationship Documentation](#relationship-documentation)
 7. [Security Implementation](#security-implementation)
 8. [Bonus Features Integration](#bonus-features-integration)
@@ -52,10 +52,10 @@ The database employs a relational model optimized for ACID compliance and concur
 2. **Menu Items** - Individual food offerings with availability and pricing
 3. **Orders** - Customer purchase transactions with complete audit trails
 4. **Order Items** - Junction entity linking orders to specific menu items
-5. **Customers** - Optional accounts for loyalty program participation
+5. **Loyalty Members** - Optional accounts for loyalty program participation
 6. **Staff Accounts** - FrontDash employees processing orders and operations
 7. **Drivers** - Delivery personnel executing order fulfillment
-8. **Account Logins** - Shared credential store for staff, restaurant, and loyalty logins
+8. **Account Logins** - Shared credential store for staff and restaurant logins
 
 ### Supporting Entities
 1. **Order Status History** - Audit trail for order state changes
@@ -78,8 +78,8 @@ CREATE TABLE restaurants (
     phone_number VARCHAR(10) NOT NULL,
     contact_person_name VARCHAR(100) NOT NULL,
     email_address VARCHAR(255) NOT NULL UNIQUE,
-    account_login_id INT UNIQUE REFERENCES account_logins(account_login_id),
     account_status ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'WITHDRAWN') DEFAULT 'PENDING',
+    account_login_id INT REFERENCES account_logins(account_login_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     approved_at TIMESTAMP NULL
@@ -90,8 +90,7 @@ CREATE TABLE restaurants (
 - Restaurant names must be unique across the platform
 - Phone numbers validated as 10 digits with first digit non-zero
 - Email addresses must be unique and properly formatted
-- Shared login credentials are stored in `account_logins` via `account_login_id`
-- Account status tracks the restaurant's current platform standing
+-- Account status tracks the restaurant's current platform standing
 
 ### 2. Restaurant Operating Hours Table
 
@@ -136,12 +135,12 @@ CREATE TABLE menu_items (
 - Item names must be provided for all menu items
 - Availability status controls customer visibility
 
-### 4. Customers Table (Bonus Feature)
+### 4. Loyalty Members Table (Bonus Feature)
 
 ```sql
-CREATE TABLE customers (
-    customer_id SERIAL PRIMARY KEY,
-    customer_number VARCHAR(20) UNIQUE,
+CREATE TABLE loyalty_members (
+    loyalty_member_id SERIAL PRIMARY KEY,
+    loyalty_number VARCHAR(20) UNIQUE,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     email_address VARCHAR(255) NOT NULL UNIQUE,
@@ -150,12 +149,10 @@ CREATE TABLE customers (
     default_city VARCHAR(100) NOT NULL,
     default_state VARCHAR(50) NOT NULL,
     default_zip_code VARCHAR(10) NOT NULL,
-    credit_card_number_encrypted VARCHAR(255),
+    payment_token VARCHAR(255),
     card_expiry_month INT CHECK (card_expiry_month BETWEEN 1 AND 12),
     card_expiry_year INT CHECK (card_expiry_year >= YEAR(CURDATE())),
-    cvv_encrypted VARCHAR(255),
     loyalty_points INT DEFAULT 0 CHECK (loyalty_points >= 0),
-    account_login_id INT UNIQUE REFERENCES account_logins(account_login_id),
     account_status ENUM('PENDING', 'ACTIVE', 'SUSPENDED') DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     approved_at TIMESTAMP NULL
@@ -163,10 +160,10 @@ CREATE TABLE customers (
 ```
 
 **Business Rules**:
-- Customer numbers are system-generated unique identifiers
-- Credit card information stored with encryption
+- Loyalty numbers are system-generated unique identifiers
+- Card data is stored as a third-party token; no PAN or CVV values are retained
 - Loyalty points cannot be negative
-- Loyalty members receive linked credentials in `account_logins` (optional)
+- Loyalty members authenticate using their loyalty number only; no application login is created
 
 ### 5. Auth Accounts Table
 
@@ -175,7 +172,7 @@ CREATE TABLE account_logins (
     account_login_id SERIAL PRIMARY KEY,
     login_identifier VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    account_role ENUM('STAFF', 'RESTAURANT', 'CUSTOMER') NOT NULL,
+    account_role ENUM('STAFF', 'RESTAURANT') NOT NULL,
     account_state ENUM('ACTIVE', 'LOCKED', 'DISABLED') DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login_at TIMESTAMP
@@ -195,19 +192,20 @@ CREATE TABLE orders (
     order_id SERIAL PRIMARY KEY,
     order_number VARCHAR(20) UNIQUE NOT NULL,
     restaurant_id INT NOT NULL REFERENCES restaurants(restaurant_id),
-    customer_id INT REFERENCES customers(customer_id),
+    loyalty_member_id INT REFERENCES loyalty_members(loyalty_member_id),
     
-    -- Customer Information (for non-registered customers)
+    -- Guest Information (for non-registered customers)
     customer_first_name VARCHAR(50),
     customer_last_name VARCHAR(50),
     customer_email VARCHAR(255),
     customer_phone VARCHAR(10),
     
     -- Delivery Information
-    delivery_street_address TEXT NOT NULL,
+    delivery_building_number VARCHAR(20) NOT NULL,
+    delivery_street_name VARCHAR(255) NOT NULL,
+    delivery_apartment VARCHAR(50),
     delivery_city VARCHAR(100) NOT NULL,
     delivery_state VARCHAR(50) NOT NULL,
-    delivery_zip_code VARCHAR(10) NOT NULL,
     delivery_contact_name VARCHAR(100) NOT NULL,
     delivery_contact_phone VARCHAR(10) NOT NULL,
     
@@ -217,12 +215,7 @@ CREATE TABLE orders (
     tip_amount DECIMAL(10,2) DEFAULT 0,
     loyalty_discount DECIMAL(10,2) DEFAULT 0,
     grand_total DECIMAL(10,2) NOT NULL CHECK (grand_total > 0),
-    
-    -- Payment Information
-    payment_card_type VARCHAR(50) NOT NULL,
-    payment_card_last_four VARCHAR(4) NOT NULL,
-    payment_status ENUM('PENDING', 'VERIFIED', 'FAILED', 'REFUNDED') DEFAULT 'PENDING',
-    
+
     -- Order Status and Timing
     order_status ENUM('PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED') DEFAULT 'PLACED',
     estimated_delivery_time TIMESTAMP,
@@ -247,9 +240,10 @@ CREATE TABLE orders (
 
 **Business Rules**:
 - Order numbers are system-generated unique identifiers
-- Either customer_id OR customer contact information must be provided
+- Either loyalty_member_id OR guest contact information must be provided
 - Service charge calculated as 8.25% of subtotal
 - Grand total must equal subtotal + service charge + tip - loyalty discount
+- Credit card verification occurs before order creation; no payment card data is stored in the orders table
 
 ### 7. Order Items Table
 
@@ -279,19 +273,21 @@ CREATE TABLE staff_accounts (
     staff_id SERIAL PRIMARY KEY,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
+    full_name VARCHAR(101) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED UNIQUE,
     username VARCHAR(50) UNIQUE NOT NULL,
     email_address VARCHAR(255),
     account_status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') DEFAULT 'ACTIVE',
+    account_login_id INT REFERENCES account_logins(account_login_id),
     is_first_login BOOLEAN DEFAULT TRUE,
     last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    account_login_id INT UNIQUE REFERENCES account_logins(account_login_id),
     INDEX idx_username (username),
     INDEX idx_status (account_status)
 );
 ```
 
 **Business Rules**:
+- Full names must be unique across all staff accounts
 - Username format: lastname + 2 digits (auto-generated)
 - Initial password is auto-generated within `account_logins` and must be changed on first login
 
@@ -381,6 +377,7 @@ erDiagram
     int staff_id PK
     string first_name
     string last_name
+    string full_name UK
     string username UK
     enum account_status
     boolean is_first_login
@@ -391,6 +388,7 @@ erDiagram
   RESTAURANTS {
     int restaurant_id PK
     string restaurant_name UK
+    string restaurant_image_url
     string email_address UK
     string street_address
     string city
@@ -403,21 +401,19 @@ erDiagram
     int account_login_id FK
   }
 
-  CUSTOMERS {
-    int customer_id PK
-    string customer_number UK
+  LOYALTY_MEMBERS {
+    int loyalty_member_id PK
+    string loyalty_number UK
     string first_name
     string last_name
     string email_address UK
     string phone_number
     enum account_status
     int loyalty_points
-    int account_login_id FK
   }
 
   STAFF_MEMBERS ||--|| ACCOUNT_LOGINS : credentials
-  RESTAURANTS  ||--|| ACCOUNT_LOGINS : credentials
-  CUSTOMERS   o|--|| ACCOUNT_LOGINS : loyalty_login
+  RESTAURANTS  o|--|| ACCOUNT_LOGINS : credentials
 ```
 
 ### 5.2 Restaurant Catalog
@@ -427,6 +423,7 @@ erDiagram
   RESTAURANTS {
     int restaurant_id PK
     string restaurant_name UK
+    string restaurant_image_url
     string email_address UK
     string street_address
     string city
@@ -454,7 +451,7 @@ erDiagram
     string item_description
     string item_image_url
     decimal item_price
-    string availability_status
+    enum availability_status
   }
 
   RESTAURANTS ||--o{ RESTAURANT_OPERATING_HOURS : schedules
@@ -465,16 +462,15 @@ erDiagram
 
 ```mermaid
 erDiagram
-  CUSTOMERS {
-    int customer_id PK
-    string customer_number UK
+  LOYALTY_MEMBERS {
+    int loyalty_member_id PK
+    string loyalty_number UK
     string first_name
     string last_name
     string email_address UK
     string phone_number
     enum account_status
     int loyalty_points
-    int account_login_id FK
   }
 
   RESTAURANTS {
@@ -489,7 +485,7 @@ erDiagram
     string item_description
     string item_image_url
     decimal item_price
-    string availability_status
+    enum availability_status
   }
 
   STAFF_MEMBERS {
@@ -510,14 +506,15 @@ erDiagram
     int order_id PK
     string order_number UK
     int restaurant_id FK
-    int customer_id FK
+    int loyalty_member_id FK
     string guest_first_name
     string guest_last_name
     string guest_phone
-    string delivery_street_address
+    string delivery_building_number
+    string delivery_street_name
+    string delivery_apartment
     string delivery_city
     string delivery_state
-    string delivery_zip_code
     string delivery_contact_name
     string delivery_contact_phone
     decimal subtotal_amount
@@ -525,10 +522,8 @@ erDiagram
     decimal tip_amount
     decimal loyalty_discount
     decimal grand_total
-    string payment_card_type
-    string payment_card_last_four
     string order_status
-    timestamp placed_at
+    timestamp created_at
     timestamp estimated_delivery_time
     timestamp actual_delivery_time
     int delivery_duration_minutes
@@ -545,12 +540,12 @@ erDiagram
     int quantity
   }
 
-  RESTAURANTS  ||--o{ ORDERS      : receives
-  CUSTOMERS   o|--o{ ORDERS      : places
+  RESTAURANTS      ||--o{ ORDERS      : receives
+  LOYALTY_MEMBERS o|--o{ ORDERS  : places
   ORDERS      ||--o{ ORDER_ITEMS : contains
   MENU_ITEMS  ||--o{ ORDER_ITEMS : references
-  STAFF_MEMBERS ||--o{ ORDERS    : processes
-  DRIVERS       ||--o{ ORDERS    : fulfills
+  STAFF_MEMBERS |o--o{ ORDERS    : processes
+  DRIVERS       |o--o{ ORDERS    : fulfills
 ```
 
 ### 5.4 History & Delivery Performance
@@ -602,10 +597,10 @@ erDiagram
   }
 
   ORDERS        ||--o{ ORDER_STATUS_HISTORY        : logs
-  STAFF_MEMBERS ||--o{ ORDER_STATUS_HISTORY        : updates
+  STAFF_MEMBERS |o--o{ ORDER_STATUS_HISTORY        : updates
   ORDERS        ||--o{ DELIVERY_PERFORMANCE_METRICS : measures
   RESTAURANTS   ||--o{ DELIVERY_PERFORMANCE_METRICS : has_metrics
-  DRIVERS       ||--o{ DELIVERY_PERFORMANCE_METRICS : fulfills
+  DRIVERS       |o--o{ DELIVERY_PERFORMANCE_METRICS : fulfills
 ```
 
 
@@ -640,10 +635,10 @@ erDiagram
 
 ### Many-to-One Relationships
 
-**Orders to Customers (N:1)**
-- Customers can place multiple orders
-- Customer reference is optional (supports guest checkout)
-- Loyalty points calculated from order totals
+**Orders to Loyalty Members (N:1)**
+- Loyalty members can place multiple orders
+- Loyalty member reference is optional (supports guest checkout)
+- Loyalty points calculated from order totals when a loyalty member is linked
 
 **Orders to Staff Accounts (N:1)**
 - Staff members can process multiple orders
@@ -666,19 +661,19 @@ erDiagram
 ### Concurrency Control
 
 **Transactional Status Updates**
-Use row-level locks when multiple staff members may advance orders from `PLACED` to `PROCESSING` so that a ticket is only claimed once.
+Use row-level locks when multiple staff members may advance orders from `PLACED` to `CONFIRMED` so that a ticket is only claimed once.
 
 ```sql
 BEGIN;
 SELECT order_id
 FROM orders
 WHERE order_status = 'PLACED'
-ORDER BY placed_at ASC
+ORDER BY created_at ASC
 LIMIT 1
 FOR UPDATE SKIP LOCKED;
 
 UPDATE orders
-SET order_status = 'PROCESSING',
+SET order_status = 'CONFIRMED',
     assigned_staff_id = ?,
     confirmed_at = NOW()
 WHERE order_id = ?;
@@ -707,17 +702,20 @@ password_hash VARCHAR(255) NOT NULL -- Stores bcrypt hash
 ### Data Protection
 
 **Sensitive Information Encryption**
-Customer credit card information encrypted using AES-256 before database storage.
+Payment details collected during loyalty registration are exchanged for a gateway `payment_token`. No PAN or CVV data is ever stored in the database. Tokens are encrypted at rest using AES-256.
 
 ```sql
-credit_card_number_encrypted VARCHAR(255) -- AES-256 encrypted
-cvv_encrypted VARCHAR(255) -- AES-256 encrypted
+payment_token VARCHAR(255) -- AES-256 encrypted gateway token
+card_expiry_month INT CHECK (card_expiry_month BETWEEN 1 AND 12)
+card_expiry_year INT CHECK (card_expiry_year >= YEAR(CURDATE()))
 ```
 
 **Personal Identifiable Information (PII) Handling**
-- Email addresses unique across customer and restaurant tables
+- Email addresses unique across loyalty member and restaurant tables
 - Phone numbers validated for proper format
 - Address information stored with proper normalization
+- Credit card verification performed via third-party gateway; no card data stored in orders table
+- For loyalty members: payment tokens retained after verification (no PAN or CVV data)
 
 ### Access Control
 
@@ -747,9 +745,10 @@ User sessions tracked with secure token generation and automatic timeout policie
 **Customer Registration Workflow**
 1. Customer submits registration through web form
 2. Registration is stored with `account_status = "PENDING"`
-3. Administrator reviews and approves/rejects
-4. Approved customers receive unique customer number via email
-5. Customer can use number for future orders to accumulate points
+3. Payment details are tokenized via the gateway and verified; only `payment_token`, expiry month, and year are retained
+4. Administrator reviews and approves/rejects
+5. Approved customers receive unique customer number via email
+6. Customer can use number for future orders to accumulate points
 
 ### Spring Security Implementation (Additional Bonus)
 
