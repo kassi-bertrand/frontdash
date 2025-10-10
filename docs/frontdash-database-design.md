@@ -518,7 +518,7 @@ erDiagram
     decimal tip_amount
     decimal loyalty_discount
     decimal grand_total
-    string order_status
+    enum order_status
     timestamp created_at
     timestamp estimated_delivery_time
     timestamp actual_delivery_time
