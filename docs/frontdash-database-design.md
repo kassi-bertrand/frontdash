@@ -76,7 +76,6 @@ CREATE TABLE restaurants (
     state VARCHAR(50) NOT NULL,
     zip_code VARCHAR(10) NOT NULL,
     phone_number VARCHAR(10) NOT NULL,
-    contact_person_name VARCHAR(100) NOT NULL,
     email_address VARCHAR(255) NOT NULL UNIQUE,
     account_status ENUM('PENDING', 'ACTIVE', 'SUSPENDED', 'WITHDRAWN') DEFAULT 'PENDING',
     account_login_id INT REFERENCES account_logins(account_login_id),
@@ -273,7 +272,6 @@ CREATE TABLE staff_accounts (
     staff_id SERIAL PRIMARY KEY,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
-    full_name VARCHAR(101) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED UNIQUE,
     username VARCHAR(50) UNIQUE NOT NULL,
     email_address VARCHAR(255),
     account_status ENUM('ACTIVE', 'INACTIVE', 'SUSPENDED') DEFAULT 'ACTIVE',
@@ -281,6 +279,7 @@ CREATE TABLE staff_accounts (
     is_first_login BOOLEAN DEFAULT TRUE,
     last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(first_name, last_name),
     INDEX idx_username (username),
     INDEX idx_status (account_status)
 );
@@ -377,7 +376,6 @@ erDiagram
     int staff_id PK
     string first_name
     string last_name
-    string full_name UK
     string username UK
     enum account_status
     boolean is_first_login
@@ -395,7 +393,6 @@ erDiagram
     string state
     string zip_code
     string phone_number
-    string contact_person_name
     enum account_status
     timestamp approved_at
     int account_login_id FK
@@ -430,7 +427,6 @@ erDiagram
     string state
     string zip_code
     string phone_number
-    string contact_person_name
     enum account_status
     timestamp approved_at
   }
@@ -438,7 +434,7 @@ erDiagram
   RESTAURANT_OPERATING_HOURS {
     int hours_id PK
     int restaurant_id FK
-    string day_of_week
+    enum day_of_week
     time opening_time
     time closing_time
     boolean is_closed
