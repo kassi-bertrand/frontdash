@@ -248,7 +248,7 @@ CREATE TABLE ORDERS (
     delivery_duration_minutes INTEGER,
     assigned_staff_id INTEGER,
     assigned_driver_id INTEGER,
-    FOREIGN KEY (restaurant_id) REFERENCES RESTAURANTS(restaurant_id),
+    FOREIGN KEY (restaurant_id) REFERENCES RESTAURANTS(restaurant_id) ON DELETE CASCADE,
     FOREIGN KEY (loyalty_number) REFERENCES LOYALTY_MEMBERS(loyalty_number),
     FOREIGN KEY (assigned_staff_id) REFERENCES STAFF_MEMBERS(staff_id),
     FOREIGN KEY (assigned_driver_id) REFERENCES DRIVERS(driver_id)
