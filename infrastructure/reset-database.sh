@@ -22,9 +22,16 @@ if [ ! -f "db-config.txt" ]; then
     exit 1
 fi
 
-# Load database configuration
+if [ ! -f "ec2-config.txt" ]; then
+    echo "❌ Error: ec2-config.txt not found!"
+    echo "This script requires an active deployment."
+    exit 1
+fi
+
+# Load configuration
 source db-config.txt
-echo "✓ Database configuration loaded"
+source ec2-config.txt
+echo "✓ Configuration loaded"
 
 # Step 2: Create reset SQL script
 echo ""
@@ -49,7 +56,6 @@ DELETE FROM ACCOUNT_LOGINS WHERE username NOT IN ('admin', 'staff_test', 'pizzap
 DELETE FROM DRIVERS WHERE driver_id > 2;
 
 -- Reset SERIAL sequences to known values
--- This ensures IDs are predictable for next run
 SELECT setval('restaurants_restaurant_id_seq', 1, true);
 SELECT setval('menu_items_menu_item_id_seq', 3, true);
 SELECT setval('staff_members_staff_id_seq', 1, true);
@@ -57,30 +63,34 @@ SELECT setval('drivers_driver_id_seq', 2, true);
 
 COMMIT;
 
--- ===================================================================
--- Verification: Show current state
--- ===================================================================
+-- Verification
 SELECT 'RESTAURANTS:' as info, COUNT(*) as count FROM RESTAURANTS;
 SELECT 'MENU_ITEMS:' as info, COUNT(*) as count FROM MENU_ITEMS;
 SELECT 'STAFF:' as info, COUNT(*) as count FROM STAFF_MEMBERS;
 SELECT 'DRIVERS:' as info, COUNT(*) as count FROM DRIVERS;
 SELECT 'ORDERS:' as info, COUNT(*) as count FROM ORDERS;
-SELECT 'ACCOUNT_LOGINS:' as info, COUNT(*) as count FROM ACCOUNT_LOGINS;
 SQL_EOF
 
 echo "✓ Reset script created"
 
-# Step 3: Apply reset to database
+# Step 3: Upload reset script to EC2 and execute
 echo ""
-echo "Resetting database to demo-ready state..."
+echo "Uploading reset script to EC2..."
 
-PGPASSWORD=$DB_PASSWORD psql \
-    -h $DB_HOST \
-    -U $DB_USER \
-    -d $DB_NAME \
-    -f reset.sql
+scp -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no reset.sql ubuntu@${PUBLIC_IP}:/home/ubuntu/
 
-# Clean up
+echo "✓ Script uploaded"
+
+echo ""
+echo "Executing reset on database..."
+
+ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@${PUBLIC_IP} << REMOTE_EOF
+    source /home/ubuntu/frontdash-api/db-config.txt
+    PGPASSWORD=\$DB_PASSWORD psql -h \$DB_HOST -U \$DB_USER -d \$DB_NAME -f /home/ubuntu/reset.sql
+    rm /home/ubuntu/reset.sql
+REMOTE_EOF
+
+# Clean up local file
 rm reset.sql
 
 echo ""
