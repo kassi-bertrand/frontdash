@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "FrontDash API - Complete Demo Flow",
-    "description": "A complete narrative demonstration of the FrontDash API. This collection can be run multiple times as it creates test data, uses it, then cleans up. Auto-generated during deployment.",
+    "name": "FrontDash API - Professor Demo Collection",
+    "description": "Complete demonstration of all required functionality for course presentation. Covers all staff and regular student requirements. This collection can be run multiple times.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -9,85 +9,21 @@
       "key": "base_url",
       "value": "http://{{PUBLIC_IP}}:3000",
       "type": "string"
-    },
-    {
-      "key": "new_restaurant_id",
-      "value": "2",
-      "type": "string"
-    },
-    {
-      "key": "new_menu_item_1_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "new_menu_item_2_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "new_menu_item_3_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "new_driver_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "new_staff_id",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "new_loyalty_number",
-      "value": "",
-      "type": "string"
     }
   ],
   "item": [
     {
-      "name": "Act 1: System Verification",
-      "description": "Verify the system is running and view existing sample data",
+      "name": "1. Staff Login Tests",
+      "description": "Required: Successful and invalid login by staff member",
       "item": [
         {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/health",
-              "host": ["{{base_url}}"],
-              "path": ["health"]
-            }
-          }
-        },
-        {
-          "name": "API Welcome",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/",
-              "host": ["{{base_url}}"],
-              "path": [""]
-            }
-          }
-        },
-        {
-          "name": "Login as Admin",
+          "name": "✓ Successful Staff Login",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"Admin123\"\n}"
+              "raw": "{\n  \"username\": \"staff_test\",\n  \"password\": \"Admin123\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/api/auth/login",
@@ -97,6 +33,378 @@
           }
         },
         {
+          "name": "✗ Invalid Staff Login (Wrong Password)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"staff_test\",\n  \"password\": \"WrongPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Restaurant Owner Login Tests",
+      "description": "Required: Successful and invalid login by restaurant owner",
+      "item": [
+        {
+          "name": "✓ Successful Restaurant Owner Login",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"pizzapalace99\",\n  \"password\": \"Admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "✗ Invalid Restaurant Owner Login (Wrong Username)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"nonexistent_restaurant\",\n  \"password\": \"Admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Restaurant Registration & Approval",
+      "description": "Required: Registration, approve/reject by admin",
+      "item": [
+        {
+          "name": "New Restaurant Registration Request",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurant_name\": \"Burger Barn\",\n  \"owner_name\": \"Sarah Thompson\",\n  \"email_address\": \"contact@burgerbarn.com\",\n  \"street_address\": \"456 Oak Avenue\",\n  \"city\": \"Dallas\",\n  \"state\": \"TX\",\n  \"zip_code\": \"75202\",\n  \"phone_number\": \"2145552222\",\n  \"restaurant_image_url\": \"https://example.com/burger-barn.png\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "register"]
+            }
+          }
+        },
+        {
+          "name": "Admin Approves Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/2/approve",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "2", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Another Restaurant Registration (to reject)",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurant_name\": \"Taco Town\",\n  \"owner_name\": \"Maria Garcia\",\n  \"email_address\": \"maria@tacotown.com\",\n  \"street_address\": \"789 Taco Boulevard\",\n  \"city\": \"Dallas\",\n  \"state\": \"TX\",\n  \"zip_code\": \"75203\",\n  \"phone_number\": \"2145553333\",\n  \"restaurant_image_url\": \"https://example.com/taco-town.png\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "register"]
+            }
+          }
+        },
+        {
+          "name": "Admin Rejects Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/3/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "3", "reject"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Restaurant Menu & Hours Management",
+      "description": "Required: Owner modifies menu and operating hours",
+      "item": [
+        {
+          "name": "Add Menu Items to Burger Barn",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"item_name\": \"Classic Burger\",\n  \"item_description\": \"Juicy beef patty with lettuce, tomato, and special sauce\",\n  \"item_price\": 9.99,\n  \"item_image_url\": \"https://example.com/classic-burger.jpg\",\n  \"availability_status\": \"AVAILABLE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/2/menu",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "2", "menu"]
+            }
+          }
+        },
+        {
+          "name": "Restaurant Owner Modifies Menu Item",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"item_price\": 10.99,\n  \"availability_status\": \"AVAILABLE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/menu-items/4",
+              "host": ["{{base_url}}"],
+              "path": ["api", "menu-items", "4"]
+            }
+          }
+        },
+        {
+          "name": "Restaurant Owner Modifies Operating Hours",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"day_of_week\": \"MONDAY\",\n  \"opening_time\": \"10:00:00\",\n  \"closing_time\": \"22:00:00\",\n  \"is_closed\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/2/hours",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "2", "hours"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Order Management",
+      "description": "Required: Create order, retrieve, assign driver, update delivery time",
+      "item": [
+        {
+          "name": "Create New Order",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurant_id\": 2,\n  \"guest_phone\": \"2145554444\",\n  \"delivery_address\": {\n    \"building_number\": \"789\",\n    \"street_name\": \"Maple Drive\",\n    \"apartment\": \"Suite 5\",\n    \"city\": \"Dallas\",\n    \"state\": \"TX\",\n    \"zip_code\": \"75203\"\n  },\n  \"delivery_contact_name\": \"Tom Wilson\",\n  \"delivery_contact_phone\": \"2145554444\",\n  \"items\": [\n    {\n      \"menu_item_id\": 4,\n      \"quantity\": 2\n    }\n  ],\n  \"tip_amount\": 5.00\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Retrieve Existing Order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders/ORD-20251028-TEST",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "ORD-20251028-TEST"]
+            }
+          }
+        },
+        {
+          "name": "Assign Driver to Order",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driver_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/ORD-20251028-TEST/assign-driver",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "ORD-20251028-TEST", "assign-driver"]
+            }
+          }
+        },
+        {
+          "name": "Update Order with Delivery Time",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actual_delivery_time\": \"2025-10-28T14:30:00Z\",\n  \"delivery_duration_minutes\": 35\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders/ORD-20251028-TEST/delivery-time",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "ORD-20251028-TEST", "delivery-time"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Staff Management",
+      "description": "Required: Create staff, delete or inactivate staff",
+      "item": [
+        {
+          "name": "Create New Staff Member",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Jennifer\",\n  \"last_name\": \"Lee\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/staff",
+              "host": ["{{base_url}}"],
+              "path": ["api", "staff"]
+            }
+          }
+        },
+        {
+          "name": "Inactivate Staff Member",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_status\": \"INACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/staff/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "staff", "2"]
+            }
+          }
+        },
+        {
+          "name": "Delete Staff Member",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/staff/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "staff", "2"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Driver Management",
+      "description": "Required: Add driver, delete or inactivate driver",
+      "item": [
+        {
+          "name": "Add New Driver",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"driver_name\": \"Sarah Johnson\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/drivers",
+              "host": ["{{base_url}}"],
+              "path": ["api", "drivers"]
+            }
+          }
+        },
+        {
+          "name": "Inactivate Driver (Set OFFLINE)",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"OFFLINE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/drivers/3/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "drivers", "3", "status"]
+            }
+          }
+        },
+        {
+          "name": "Delete Driver",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/drivers/3",
+              "host": ["{{base_url}}"],
+              "path": ["api", "drivers", "3"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Restaurant Withdrawal",
+      "description": "Required: Withdrawal request and admin approval/rejection",
+      "item": [
+        {
+          "name": "Restaurant Withdrawal Request (Suspend)",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/2/suspend",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "2", "suspend"]
+            }
+          }
+        },
+        {
+          "name": "Admin Approves Withdrawal (Delete)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/restaurants/2",
+              "host": ["{{base_url}}"],
+              "path": ["api", "restaurants", "2"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Additional Verification",
+      "description": "Optional verification requests to confirm system state",
+      "item": [
+        {
           "name": "Get All Restaurants",
           "request": {
             "method": "GET",
@@ -105,54 +413,6 @@
               "raw": "{{base_url}}/api/restaurants",
               "host": ["{{base_url}}"],
               "path": ["api", "restaurants"]
-            }
-          }
-        },
-        {
-          "name": "Get Pizza Palace Details",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/1",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "1"]
-            }
-          }
-        },
-        {
-          "name": "Get Pizza Palace Menu",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/1/menu",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "1", "menu"]
-            }
-          }
-        },
-        {
-          "name": "Get Pizza Palace Hours",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/1/hours",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "1", "hours"]
-            }
-          }
-        },
-        {
-          "name": "Get All Drivers",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/drivers",
-              "host": ["{{base_url}}"],
-              "path": ["api", "drivers"]
             }
           }
         },
@@ -169,223 +429,7 @@
           }
         },
         {
-          "name": "Get Existing Loyalty Member",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/loyalty-members/LM-ABC12345",
-              "host": ["{{base_url}}"],
-              "path": ["api", "loyalty-members", "LM-ABC12345"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Act 2: New Restaurant Onboarding",
-      "description": "Register and set up a new restaurant with menu and hours",
-      "item": [
-        {
-          "name": "Register Burger Barn",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"restaurant_name\": \"Burger Barn\",\n  \"owner_name\": \"Sarah Thompson\",\n  \"email_address\": \"contact@burgerbarn.com\",\n  \"street_address\": \"456 Oak Avenue\",\n  \"city\": \"Dallas\",\n  \"state\": \"TX\",\n  \"zip_code\": \"75202\",\n  \"phone_number\": \"2145552222\",\n  \"restaurant_image_url\": \"https://example.com/burger-barn.png\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "register"]
-            }
-          }
-        },
-        {
-          "name": "Approve Burger Barn",
-          "request": {
-            "method": "PUT",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/{{new_restaurant_id}}/approve",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "{{new_restaurant_id}}", "approve"]
-            }
-          }
-        },
-        {
-          "name": "Add Menu Item - Classic Burger",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"item_name\": \"Classic Burger\",\n  \"item_description\": \"Juicy beef patty with lettuce, tomato, and special sauce\",\n  \"item_price\": 9.99,\n  \"item_image_url\": \"https://example.com/classic-burger.jpg\",\n  \"availability_status\": \"AVAILABLE\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/{{new_restaurant_id}}/menu",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "{{new_restaurant_id}}", "menu"]
-            }
-          }
-        },
-        {
-          "name": "Add Menu Item - Cheese Burger",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"item_name\": \"Cheese Burger\",\n  \"item_description\": \"Classic burger with melted cheddar cheese\",\n  \"item_price\": 10.99,\n  \"item_image_url\": \"https://example.com/cheese-burger.jpg\",\n  \"availability_status\": \"AVAILABLE\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/{{new_restaurant_id}}/menu",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "{{new_restaurant_id}}", "menu"]
-            }
-          }
-        },
-        {
-          "name": "Add Menu Item - Bacon Burger",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"item_name\": \"Bacon Burger\",\n  \"item_description\": \"Loaded with crispy bacon and BBQ sauce\",\n  \"item_price\": 12.99,\n  \"item_image_url\": \"https://example.com/bacon-burger.jpg\",\n  \"availability_status\": \"AVAILABLE\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/{{new_restaurant_id}}/menu",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "{{new_restaurant_id}}", "menu"]
-            }
-          }
-        },
-        {
-          "name": "Set Monday Hours",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"day_of_week\": \"MONDAY\",\n  \"opening_time\": \"10:00:00\",\n  \"closing_time\": \"22:00:00\",\n  \"is_closed\": false\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/{{new_restaurant_id}}/hours",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "{{new_restaurant_id}}", "hours"]
-            }
-          }
-        },
-        {
-          "name": "Get Burger Barn Menu",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/{{new_restaurant_id}}/menu",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "{{new_restaurant_id}}", "menu"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Act 3: Loyalty & Staffing",
-      "description": "Add new loyalty members, drivers, and staff",
-      "item": [
-        {
-          "name": "Register Loyalty Member - Bob Smith",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Bob\",\n  \"last_name\": \"Smith\",\n  \"email_address\": \"bob.smith@example.com\",\n  \"phone_number\": \"2145553333\",\n  \"card_number\": \"4532987654321098\",\n  \"card_holder_name\": \"Bob Smith\",\n  \"card_expiry\": \"06/27\",\n  \"card_cvv\": \"456\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/loyalty-members/register",
-              "host": ["{{base_url}}"],
-              "path": ["api", "loyalty-members", "register"]
-            }
-          }
-        },
-        {
-          "name": "Hire Driver - Sarah Johnson",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"driver_name\": \"Sarah Johnson\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/drivers",
-              "host": ["{{base_url}}"],
-              "path": ["api", "drivers"]
-            }
-          }
-        },
-        {
-          "name": "Add Staff Member - Jennifer Lee",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"first_name\": \"Jennifer\",\n  \"last_name\": \"Lee\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/staff",
-              "host": ["{{base_url}}"],
-              "path": ["api", "staff"]
-            }
-          }
-        },
-        {
-          "name": "Get All Drivers (Updated)",
+          "name": "Get All Drivers",
           "request": {
             "method": "GET",
             "header": [],
@@ -393,45 +437,6 @@
               "raw": "{{base_url}}/api/drivers",
               "host": ["{{base_url}}"],
               "path": ["api", "drivers"]
-            }
-          }
-        },
-        {
-          "name": "Get All Staff (Updated)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/staff",
-              "host": ["{{base_url}}"],
-              "path": ["api", "staff"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Act 4: Operations",
-      "description": "Create orders and manage daily operations",
-      "item": [
-        {
-          "name": "Create Guest Order at Burger Barn",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"restaurant_id\": 2,\n  \"guest_phone\": \"2145554444\",\n  \"delivery_address\": {\n    \"building_number\": \"789\",\n    \"street_name\": \"Maple Drive\",\n    \"apartment\": \"Suite 5\",\n    \"city\": \"Dallas\",\n    \"state\": \"TX\",\n    \"zip_code\": \"75203\"\n  },\n  \"delivery_contact_name\": \"Tom Wilson\",\n  \"delivery_contact_phone\": \"2145554444\",\n  \"items\": [\n    {\n      \"menu_item_id\": 4,\n      \"quantity\": 2\n    },\n    {\n      \"menu_item_id\": 5,\n      \"quantity\": 1\n    }\n  ],\n  \"tip_amount\": 5.00\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/orders",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders"]
             }
           }
         },
@@ -444,177 +449,6 @@
               "raw": "{{base_url}}/api/orders",
               "host": ["{{base_url}}"],
               "path": ["api", "orders"]
-            }
-          }
-        },
-        {
-          "name": "Get Orders by Status (PENDING)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/orders?status=PENDING",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders"],
-              "query": [
-                {
-                  "key": "status",
-                  "value": "PENDING"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get Pre-existing Test Order",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/orders/ORD-20251028-TEST",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders", "ORD-20251028-TEST"]
-            }
-          }
-        },
-        {
-          "name": "Update Test Order Status",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"CONFIRMED\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/orders/ORD-20251028-TEST/status",
-              "host": ["{{base_url}}"],
-              "path": ["api", "orders", "ORD-20251028-TEST", "status"]
-            }
-          }
-        },
-        {
-          "name": "Update Driver Status to BUSY",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"status\": \"BUSY\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/drivers/3",
-              "host": ["{{base_url}}"],
-              "path": ["api", "drivers", "3", "status"]
-            }
-          }
-        },
-        {
-          "name": "Update Burger Price",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"item_price\": 11.99,\n  \"availability_status\": \"AVAILABLE\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/menu-items/4",
-              "host": ["{{base_url}}"],
-              "path": ["api", "menu-items", "4"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Act 5: Cleanup",
-      "description": "Delete all test data we created (leaves sample data intact)",
-      "item": [
-        {
-          "name": "Delete Menu Item - Classic Burger",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/menu-items/4",
-              "host": ["{{base_url}}"],
-              "path": ["api", "menu-items", "4"]
-            }
-          }
-        },
-        {
-          "name": "Delete Menu Item - Cheese Burger",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/menu-items/5",
-              "host": ["{{base_url}}"],
-              "path": ["api", "menu-items", "5"]
-            }
-          }
-        },
-        {
-          "name": "Delete Menu Item - Bacon Burger",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/menu-items/6",
-              "host": ["{{base_url}}"],
-              "path": ["api", "menu-items", "6"]
-            }
-          }
-        },
-        {
-          "name": "Delete Staff Member - Jennifer Lee",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/staff/2",
-              "host": ["{{base_url}}"],
-              "path": ["api", "staff", "2"]
-            }
-          }
-        },
-        {
-          "name": "Delete Driver - Sarah Johnson",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/drivers/3",
-              "host": ["{{base_url}}"],
-              "path": ["api", "drivers", "3"]
-            }
-          }
-        },
-        {
-          "name": "Delete Restaurant - Burger Barn",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/restaurants/{{new_restaurant_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "restaurants", "{{new_restaurant_id}}"]
             }
           }
         }

@@ -473,6 +473,66 @@ app.put('/api/restaurants/:id/approve', async (req, res) => {
 });
 
 /**
+ * PUT /api/restaurants/:id/reject
+ * Reject a restaurant registration (admin only)
+ */
+app.put('/api/restaurants/:id/reject', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Reject by deleting the restaurant
+        const result = await pool.query(
+            'DELETE FROM RESTAURANTS WHERE restaurant_id = $1 AND account_status = \'PENDING\' RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found or already processed' });
+        }
+
+        res.json({
+            message: 'Restaurant registration rejected and deleted',
+            restaurant_id: parseInt(id)
+        });
+
+    } catch (error) {
+        console.error('Reject restaurant error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * PUT /api/restaurants/:id/suspend
+ * Suspend a restaurant (withdrawal/deactivation)
+ */
+app.put('/api/restaurants/:id/suspend', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `UPDATE RESTAURANTS
+             SET account_status = 'SUSPENDED'
+             WHERE restaurant_id = $1 AND account_status = 'APPROVED'
+             RETURNING *`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found or not approved' });
+        }
+
+        res.json({
+            message: 'Restaurant suspended successfully',
+            restaurant: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Suspend restaurant error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * DELETE /api/restaurants/:id
  * Delete a restaurant (also deletes menu items, operating hours, and account via CASCADE)
  */
@@ -906,6 +966,86 @@ app.put('/api/orders/:orderNumber/status', async (req, res) => {
     }
 });
 
+/**
+ * PUT /api/orders/:orderNumber/assign-driver
+ * Assign a driver to an order
+ *
+ * Body: { driver_id }
+ */
+app.put('/api/orders/:orderNumber/assign-driver', async (req, res) => {
+    try {
+        const { orderNumber } = req.params;
+        const { driver_id } = req.body;
+
+        if (!driver_id) {
+            return res.status(400).json({ error: 'Driver ID is required' });
+        }
+
+        // Check if driver exists
+        const driverCheck = await pool.query(
+            'SELECT driver_id FROM DRIVERS WHERE driver_id = $1',
+            [driver_id]
+        );
+
+        if (driverCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Driver not found' });
+        }
+
+        const result = await pool.query(
+            'UPDATE ORDERS SET assigned_driver_id = $1 WHERE order_number = $2 RETURNING *',
+            [driver_id, orderNumber]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        res.json({
+            message: 'Driver assigned successfully',
+            order: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Assign driver error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * PUT /api/orders/:orderNumber/delivery-time
+ * Update delivery time for an order
+ *
+ * Body: { actual_delivery_time, delivery_duration_minutes }
+ */
+app.put('/api/orders/:orderNumber/delivery-time', async (req, res) => {
+    try {
+        const { orderNumber } = req.params;
+        const { actual_delivery_time, delivery_duration_minutes } = req.body;
+
+        const result = await pool.query(
+            `UPDATE ORDERS
+             SET actual_delivery_time = $1,
+                 delivery_duration_minutes = $2
+             WHERE order_number = $3
+             RETURNING *`,
+            [actual_delivery_time, delivery_duration_minutes, orderNumber]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        res.json({
+            message: 'Delivery time updated successfully',
+            order: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Update delivery time error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // ============================================================================
 // 11. Loyalty Member Endpoints
 // ============================================================================
@@ -1085,6 +1225,42 @@ app.get('/api/staff', async (req, res) => {
 
     } catch (error) {
         console.error('Get staff error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * PUT /api/staff/:id
+ * Update staff member status (activate/inactivate)
+ *
+ * Body: { account_status }
+ */
+app.put('/api/staff/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { account_status } = req.body;
+
+        const validStatuses = ['ACTIVE', 'INACTIVE'];
+        if (!validStatuses.includes(account_status)) {
+            return res.status(400).json({ error: 'Invalid status. Must be ACTIVE or INACTIVE' });
+        }
+
+        const result = await pool.query(
+            'UPDATE STAFF_MEMBERS SET account_status = $1 WHERE staff_id = $2 RETURNING *',
+            [account_status, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Staff member not found' });
+        }
+
+        res.json({
+            message: 'Staff member updated successfully',
+            staff: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Update staff error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

@@ -266,7 +266,7 @@ CREATE TABLE ORDER_ITEMS (
     item_price DECIMAL(10, 2) NOT NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     FOREIGN KEY (order_number) REFERENCES ORDERS(order_number) ON DELETE CASCADE,
-    FOREIGN KEY (menu_item_id) REFERENCES MENU_ITEMS(menu_item_id)
+    FOREIGN KEY (menu_item_id) REFERENCES MENU_ITEMS(menu_item_id) ON DELETE CASCADE
 );
 
 -- ===================================================================
