@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "name": "Sarah Johnson",
+    "type": "Order Manager",
+    "status": "Active",
+    "location": "Online"
+  },
+  {
+    "id": 2,
+    "name": "Mike Chen",
+    "type": "Customer Service",
+    "status": "Training",
+    "location": "Learning"
+  },
+  {
+    "id": 3,
+    "name": "Lisa Rodriguez",
+    "type": "Order Manager",
+    "status": "Active",
+    "location": "Online"
+  },
+  {
+    "id": 4,
+    "name": "David Kim",
+    "type": "Customer Service",
+    "status": "On Leave",
+    "location": "Offline"
+  },
+  {
+    "id": 5,
+    "name": "Emma Williams",
+    "type": "Order Manager",
+    "status": "Active",
+    "location": "Online"
+  }
+]
