@@ -10,6 +10,17 @@ set -e  # Exit on any error
 
 REGION="us-east-1"
 
+# Parse command line flags
+RELEASE_EIP=false
+for arg in "$@"; do
+    case $arg in
+        --release-eip)
+            RELEASE_EIP=true
+            shift
+            ;;
+    esac
+done
+
 echo "================================================"
 echo "FrontDash Teardown"
 echo "================================================"
@@ -17,8 +28,15 @@ echo ""
 echo "⚠️  WARNING: This will delete ALL FrontDash resources!"
 echo "   - EC2 instance"
 echo "   - RDS database (all data will be lost)"
+echo "   - S3 bucket and all images"
+echo "   - IAM roles and policies"
 echo "   - Security groups"
 echo "   - SSH key pair"
+if [ "$RELEASE_EIP" = true ]; then
+    echo "   - Elastic IP (--release-eip flag detected)"
+else
+    echo "   - Elastic IP will be KEPT (use --release-eip to release)"
+fi
 echo ""
 read -p "Are you sure you want to continue? (yes/no): " -r
 echo
@@ -58,11 +76,93 @@ else
 fi
 
 # ============================================================================
-# Step 2: Delete RDS Database
+# Step 2: Delete S3 Bucket
 # ============================================================================
 
 echo ""
-echo "Step 2: Deleting RDS database..."
+echo "Step 2: Deleting S3 bucket..."
+
+S3_BUCKET="frontdash-images"
+
+# Check if bucket exists
+if aws s3api head-bucket --bucket $S3_BUCKET 2>/dev/null; then
+    echo "  Emptying bucket first (required before deletion)..."
+    aws s3 rm s3://$S3_BUCKET --recursive 2>/dev/null || echo "  ⚠️  Bucket may be empty"
+
+    echo "  Deleting bucket..."
+    aws s3api delete-bucket --bucket $S3_BUCKET --region $REGION 2>/dev/null || echo "  ⚠️  Could not delete bucket"
+    echo "  ✓ S3 bucket deleted"
+else
+    echo "  ⚠️  S3 bucket not found or already deleted"
+fi
+
+# ============================================================================
+# Step 3: Delete IAM Resources
+# ============================================================================
+
+echo ""
+echo "Step 3: Deleting IAM resources..."
+
+ROLE_NAME="frontdash-ec2-role"
+POLICY_NAME="frontdash-s3-upload-policy"
+INSTANCE_PROFILE_NAME="frontdash-ec2-profile"
+
+# Remove role from instance profile
+if aws iam get-instance-profile --instance-profile-name $INSTANCE_PROFILE_NAME 2>/dev/null; then
+    echo "  Removing role from instance profile..."
+    aws iam remove-role-from-instance-profile \
+        --instance-profile-name $INSTANCE_PROFILE_NAME \
+        --role-name $ROLE_NAME 2>/dev/null || echo "  ⚠️  Role may not be attached"
+
+    echo "  Deleting instance profile..."
+    aws iam delete-instance-profile \
+        --instance-profile-name $INSTANCE_PROFILE_NAME 2>/dev/null || echo "  ⚠️  Could not delete instance profile"
+    echo "  ✓ Instance profile deleted"
+else
+    echo "  ⚠️  Instance profile not found"
+fi
+
+# Detach policy from role and delete role
+if aws iam get-role --role-name $ROLE_NAME 2>/dev/null; then
+    # Get and detach all policies
+    POLICY_ARN=$(aws iam list-attached-role-policies \
+        --role-name $ROLE_NAME \
+        --query "AttachedPolicies[?PolicyName=='${POLICY_NAME}'].PolicyArn" \
+        --output text 2>/dev/null)
+
+    if [ -n "$POLICY_ARN" ] && [ "$POLICY_ARN" != "None" ]; then
+        echo "  Detaching policy from role..."
+        aws iam detach-role-policy \
+            --role-name $ROLE_NAME \
+            --policy-arn $POLICY_ARN 2>/dev/null || echo "  ⚠️  Could not detach policy"
+    fi
+
+    echo "  Deleting IAM role..."
+    aws iam delete-role --role-name $ROLE_NAME 2>/dev/null || echo "  ⚠️  Could not delete role"
+    echo "  ✓ IAM role deleted"
+else
+    echo "  ⚠️  IAM role not found"
+fi
+
+# Delete the policy
+POLICY_ARN=$(aws iam list-policies \
+    --query "Policies[?PolicyName=='${POLICY_NAME}'].Arn" \
+    --output text 2>/dev/null)
+
+if [ -n "$POLICY_ARN" ] && [ "$POLICY_ARN" != "None" ]; then
+    echo "  Deleting IAM policy..."
+    aws iam delete-policy --policy-arn $POLICY_ARN 2>/dev/null || echo "  ⚠️  Could not delete policy"
+    echo "  ✓ IAM policy deleted"
+else
+    echo "  ⚠️  IAM policy not found"
+fi
+
+# ============================================================================
+# Step 4: Delete RDS Database
+# ============================================================================
+
+echo ""
+echo "Step 4: Deleting RDS database..."
 
 DB_INSTANCE_IDENTIFIER="frontdash-db"
 
@@ -104,11 +204,11 @@ else
 fi
 
 # ============================================================================
-# Step 3: Delete Security Groups
+# Step 5: Delete Security Groups
 # ============================================================================
 
 echo ""
-echo "Step 3: Deleting security groups..."
+echo "Step 5: Deleting security groups..."
 
 # Wait a bit to ensure resources are fully terminated
 echo "  Waiting 30 seconds for resources to fully terminate..."
@@ -193,11 +293,11 @@ else
 fi
 
 # ============================================================================
-# Step 4: Delete Key Pair (Optional)
+# Step 6: Delete Key Pair (Optional)
 # ============================================================================
 
 echo ""
-echo "Step 4: Deleting SSH key pair..."
+echo "Step 6: Deleting SSH key pair..."
 
 KEY_NAME="frontdash-key"
 
@@ -220,11 +320,11 @@ else
 fi
 
 # ============================================================================
-# Step 5: Clean Up Local Files
+# Step 7: Clean Up Local Files
 # ============================================================================
 
 echo ""
-echo "Step 5: Cleaning up local configuration files..."
+echo "Step 7: Cleaning up local configuration files..."
 
 # List of files to clean up
 FILES_TO_CLEAN=(
@@ -232,6 +332,8 @@ FILES_TO_CLEAN=(
     "ec2-config.txt"
     "db-config.txt"
     "db-sg-id.txt"
+    "s3-config.txt"
+    "elastic-ip.txt"
     "user-data.sh"
     "deploy-api.sh"
     "schema.sql"
@@ -246,11 +348,11 @@ for file in "${FILES_TO_CLEAN[@]}"; do
 done
 
 # ============================================================================
-# Step 6: Final Verification
+# Step 8: Final Verification
 # ============================================================================
 
 echo ""
-echo "Step 6: Verifying cleanup..."
+echo "Step 8: Verifying cleanup..."
 
 # Check for any remaining FrontDash resources
 echo ""
@@ -291,6 +393,43 @@ else
     echo "  ✓ No security groups found"
 fi
 
+# ============================================================================
+# Step 9: Handle Elastic IP
+# ============================================================================
+
+echo ""
+echo "Step 9: Handling Elastic IP..."
+
+# Find the FrontDash Elastic IP
+EIP_ALLOCATION_ID=$(aws ec2 describe-addresses \
+    --filters "Name=tag:Name,Values=frontdash-elastic-ip" \
+    --region $REGION \
+    --query 'Addresses[0].AllocationId' \
+    --output text 2>/dev/null)
+
+EIP_PUBLIC_IP=$(aws ec2 describe-addresses \
+    --filters "Name=tag:Name,Values=frontdash-elastic-ip" \
+    --region $REGION \
+    --query 'Addresses[0].PublicIp' \
+    --output text 2>/dev/null)
+
+if [ "$EIP_ALLOCATION_ID" != "None" ] && [ -n "$EIP_ALLOCATION_ID" ]; then
+    if [ "$RELEASE_EIP" = true ]; then
+        echo "  Releasing Elastic IP: $EIP_PUBLIC_IP"
+        aws ec2 release-address \
+            --allocation-id $EIP_ALLOCATION_ID \
+            --region $REGION 2>/dev/null || echo "  ⚠️  Could not release Elastic IP"
+        echo "  ✓ Elastic IP released"
+        EIP_STATUS="released"
+    else
+        echo "  ⚠️  Elastic IP $EIP_PUBLIC_IP was KEPT (use --release-eip to release)"
+        EIP_STATUS="kept"
+    fi
+else
+    echo "  ⚠️  No Elastic IP found"
+    EIP_STATUS="not found"
+fi
+
 echo ""
 echo "================================================"
 echo "Teardown Complete!"
@@ -299,14 +438,24 @@ echo ""
 echo "Summary:"
 echo "  ✓ EC2 instance terminated"
 echo "  ✓ RDS database deleted"
+echo "  ✓ S3 bucket deleted"
+echo "  ✓ IAM resources deleted"
 echo "  ✓ Security groups removed"
 echo "  ✓ Local configuration files cleaned up"
+if [ "$EIP_STATUS" = "kept" ]; then
+    echo "  ⚠️  Elastic IP kept: $EIP_PUBLIC_IP"
+elif [ "$EIP_STATUS" = "released" ]; then
+    echo "  ✓ Elastic IP released"
+fi
 echo ""
 echo "IMPORTANT NOTES:"
 echo "  1. If the database is still deleting, it will complete in the background"
 echo "  2. Check your AWS Console to verify all resources are removed"
 echo "  3. You may have incurred some charges during the time resources were active"
 echo "  4. If you kept the SSH key, delete it manually: aws ec2 delete-key-pair --key-name $KEY_NAME"
+if [ "$EIP_STATUS" = "kept" ]; then
+    echo "  5. Elastic IP costs ~\$0.005/hr when not attached. Release with: ./teardown.sh --release-eip"
+fi
 echo ""
 echo "To verify no resources remain, visit:"
 echo "  EC2: https://console.aws.amazon.com/ec2/"

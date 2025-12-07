@@ -35,6 +35,16 @@ fi
 source db-config.txt
 echo "✓ Database configuration loaded"
 
+# Check for S3 configuration (optional but recommended)
+if [ -f "s3-config.txt" ]; then
+    source s3-config.txt
+    echo "✓ S3 configuration loaded (bucket: $S3_BUCKET)"
+    HAS_S3=true
+else
+    echo "⚠️  S3 not configured (run setup-s3.sh for image uploads)"
+    HAS_S3=false
+fi
+
 # Step 2: Create or use existing key pair
 echo ""
 echo "Step 2: Setting up SSH key pair..."
@@ -144,16 +154,26 @@ echo ""
 echo "Step 7: Launching EC2 instance..."
 echo "This may take 2-3 minutes..."
 
-INSTANCE_ID=$(aws ec2 run-instances \
-    --image-id $AMI_ID \
-    --instance-type $INSTANCE_TYPE \
-    --key-name $KEY_NAME \
-    --security-group-ids $EC2_SG_ID \
-    --user-data file://user-data.sh \
-    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]" \
-    --region $REGION \
-    --output text \
-    --query 'Instances[0].InstanceId')
+# Build the run-instances command
+RUN_ARGS=(
+    --image-id $AMI_ID
+    --instance-type $INSTANCE_TYPE
+    --key-name $KEY_NAME
+    --security-group-ids $EC2_SG_ID
+    --user-data file://user-data.sh
+    --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$INSTANCE_NAME}]"
+    --region $REGION
+    --output text
+    --query 'Instances[0].InstanceId'
+)
+
+# Add IAM instance profile if S3 is configured
+if [ "$HAS_S3" = true ]; then
+    RUN_ARGS+=(--iam-instance-profile Name=$INSTANCE_PROFILE_NAME)
+    echo "  (with IAM profile for S3 access)"
+fi
+
+INSTANCE_ID=$(aws ec2 run-instances "${RUN_ARGS[@]}")
 
 echo "✓ EC2 instance launched: $INSTANCE_ID"
 
@@ -170,17 +190,59 @@ aws ec2 wait instance-running \
 
 echo "✓ Instance is now running!"
 
-# Step 9: Get public IP address
+# Step 9: Set up Elastic IP (static IP that persists across deployments)
 echo ""
-echo "Step 9: Retrieving instance details..."
+echo "Step 9: Setting up Elastic IP..."
 
-PUBLIC_IP=$(aws ec2 describe-instances \
-    --instance-ids $INSTANCE_ID \
+# Check if we already have a FrontDash Elastic IP
+EXISTING_EIP=$(aws ec2 describe-addresses \
+    --filters "Name=tag:Name,Values=frontdash-elastic-ip" \
     --region $REGION \
-    --query 'Reservations[0].Instances[0].PublicIpAddress' \
-    --output text)
+    --query 'Addresses[0].PublicIp' \
+    --output text 2>/dev/null)
 
-echo "✓ Public IP: $PUBLIC_IP"
+EXISTING_ALLOCATION_ID=$(aws ec2 describe-addresses \
+    --filters "Name=tag:Name,Values=frontdash-elastic-ip" \
+    --region $REGION \
+    --query 'Addresses[0].AllocationId' \
+    --output text 2>/dev/null)
+
+if [ "$EXISTING_EIP" != "None" ] && [ -n "$EXISTING_EIP" ]; then
+    # Reuse existing Elastic IP
+    echo "  Found existing Elastic IP: $EXISTING_EIP"
+    PUBLIC_IP=$EXISTING_EIP
+    ALLOCATION_ID=$EXISTING_ALLOCATION_ID
+else
+    # Allocate new Elastic IP
+    echo "  Allocating new Elastic IP..."
+    ALLOCATION_RESULT=$(aws ec2 allocate-address \
+        --domain vpc \
+        --region $REGION \
+        --output json)
+
+    PUBLIC_IP=$(echo $ALLOCATION_RESULT | grep -o '"PublicIp": "[^"]*"' | cut -d'"' -f4)
+    ALLOCATION_ID=$(echo $ALLOCATION_RESULT | grep -o '"AllocationId": "[^"]*"' | cut -d'"' -f4)
+
+    # Tag it so we can find it next time
+    aws ec2 create-tags \
+        --resources $ALLOCATION_ID \
+        --tags Key=Name,Value=frontdash-elastic-ip \
+        --region $REGION
+
+    echo "  ✓ Allocated new Elastic IP: $PUBLIC_IP"
+fi
+
+# Associate Elastic IP with the instance
+echo "  Associating Elastic IP with instance..."
+aws ec2 associate-address \
+    --instance-id $INSTANCE_ID \
+    --allocation-id $ALLOCATION_ID \
+    --region $REGION > /dev/null
+
+echo "✓ Elastic IP: $PUBLIC_IP (static - won't change across deployments)"
+
+# Save Elastic IP to file for quick reference
+echo $PUBLIC_IP > elastic-ip.txt
 
 # Step 10: Create deployment script
 echo ""
@@ -219,11 +281,16 @@ echo "✓ API files uploaded (node_modules excluded)"
 
 # Copy database configuration
 echo ""
-echo "Step 2: Copying database configuration..."
+echo "Step 2: Copying configuration files..."
 
 scp -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no db-config.txt ubuntu@${PUBLIC_IP}:/home/ubuntu/frontdash-api/
-
 echo "✓ Database config uploaded"
+
+# Copy S3 configuration if it exists
+if [ -f "s3-config.txt" ]; then
+    scp -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no s3-config.txt ubuntu@${PUBLIC_IP}:/home/ubuntu/frontdash-api/
+    echo "✓ S3 config uploaded"
+fi
 
 # Copy and run the schema
 echo ""
@@ -263,7 +330,7 @@ ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@${PUBLIC_IP} << 'REMOT
     # Load database config
     source /home/ubuntu/frontdash-api/db-config.txt
 
-    # Create .env file
+    # Create .env file with database config
     cat > .env << ENV_EOF
 DB_HOST=\$DB_HOST
 DB_PORT=\$DB_PORT
@@ -272,6 +339,14 @@ DB_USER=\$DB_USER
 DB_PASSWORD=\$DB_PASSWORD
 PORT=3000
 ENV_EOF
+
+    # Add S3 config if available
+    if [ -f "/home/ubuntu/frontdash-api/s3-config.txt" ]; then
+        source /home/ubuntu/frontdash-api/s3-config.txt
+        echo "S3_BUCKET=\$S3_BUCKET" >> .env
+        echo "S3_REGION=\$S3_REGION" >> .env
+        echo "✓ S3 configuration added to .env"
+    fi
 
     # Start the API with PM2 (using compiled dist/server.js)
     pm2 start dist/server.js --name frontdash-api
