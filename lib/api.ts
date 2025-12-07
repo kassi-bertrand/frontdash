@@ -448,5 +448,88 @@ export const loyaltyApi = {
     ),
 };
 
+// =============================================================================
+// Upload API (Presigned URLs for S3)
+// =============================================================================
+
+export interface PresignedUrlResponse {
+  /** The presigned URL to upload the file to S3 */
+  uploadUrl: string;
+  /** The public URL where the image will be accessible after upload */
+  imageUrl: string;
+  /** How long the presigned URL is valid for (seconds) */
+  expiresIn: number;
+}
+
+export const uploadApi = {
+  /**
+   * Get a presigned URL for uploading an image to S3.
+   *
+   * @param type - 'restaurant' for restaurant images, 'menu-item' for menu item images
+   * @param id - ID of the restaurant or menu item
+   * @param fileExtension - File extension (e.g., 'jpg', 'png')
+   * @returns Presigned URL for upload and the final public URL
+   *
+   * @example
+   * ```ts
+   * // 1. Get presigned URL
+   * const { uploadUrl, imageUrl } = await uploadApi.getPresignedUrl('restaurant', 1, 'jpg');
+   *
+   * // 2. Upload file directly to S3
+   * await fetch(uploadUrl, {
+   *   method: 'PUT',
+   *   body: file,
+   *   headers: { 'Content-Type': 'image/jpeg' }
+   * });
+   *
+   * // 3. Update restaurant with the new image URL
+   * await restaurantApi.update(1, { restaurant_image_url: imageUrl });
+   * ```
+   */
+  getPresignedUrl: (type: 'restaurant' | 'menu-item', id: number, fileExtension: string) =>
+    apiFetch<PresignedUrlResponse>('/api/uploads/presigned-url', {
+      method: 'POST',
+      body: JSON.stringify({ type, id, fileExtension }),
+    }),
+
+  /**
+   * Upload a file to S3 using a presigned URL.
+   * Handles the complete upload flow: get URL, upload, return image URL.
+   *
+   * @param type - 'restaurant' or 'menu-item'
+   * @param id - ID of the entity
+   * @param file - File to upload
+   * @returns The public URL of the uploaded image
+   *
+   * @example
+   * ```ts
+   * const imageUrl = await uploadApi.uploadImage('menu-item', 42, file);
+   * await menuApi.update(42, { item_image_url: imageUrl });
+   * ```
+   */
+  uploadImage: async (type: 'restaurant' | 'menu-item', id: number, file: File): Promise<string> => {
+    // Extract file extension
+    const extension = file.name.split('.').pop() || 'jpg';
+
+    // Get presigned URL
+    const { uploadUrl, imageUrl } = await uploadApi.getPresignedUrl(type, id, extension);
+
+    // Upload directly to S3
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+
+    if (!uploadResponse.ok) {
+      throw new ApiError(uploadResponse.status, 'Failed to upload image to S3');
+    }
+
+    return imageUrl;
+  },
+};
+
 // Export API_BASE_URL for reference
 export { API_BASE_URL };

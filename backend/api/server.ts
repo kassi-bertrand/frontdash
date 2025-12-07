@@ -22,6 +22,8 @@ import pg from 'pg';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 dotenv.config();
 
@@ -202,6 +204,17 @@ pool.connect((err, _client, release) => {
         release();
     }
 });
+
+// ============================================================================
+// 5b. S3 Configuration (for image uploads)
+// ============================================================================
+
+const S3_BUCKET = process.env.S3_BUCKET || 'frontdash-images';
+const S3_REGION = process.env.S3_REGION || 'us-east-1';
+
+// S3 client uses IAM role credentials when running on EC2
+// For local development, uses ~/.aws/credentials or environment variables
+const s3Client = new S3Client({ region: S3_REGION });
 
 // ============================================================================
 // 6. Helper Functions
@@ -1027,6 +1040,91 @@ app.delete('/api/menu-items/:id', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Delete menu item error:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ============================================================================
+// 10b. Image Upload Endpoints (Presigned URLs)
+// ============================================================================
+
+/**
+ * Request body for generating a presigned upload URL
+ */
+interface UploadUrlRequest {
+    /** Type of image: 'restaurant' or 'menu-item' */
+    type: 'restaurant' | 'menu-item';
+    /** ID of the restaurant or menu item */
+    id: number;
+    /** File extension (e.g., 'jpg', 'png', 'webp') */
+    fileExtension: string;
+}
+
+/**
+ * Generate a presigned URL for uploading an image to S3.
+ *
+ * The frontend uses this URL to upload directly to S3, bypassing the server.
+ * This reduces server load and allows larger file uploads.
+ *
+ * Flow:
+ * 1. Frontend requests presigned URL with type, id, and fileExtension
+ * 2. Server generates URL valid for 5 minutes
+ * 3. Frontend PUTs the image directly to S3 using the URL
+ * 4. Frontend updates the restaurant/menu-item with the final image URL
+ */
+app.post('/api/uploads/presigned-url', async (req: Request, res: Response) => {
+    try {
+        const { type, id, fileExtension }: UploadUrlRequest = req.body;
+
+        // Validate required fields
+        if (!type || !id || !fileExtension) {
+            return res.status(400).json({
+                error: 'Missing required fields: type, id, fileExtension'
+            });
+        }
+
+        // Validate type
+        if (type !== 'restaurant' && type !== 'menu-item') {
+            return res.status(400).json({
+                error: 'Invalid type. Must be "restaurant" or "menu-item"'
+            });
+        }
+
+        // Validate file extension
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        const ext = fileExtension.toLowerCase().replace('.', '');
+        if (!allowedExtensions.includes(ext)) {
+            return res.status(400).json({
+                error: `Invalid file extension. Allowed: ${allowedExtensions.join(', ')}`
+            });
+        }
+
+        // Generate unique key: type/id/timestamp.extension
+        const timestamp = Date.now();
+        const key = `${type}s/${id}/${timestamp}.${ext}`;
+
+        // Create presigned URL for PUT operation
+        const command = new PutObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: key,
+            ContentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        });
+
+        const presignedUrl = await getSignedUrl(s3Client, command, {
+            expiresIn: 300, // 5 minutes
+        });
+
+        // The public URL where the image will be accessible after upload
+        const imageUrl = `https://${S3_BUCKET}.s3.amazonaws.com/${key}`;
+
+        res.json({
+            uploadUrl: presignedUrl,
+            imageUrl,
+            expiresIn: 300,
+        });
+
+    } catch (error) {
+        console.error('Generate presigned URL error:', error);
+        res.status(500).json({ error: 'Failed to generate upload URL' });
     }
 });
 
