@@ -1,0 +1,17 @@
+# Deployment-generated config files (contain secrets/IPs)
+db-config.txt
+db-sg-id.txt
+s3-config.txt
+ec2-config.txt
+ec2-instance-id.txt
+elastic-ip.txt
+
+# Generated scripts
+deploy-api.sh
+user-data.sh
+
+# SSH keys (sensitive!)
+*.pem
+
+# Database schema (copied from backend during deploy)
+schema.sql
