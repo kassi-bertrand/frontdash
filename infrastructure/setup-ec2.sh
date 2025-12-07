@@ -205,13 +205,17 @@ echo ""
 echo "Waiting 30 seconds for EC2 initialization to complete..."
 sleep 30
 
-# Copy API files to EC2
+# Copy API files to EC2 (excluding node_modules and dist - they'll be rebuilt on server)
 echo ""
-echo "Step 1: Copying API files to EC2..."
+echo "Step 1: Preparing EC2 and copying API files..."
 
-scp -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no -r ../backend/api ubuntu@${PUBLIC_IP}:/home/ubuntu/frontdash-api/
+ssh -i \${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@\${PUBLIC_IP} "mkdir -p /home/ubuntu/frontdash-api/api"
 
-echo "✓ API files uploaded"
+rsync -avz --exclude 'node_modules' --exclude 'dist' \\
+    -e "ssh -i \${KEY_NAME}.pem -o StrictHostKeyChecking=no" \\
+    ../backend/api/ ubuntu@\${PUBLIC_IP}:/home/ubuntu/frontdash-api/api/
+
+echo "✓ API files uploaded (node_modules excluded)"
 
 # Copy database configuration
 echo ""
