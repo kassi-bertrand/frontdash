@@ -1,66 +1,52 @@
 /**
  * Next.js Middleware - Route Protection
  *
- * What is middleware?
- * - A function that runs BEFORE a request is completed
- * - Executes on Vercel's Edge Runtime (lightweight, fast JavaScript runtime)
- * - Runs on EVERY request that matches the matcher configuration
+ * Runs BEFORE every request to protected routes. Uses httpOnly cookies
+ * set by the auth module to validate access.
  *
- * When does it run?
- * Timeline: User clicks link → Middleware runs → Page renders
- *                                    ↓
- *                             Can redirect/block
- *
- * - Runs BEFORE any page rendering or API routes
- * - Runs on the server edge (not in the browser)
- * - Perfect for authentication checks, redirects, header modifications
- *
- * Why use middleware for auth instead of useEffect?
- * - Runs before page loads (no flash of protected content)
- * - Works with server-side rendering
- * - Can't be bypassed by disabling JavaScript
- * - More secure and performant
+ * Flow: User clicks link → Middleware checks cookies → Allow or redirect
  */
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { AUTH_COOKIES } from '@/lib/auth/cookies'
+import { ROLE_DASHBOARDS } from '@/lib/auth/config'
+import { parseFrontendRole, type FrontendRole } from '@/lib/auth/types'
+
+/** Route protection rules: which roles can access which paths */
+const ROUTE_RULES: { prefix: string; allowedRoles: FrontendRole[] }[] = [
+  { prefix: '/admin', allowedRoles: ['admin'] },
+  { prefix: '/staff', allowedRoles: ['staff'] },
+  { prefix: '/restaurant/dashboard', allowedRoles: ['restaurant'] },
+]
 
 export function middleware(request: NextRequest) {
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
-  const isStaffRoute = request.nextUrl.pathname.startsWith('/staff')
-  const isProtectedRoute = isAdminRoute || isStaffRoute
+  const pathname = request.nextUrl.pathname
 
-  // Only check auth for protected routes
-  if (isProtectedRoute) {
-    // TODO: Replace with BetterAuth session validation when backend is ready
-    // With BetterAuth, this would look like:
-    // const session = await auth.getSession(request)
-    // if (!session?.user) {
-    //   return NextResponse.redirect(new URL('/login', request.url))
-    // }
-    // if (isAdminRoute && session.user.role !== 'admin') {
-    //   return NextResponse.redirect(new URL('/login', request.url))
-    // }
-
-    // Temporary demo authentication check
-    // In production, auth tokens should be stored in httpOnly cookies, not
-    // localStorage
-    // Middleware can only read cookies, not localStorage (which is client-side only)
-    const authToken = request.cookies.get('authToken')?.value
-    const userRole = request.cookies.get('userRole')?.value
-
-    if (!authToken) {
-      // No authentication token found - redirect to login
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
-
-    if (isAdminRoute && userRole !== 'admin') {
-      // User trying to access admin routes without admin role
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
+  // Find matching route rule
+  const rule = ROUTE_RULES.find((r) => pathname.startsWith(r.prefix))
+  if (!rule) {
+    // Not a protected route - allow through
+    return NextResponse.next()
   }
 
-  // Allow the request to continue
+  // Read and validate auth cookies (set by lib/auth/cookies.ts)
+  const role = parseFrontendRole(request.cookies.get(AUTH_COOKIES.ROLE)?.value)
+  const username = request.cookies.get(AUTH_COOKIES.USERNAME)?.value
+
+  // No auth cookies = not logged in
+  if (!role || !username) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Check if user's role is allowed for this route
+  if (!rule.allowedRoles.includes(role)) {
+    // Logged in but wrong role - redirect to their dashboard
+    const redirectPath = ROLE_DASHBOARDS[role] || '/login'
+    return NextResponse.redirect(new URL(redirectPath, request.url))
+  }
+
+  // Authorized - allow through
   return NextResponse.next()
 }
 

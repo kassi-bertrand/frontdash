@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { useAuth } from '@/hooks/use-auth'
+import { API_URL } from '@/lib/auth'
 
 function levenshtein(a: string, b: string) {
   const m = a.length, n = b.length
@@ -44,29 +46,55 @@ function ClearButton({ onClick, label }: { onClick: () => void; label: string })
 }
 
 export default function StaffSettingsPage() {
-  const [username, setUsername] = React.useState('staff')
-  const [email, setEmail] = React.useState('—')
-  React.useEffect(() => {
-    const u = typeof window !== 'undefined' ? localStorage.getItem('fd_username') : null
-    const e = typeof window !== 'undefined' ? localStorage.getItem('fd_email') : null
-    setUsername(u && u.trim() ? u : 'staff')
-    setEmail(e && e.trim() ? e : '—')
-  }, [])
+  const { user, refresh } = useAuth()
+  const username = user?.username ?? 'staff'
 
   const [currentPwd, setCurrentPwd] = React.useState('')
   const [newPwd, setNewPwd] = React.useState('')
   const [confirmPwd, setConfirmPwd] = React.useState('')
   const [pwdSuccess, setPwdSuccess] = React.useState(false)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
-  function onUpdatePassword() {
+  async function onUpdatePassword() {
     if (!currentPwd.trim() || !newPwd.trim() || !confirmPwd.trim()) return toast.error('All fields are required.')
     if (newPwd !== confirmPwd) return toast.error("New password and confirmation don't match.")
     if (tooSimilar(currentPwd, newPwd)) return toast.warning('New password is too similar to the current password.')
     if (!meetsComplexity(newPwd)) return toast.warning('Use at least 8 characters and a mix of letters, numbers, and symbols.')
-    localStorage.setItem('fd_pwd_changed', '1')
-    localStorage.removeItem('fd_must_change_pwd')
-    setPwdSuccess(true)
-    setCurrentPwd(''); setNewPwd(''); setConfirmPwd('')
+
+    setIsSubmitting(true)
+    try {
+      // Call backend to change password
+      const res = await fetch(`${API_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          oldPassword: currentPwd,
+          newPassword: newPwd,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to change password')
+        return
+      }
+
+      // Clear the mustChangePassword cookie
+      await fetch('/api/auth/clear-password-flag', { method: 'POST' })
+
+      // Refresh auth state to update mustChangePassword
+      await refresh()
+
+      setPwdSuccess(true)
+      setCurrentPwd(''); setNewPwd(''); setConfirmPwd('')
+    } catch (err) {
+      toast.error('Failed to connect to server')
+      console.error('Password change error:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -77,10 +105,6 @@ export default function StaffSettingsPage() {
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Username</span>
             <span className="font-medium">{username}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Email</span>
-            <span className="font-medium">{email}</span>
           </div>
         </div>
       </div>
@@ -109,7 +133,9 @@ export default function StaffSettingsPage() {
             </div>
           </label>
           <div className="pt-1">
-            <Button size="sm" onClick={onUpdatePassword}>Update password</Button>
+            <Button size="sm" onClick={onUpdatePassword} disabled={isSubmitting}>
+              {isSubmitting ? 'Updating...' : 'Update password'}
+            </Button>
           </div>
         </div>
         {/* Success modal */}

@@ -96,7 +96,7 @@ export function AppSidebar({
             <div className="text-muted-foreground">{email}</div>
           </div>
         )}
-        {!isOnDashboard && <LogoutButton redirectTo="/login" className="w-full" />}
+        {!isOnDashboard && <LogoutButton className="w-full" />}
       </div>
     </div>
   )

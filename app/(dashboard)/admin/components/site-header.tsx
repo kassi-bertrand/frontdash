@@ -1,7 +1,6 @@
 'use client'
 
-import * as React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -15,6 +14,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog'
 import { IconLayoutSidebarLeftCollapse, IconLayoutSidebarRightExpand } from '@tabler/icons-react'
+import { useAuth } from '@/hooks/use-auth'
 
 function getTitle(pathname: string): string {
   const path = pathname.replace(/\/+$/, '') || '/admin/dashboard'
@@ -34,25 +34,9 @@ export function AdminSiteHeader({
   onToggleSidebar: () => void
 }) {
   const pathname = usePathname()
-  const router = useRouter()
+  const { user, logout } = useAuth()
   const title = getTitle(pathname)
-  const [username, setUsername] = React.useState('admin')
-
-  React.useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('fd_username') : null
-    setUsername(stored && stored.trim() ? stored : 'admin')
-  }, [])
-
-  async function handleLogout() {
-    try {
-      localStorage.removeItem('fd_auth')
-      localStorage.removeItem('fd_user')
-      sessionStorage.clear()
-      await fetch('/api/logout', { method: 'POST' }).catch(() => {})
-    } finally {
-      router.replace('/login')
-    }
-  }
+  const username = user?.username ?? 'admin'
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
@@ -88,7 +72,7 @@ export function AdminSiteHeader({
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction asChild>
-                  <Button type="button" size="sm" variant="destructive" onClick={handleLogout}>
+                  <Button type="button" size="sm" variant="destructive" onClick={logout}>
                     Logout
                   </Button>
                 </AlertDialogAction>

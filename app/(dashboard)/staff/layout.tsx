@@ -7,13 +7,14 @@ import { AdminStoreProvider } from '../admin/_state/admin-store'
 import { StaffSidebar } from './components/staff-sidebar'
 import { StaffSiteHeader } from './components/site-header'
 import { Toaster } from 'sonner'
+import { useAuth, isStaffUser } from '@/hooks/use-auth'
 
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const { user, isLoading } = useAuth()
 
   const [collapsed, setCollapsed] = useState(false)
-  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     const v = typeof window !== 'undefined' ? localStorage.getItem('fd_sidebar_collapsed') : null
@@ -21,23 +22,17 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   }, [])
 
   useEffect(() => {
+    // Wait for auth to load
+    if (isLoading) return
+
     // Enforce first-login password change for staff
-    const rawRole = typeof window !== 'undefined' ? localStorage.getItem('fd_role') : null
-    const role = (rawRole || '').toLowerCase()
-    const pwdChanged = typeof window !== 'undefined' ? localStorage.getItem('fd_pwd_changed') === '1' : false
-    const mustChangeFlag = typeof window !== 'undefined' ? localStorage.getItem('fd_must_change_pwd') === '1' : false
-
-    const mustChange = role === 'staff' && (!pwdChanged || mustChangeFlag)
-
-    const onSettings = pathname?.startsWith('/staff/settings')
-    if (mustChange && !onSettings) {
-      router.replace('/staff/settings')
-      setReady(true)
-      return
+    if (isStaffUser(user) && user.mustChangePassword) {
+      const onSettings = pathname?.startsWith('/staff/settings')
+      if (!onSettings) {
+        router.replace('/staff/settings')
+      }
     }
-
-    setReady(true)
-  }, [pathname, router])
+  }, [user, isLoading, pathname, router])
 
   function toggleSidebar() {
     setCollapsed((c) => {
@@ -47,7 +42,8 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
     })
   }
 
-  if (!ready) return null
+  // Show nothing while loading auth state
+  if (isLoading) return null
 
   return (
     <SidebarProvider>

@@ -24,7 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { useLogoutRedirect } from '../hooks/use-logout'
+import { useAuth } from '@/hooks/use-auth'
 
 export function NavUser({
   user,
@@ -36,7 +36,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const logout = useLogoutRedirect()
+  const { logout } = useAuth()
 
   function handleLogout(event?: Event) {
     event?.preventDefault()

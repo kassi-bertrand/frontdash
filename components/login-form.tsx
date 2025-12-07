@@ -1,61 +1,5 @@
 'use client'
 
-/**
- * =============================================================================
- * TODO: CONNECT RESTAURANT LOGIN TO BACKEND
- * =============================================================================
- *
- * CURRENT STATE: Restaurant login uses fake cookies (lines 62-73)
- * TARGET STATE: Call Express backend for restaurant authentication
- *
- * BACKEND ENDPOINT:
- *   URL: ${process.env.NEXT_PUBLIC_API_URL}/api/auth/login
- *   Method: POST
- *   Content-Type: application/json
- *
- * REQUEST BODY:
- *   { "username": string, "password": string }
- *   Example: { "username": "citrus-thyme-a1b2", "password": "XYZW1234" }
- *
- * SUCCESS RESPONSE (200):
- *   {
- *     "message": "Login successful",
- *     "role": "RESTAURANT",
- *     "username": "citrus-thyme-a1b2",
- *     "restaurant_id": 5
- *   }
- *
- * ERROR RESPONSE (401):
- *   { "error": "Invalid credentials" }
- *
- * IMPLEMENTATION (replace lines 62-73):
- *   import { authApi } from '@/lib/api';
- *
- *   if (isRestaurant) {
- *     try {
- *       const result = await authApi.login({ username, password });
- *       if (result.role !== 'RESTAURANT') {
- *         alert('Invalid restaurant credentials');
- *         return;
- *       }
- *       // Store restaurant_id for subsequent API calls
- *       document.cookie = `fd_restaurant_id=${result.restaurant_id}; path=/; max-age=3600`;
- *       document.cookie = `fd_role=restaurant; path=/; max-age=3600`;
- *       document.cookie = `authToken=authenticated; path=/; max-age=3600`;
- *       router.replace('/restaurant/dashboard');
- *     } catch (error) {
- *       alert(error instanceof Error ? error.message : 'Login failed');
- *     }
- *     return;
- *   }
- *
- * NOTES:
- *   - Restaurant credentials are auto-generated during registration
- *   - restaurant_id from response needed for all restaurant API calls
- *   - Consider storing in React context or Zustand for easier access
- * =============================================================================
- */
-
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building, UtensilsCrossed } from 'lucide-react'
@@ -64,35 +8,9 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import type { SignInResponse, AuthErrorResponse, FrontendRole } from '@/lib/auth'
 
 export type LoginVariant = 'staff' | 'restaurant'
-
-/** Expected response shape from the sign-in API */
-interface SignInResponse {
-  success?: boolean
-  role?: 'admin' | 'staff'
-  user?: {
-    role?: 'admin' | 'staff'
-    email?: string
-    username?: string
-    name?: string
-  }
-  token?: string
-  redirect?: string
-  message?: string
-}
-
-/**
- * Type guard to validate sign-in response structure
- * Safely checks if the response has the expected shape
- */
-function isSignInResponse(data: unknown): data is SignInResponse {
-  if (typeof data !== 'object' || data === null) {
-    return false
-  }
-  // We accept any object and let optional chaining handle missing properties
-  return true
-}
 
 type LoginFormProps = React.ComponentProps<'div'> & {
   variant: LoginVariant
@@ -103,6 +21,7 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const isRestaurant = variant === 'restaurant'
   const title = isRestaurant ? 'Restaurant portal' : 'Welcome to FrontDash'
@@ -114,55 +33,34 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setIsLoading(true)
+    setError(null)
+
     try {
-      if (isRestaurant) {
-        // Keep restaurant demo behavior (no backend yet)
-        if (!username || !password) {
-          alert('Please enter both username and password')
-          return
-        }
-        // Demo cookies for middleware tests (insecure; client-accessible)
-        document.cookie = `authToken=demo-restaurant-token; path=/; max-age=3600`
-        document.cookie = `userRole=restaurant; path=/; max-age=3600`
-        document.cookie = `fd_role=restaurant; path=/; max-age=3600`
-        router.replace('/restaurant/dashboard')
+      if (!username || !password) {
+        setError('Please enter both username and password')
         return
       }
 
-      // Admin/Staff: call backend stub which returns { success, role, redirect? }
+      // All logins go through the unified sign-in endpoint
+      const requiredRole: FrontendRole | undefined = isRestaurant ? 'restaurant' : undefined
+
       const res = await fetch('/api/auth/sign-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, requiredRole }),
       })
 
-      const rawData: unknown = await res.json().catch(() => ({}))
+      const data: SignInResponse | AuthErrorResponse = await res.json()
 
-      if (!isSignInResponse(rawData)) {
-        alert('Invalid response from server')
+      if (!res.ok || !data.success) {
+        setError(data.message || 'Invalid credentials')
         return
       }
 
-      const data = rawData
-
-      if (!res.ok || !data.success || !data.role) {
-        alert(data.message || 'Invalid credentials')
-        return
-      }
-
-      // Set auth cookies for middleware/guards (demo; BetterAuth will replace later)
-      document.cookie = `authToken=${data.token || `demo-${data.role}-token`}; path=/; max-age=3600`
-      document.cookie = `fd_role=${data.role}; path=/; max-age=3600`
-      document.cookie = `userRole=${data.role}; path=/; max-age=3600`
-      if (data.user?.username) {
-        document.cookie = `username=${data.user.username}; path=/; max-age=3600`
-      }
-
-      // Choose destination: prefer API redirect, else by role
-      const dest = data.redirect ?? (data.role === 'admin' ? '/admin/dashboard' : '/staff')
-      router.replace(dest)
+      // Navigate to the redirect path from the response
+      router.replace(data.redirect)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
       setIsLoading(false)
     }
@@ -184,7 +82,9 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
           </div>
           <div className="flex flex-col gap-6">
             <div className="grid gap-3">
-              <Label htmlFor={`username-${variant}`}>{isRestaurant ? 'Restaurant username' : 'Username'}</Label>
+              <Label htmlFor={`username-${variant}`}>
+                {isRestaurant ? 'Restaurant username' : 'Username'}
+              </Label>
               <Input
                 id={`username-${variant}`}
                 type="text"
@@ -207,6 +107,11 @@ export function LoginForm({ className, variant, ...props }: LoginFormProps) {
                 disabled={isLoading}
               />
             </div>
+            {error && (
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? 'Signing in…' : submitLabel}
             </Button>

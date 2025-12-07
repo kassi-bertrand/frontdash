@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useAdminStore } from '../admin/_state/admin-store'
+import { useAuth, isStaffUser } from '@/hooks/use-auth'
 import {
   IconDownload,
   IconTruckDelivery,
@@ -114,19 +115,18 @@ function Modal({
 export default function StaffDashboardPage() {
   const router = useRouter()
   const { state, actions } = useAdminStore()
+  const { user, isLoading } = useAuth()
 
-  const [mustChangePwd, setMustChangePwd] = useState(false)
-  useEffect(() => {
-    const role = ((typeof window !== 'undefined' ? localStorage.getItem('fd_role') : '') || '').toLowerCase()
-    const changed = typeof window !== 'undefined' ? localStorage.getItem('fd_pwd_changed') === '1' : false
-    const flag = typeof window !== 'undefined' ? localStorage.getItem('fd_must_change_pwd') === '1' : false
-    setMustChangePwd(role === 'staff' && (!changed || flag))
-  }, [])
+  // Derived state: does staff user need to change password?
+  const mustChangePwd = isStaffUser(user) && user.mustChangePassword
 
-  // Enforce redirect from the dashboard too (safety net)
+  // Enforce password change redirect (safety net for direct URL access)
   useEffect(() => {
-    if (mustChangePwd) router.replace('/staff/settings')
-  }, [mustChangePwd, router])
+    if (isLoading) return
+    if (mustChangePwd) {
+      router.replace('/staff/settings')
+    }
+  }, [mustChangePwd, isLoading, router])
 
   const queue = (state?.orders ?? []).filter((o) => o.status === 'QUEUED')
   const assigned = state?.assignedOrders ?? []
