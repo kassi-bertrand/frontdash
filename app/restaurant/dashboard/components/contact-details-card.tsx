@@ -24,11 +24,15 @@ import { Textarea } from '@/components/ui/textarea'
 
 import { restaurantContact, type RestaurantContactDetails } from '../mock-data'
 
+const phoneNumberSchema = z.object({
+  value: z.string().regex(/^\d{10}$/, 'Phone numbers must be 10 digits'),
+})
+
 const contactSchema = z.object({
   contactPerson: z.string().min(2, 'Enter the primary contact name'),
   email: z.string().email('Enter a valid email address'),
   phoneNumbers: z
-    .array(z.string().regex(/^\d{10}$/, 'Phone numbers must be 10 digits'))
+    .array(phoneNumberSchema)
     .min(1, 'Provide at least one phone number'),
   street: z.string().min(5, 'Enter the pickup street address'),
   suite: z.string().trim().max(32, 'Suite exceeds 32 characters').optional(),
@@ -41,7 +45,7 @@ const contactSchema = z.object({
 const defaultValues = {
   contactPerson: restaurantContact.contactPerson,
   email: restaurantContact.email,
-  phoneNumbers: restaurantContact.phoneNumbers,
+  phoneNumbers: restaurantContact.phoneNumbers.map((value) => ({ value })),
   street: restaurantContact.street,
   suite: restaurantContact.suite ?? '',
   city: restaurantContact.city,
@@ -69,7 +73,7 @@ export function ContactDetailsCard() {
     const payload: RestaurantContactDetails = {
       contactPerson: values.contactPerson,
       email: values.email,
-      phoneNumbers: values.phoneNumbers,
+      phoneNumbers: values.phoneNumbers.map((p) => p.value),
       street: values.street,
       suite: values.suite || undefined,
       city: values.city,
@@ -155,7 +159,7 @@ export function ContactDetailsCard() {
                       <FormField
                         key={field.id}
                         control={form.control}
-                        name={`phoneNumbers.${index}`}
+                        name={`phoneNumbers.${index}.value`}
                         render={({ field: phoneField }) => (
                           <FormItem>
                             <div className="flex items-center gap-3">
@@ -188,7 +192,7 @@ export function ContactDetailsCard() {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => append('')}
+                    onClick={() => append({ value: '' })}
                   >
                     <IconPlus className="size-4" /> Add phone number
                   </Button>

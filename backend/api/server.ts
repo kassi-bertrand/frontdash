@@ -1,7 +1,7 @@
 /**
  * ============================================================================
  * FrontDash API Server
- * 
+ *
  * A RESTful API for the FrontDash food delivery platform
  * This server provides endpoints for:
  *   - Restaurant management
@@ -14,65 +14,187 @@
  */
 
 // ============================================================================
-// 1. Import Required Modules
+// 1. Import Required Modules (ES Modules)
 // ============================================================================
 
-const express = require('express');
-const { Pool } = require('pg');
-const cors = require('cors');
-const bcrypt = require('bcrypt');
-const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+import express, { Request, Response, NextFunction, Application } from 'express';
+import pg from 'pg';
+import cors from 'cors';
+import bcrypt from 'bcrypt';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const { Pool } = pg;
 
 // ============================================================================
-// 2. Initialize Express App
+// 2. Type Definitions
 // ============================================================================
 
-const app = express();
+interface AccountLogin {
+  username: string;
+  password_hash: string;
+  account_role: 'ADMIN' | 'STAFF' | 'RESTAURANT';
+  account_state: 'ACTIVE' | 'INACTIVE';
+  last_login_at?: Date;
+}
+
+interface Restaurant {
+  restaurant_id: number;
+  restaurant_name: string;
+  owner_name: string;
+  restaurant_image_url?: string;
+  email_address: string;
+  street_address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  phone_number: string;
+  account_status: 'PENDING' | 'APPROVED' | 'SUSPENDED';
+  username: string;
+  approved_at?: Date;
+}
+
+interface MenuItem {
+  menu_item_id: number;
+  restaurant_id: number;
+  item_name: string;
+  item_description?: string;
+  item_image_url?: string;
+  item_price: number;
+  availability_status: 'AVAILABLE' | 'UNAVAILABLE';
+  updated_at?: Date;
+}
+
+interface Order {
+  order_number: string;
+  restaurant_id: number;
+  loyalty_number?: string;
+  guest_phone?: string;
+  delivery_building_number: string;
+  delivery_street_name: string;
+  delivery_apartment?: string;
+  delivery_city: string;
+  delivery_state: string;
+  delivery_zip_code: string;
+  delivery_contact_name: string;
+  delivery_contact_phone: string;
+  subtotal_amount: number;
+  service_charge: number;
+  tip_amount: number;
+  loyalty_discount: number;
+  grand_total: number;
+  order_status: 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+  estimated_delivery_time: Date;
+  actual_delivery_time?: Date;
+  delivery_duration_minutes?: number;
+  assigned_driver_id?: number;
+  created_at: Date;
+}
+
+interface OrderItem {
+  order_item_id: number;
+  order_number: string;
+  menu_item_id: number;
+  item_name: string;
+  item_price: number;
+  quantity: number;
+}
+
+interface LoyaltyMember {
+  loyalty_number: string;
+  first_name: string;
+  last_name: string;
+  email_address: string;
+  phone_number: string;
+  card_number: string;
+  card_holder_name: string;
+  card_expiry: string;
+  card_cvv: string;
+  account_status: 'ACTIVE' | 'INACTIVE';
+  loyalty_points: number;
+  created_at: Date;
+}
+
+interface StaffMember {
+  staff_id: number;
+  first_name: string;
+  last_name: string;
+  username: string;
+  account_status: 'ACTIVE' | 'INACTIVE';
+  is_first_login: boolean;
+}
+
+interface Driver {
+  driver_id: number;
+  driver_name: string;
+  driver_status: 'AVAILABLE' | 'BUSY' | 'OFFLINE';
+}
+
+interface OperatingHours {
+  hours_id: number;
+  restaurant_id: number;
+  day_of_week: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+  opening_time?: string;
+  closing_time?: string;
+  is_closed: boolean;
+}
+
+interface DeliveryAddress {
+  building_number: string;
+  street_name: string;
+  apartment?: string;
+  city: string;
+  state: string;
+  zip_code: string;
+}
+
+interface OrderItemInput {
+  menu_item_id: number;
+  quantity: number;
+}
+
+// ============================================================================
+// 3. Initialize Express App
+// ============================================================================
+
+const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
 // ============================================================================
-// 3. Middleware Configuration
+// 4. Middleware Configuration
 // ============================================================================
 
-// Enable CORS for all routes (allows requests from any origin)
 app.use(cors());
-
-// Parse JSON request bodies
 app.use(express.json());
-
-// Parse URL-encoded request bodies
 app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
-app.use((req, res, next) => {
+app.use((req: Request, _res: Response, next: NextFunction) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
     next();
 });
 
 // ============================================================================
-// 4. Database Configuration
+// 5. Database Configuration
 // ============================================================================
 
-// Create PostgreSQL connection pool
 const pool = new Pool({
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 5432,
+    port: parseInt(process.env.DB_PORT || '5432', 10),
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    // SSL configuration for AWS RDS
     ssl: {
-        rejectUnauthorized: false  // Required for AWS RDS
+        rejectUnauthorized: false
     },
-    // Connection pool settings
-    max: 20, // Maximum number of clients in the pool
+    max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
 });
 
 // Test database connection
-pool.connect((err, client, release) => {
+pool.connect((err, _client, release) => {
     if (err) {
         console.error('❌ Error connecting to the database:', err.stack);
     } else {
@@ -82,70 +204,71 @@ pool.connect((err, client, release) => {
 });
 
 // ============================================================================
-// 5. Helper Functions
+// 6. Helper Functions
 // ============================================================================
 
-/**
- * Generate a unique order number
- * Format: ORD-YYYYMMDD-XXXX (e.g., ORD-20251028-A1B2)
- */
-function generateOrderNumber() {
+function generateOrderNumber(): string {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `ORD-${dateStr}-${random}`;
 }
 
-/**
- * Generate a unique loyalty number
- * Format: LM-XXXXXXXX (e.g., LM-A1B2C3D4)
- */
-function generateLoyaltyNumber() {
+function generateLoyaltyNumber(): string {
     const random = Math.random().toString(36).substring(2, 10).toUpperCase();
     return `LM-${random}`;
 }
 
-/**
- * Hash a password using bcrypt
- */
-async function hashPassword(password) {
+async function hashPassword(password: string): Promise<string> {
     const saltRounds = 10;
     return await bcrypt.hash(password, saltRounds);
 }
 
-/**
- * Verify a password against a hash
- */
-async function verifyPassword(password, hash) {
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
     return await bcrypt.compare(password, hash);
 }
 
-/**
- * Calculate service charge (8.25% of subtotal)
- */
-function calculateServiceCharge(subtotal) {
-    return (subtotal * 0.0825).toFixed(2);
-}
+/** Service charge rate (8.25%) */
+const SERVICE_CHARGE_RATE = 0.0825;
+
+/** Loyalty discount rate (10%) */
+const LOYALTY_DISCOUNT_RATE = 0.10;
+
+/** Minimum points required for loyalty discount */
+const LOYALTY_DISCOUNT_THRESHOLD = 100;
+
+/** PostgreSQL unique constraint violation error code */
+const PG_UNIQUE_VIOLATION = '23505';
 
 /**
- * Calculate loyalty discount (10% if points >= 100)
+ * Type guard for PostgreSQL errors
+ * Checks if an error has the PostgreSQL error code property
  */
-function calculateLoyaltyDiscount(subtotal, points) {
-    if (points >= 100) {
-        return (subtotal * 0.10).toFixed(2);
+function isPgError(error: unknown): error is { code: string; message?: string } {
+    return (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        typeof (error as { code: unknown }).code === 'string'
+    );
+}
+
+function calculateServiceCharge(subtotal: number): string {
+    return (subtotal * SERVICE_CHARGE_RATE).toFixed(2);
+}
+
+function calculateLoyaltyDiscount(subtotal: number, points: number): number {
+    if (points >= LOYALTY_DISCOUNT_THRESHOLD) {
+        return parseFloat((subtotal * LOYALTY_DISCOUNT_RATE).toFixed(2));
     }
     return 0;
 }
 
 // ============================================================================
-// 6. Health Check Endpoint
+// 7. Health Check Endpoint
 // ============================================================================
 
-/**
- * GET /health
- * Check if the API is running
- */
-app.get('/health', (req, res) => {
+app.get('/health', (_req: Request, res: Response) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -153,11 +276,7 @@ app.get('/health', (req, res) => {
     });
 });
 
-/**
- * GET /
- * API welcome message
- */
-app.get('/', (req, res) => {
+app.get('/', (_req: Request, res: Response) => {
     res.json({
         message: 'Welcome to FrontDash API',
         version: '1.0.0',
@@ -172,26 +291,18 @@ app.get('/', (req, res) => {
 });
 
 // ============================================================================
-// 7. Authentication Endpoints
+// 8. Authentication Endpoints
 // ============================================================================
 
-/**
- * POST /api/auth/login
- * Authenticate a user (staff, admin, or restaurant)
- * 
- * Body: { username, password }
- */
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req: Request, res: Response) => {
     try {
-        const { username, password } = req.body;
+        const { username, password } = req.body as { username?: string; password?: string };
 
-        // Validate input
         if (!username || !password) {
             return res.status(400).json({ error: 'Username and password are required' });
         }
 
-        // Query the database for the user
-        const result = await pool.query(
+        const result = await pool.query<AccountLogin>(
             'SELECT * FROM ACCOUNT_LOGINS WHERE username = $1',
             [username]
         );
@@ -201,26 +312,21 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         const user = result.rows[0];
-
-        // Verify password
         const isValid = await verifyPassword(password, user.password_hash);
 
         if (!isValid) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Check if account is active
         if (user.account_state !== 'ACTIVE') {
             return res.status(403).json({ error: 'Account is not active' });
         }
 
-        // Update last login time
         await pool.query(
             'UPDATE ACCOUNT_LOGINS SET last_login_at = CURRENT_TIMESTAMP WHERE username = $1',
             [username]
         );
 
-        // Return user info (excluding password)
         res.json({
             username: user.username,
             role: user.account_role,
@@ -234,22 +340,18 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-/**
- * POST /api/auth/change-password
- * Change user password
- * 
- * Body: { username, oldPassword, newPassword }
- */
-app.post('/api/auth/change-password', async (req, res) => {
+app.post('/api/auth/change-password', async (req: Request, res: Response) => {
     try {
-        const { username, oldPassword, newPassword } = req.body;
+        const { username, oldPassword, newPassword } = req.body as {
+            username?: string;
+            oldPassword?: string;
+            newPassword?: string;
+        };
 
-        // Validate input
         if (!username || !oldPassword || !newPassword) {
             return res.status(400).json({ error: 'All fields are required' });
         }
 
-        // Validate new password format
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
         if (!passwordRegex.test(newPassword)) {
             return res.status(400).json({
@@ -257,8 +359,7 @@ app.post('/api/auth/change-password', async (req, res) => {
             });
         }
 
-        // Verify old password
-        const result = await pool.query(
+        const result = await pool.query<{ password_hash: string }>(
             'SELECT password_hash FROM ACCOUNT_LOGINS WHERE username = $1',
             [username]
         );
@@ -273,7 +374,6 @@ app.post('/api/auth/change-password', async (req, res) => {
             return res.status(401).json({ error: 'Current password is incorrect' });
         }
 
-        // Hash and update new password
         const newHash = await hashPassword(newPassword);
         await pool.query(
             'UPDATE ACCOUNT_LOGINS SET password_hash = $1 WHERE username = $2',
@@ -289,17 +389,13 @@ app.post('/api/auth/change-password', async (req, res) => {
 });
 
 // ============================================================================
-// 8. Restaurant Endpoints
+// 9. Restaurant Endpoints
 // ============================================================================
 
-/**
- * GET /api/restaurants
- * Get all approved restaurants
- */
-app.get('/api/restaurants', async (req, res) => {
+app.get('/api/restaurants', async (_req: Request, res: Response) => {
     try {
-        const result = await pool.query(`
-            SELECT 
+        const result = await pool.query<Restaurant>(`
+            SELECT
                 restaurant_id,
                 restaurant_name,
                 restaurant_image_url,
@@ -320,15 +416,11 @@ app.get('/api/restaurants', async (req, res) => {
     }
 });
 
-/**
- * GET /api/restaurants/:id
- * Get a specific restaurant by ID
- */
-app.get('/api/restaurants/:id', async (req, res) => {
+app.get('/api/restaurants/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
+        const result = await pool.query<Restaurant>(
             'SELECT * FROM RESTAURANTS WHERE restaurant_id = $1',
             [id]
         );
@@ -345,17 +437,19 @@ app.get('/api/restaurants/:id', async (req, res) => {
     }
 });
 
-/**
- * POST /api/restaurants/register
- * Register a new restaurant (creates pending request)
- * 
- * Body: {
- *   restaurant_name, owner_name, email_address,
- *   street_address, city, state, zip_code, phone_number,
- *   restaurant_image_url (optional)
- * }
- */
-app.post('/api/restaurants/register', async (req, res) => {
+interface RestaurantRegistrationBody {
+    restaurant_name: string;
+    owner_name: string;
+    email_address: string;
+    street_address: string;
+    city: string;
+    state: string;
+    zip_code: string;
+    phone_number: string;
+    restaurant_image_url?: string;
+}
+
+app.post('/api/restaurants/register', async (req: Request, res: Response) => {
     try {
         const {
             restaurant_name,
@@ -367,42 +461,35 @@ app.post('/api/restaurants/register', async (req, res) => {
             zip_code,
             phone_number,
             restaurant_image_url
-        } = req.body;
+        } = req.body as RestaurantRegistrationBody;
 
-        // Validate required fields
-        if (!restaurant_name || !owner_name || !email_address || 
+        if (!restaurant_name || !owner_name || !email_address ||
             !street_address || !city || !state || !zip_code || !phone_number) {
             return res.status(400).json({ error: 'All required fields must be provided' });
         }
 
-        // Validate phone number (10 digits, first digit not 0)
         if (!/^[1-9]\d{9}$/.test(phone_number)) {
             return res.status(400).json({ error: 'Phone number must be 10 digits, first digit cannot be 0' });
         }
 
-        // Generate username (first 2 letters of restaurant name + 2 digits)
         const baseUsername = restaurant_name.substring(0, 2).toLowerCase();
-        const randomDigits = Math.floor(Math.random() * 90 + 10); // 10-99
+        const randomDigits = Math.floor(Math.random() * 90 + 10);
         const username = `${baseUsername}${randomDigits}`;
 
-        // Generate initial password
-        const initialPassword = 'TempPass' + Math.floor(Math.random() * 900 + 100); // TempPass100-999
+        const initialPassword = 'TempPass' + Math.floor(Math.random() * 900 + 100);
         const hashedPassword = await hashPassword(initialPassword);
 
-        // Start transaction
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
 
-            // Create account login
             await client.query(
                 `INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
                  VALUES ($1, $2, 'RESTAURANT', 'ACTIVE')`,
                 [username, hashedPassword]
             );
 
-            // Create restaurant
-            const restaurantResult = await client.query(
+            const restaurantResult = await client.query<{ restaurant_id: number }>(
                 `INSERT INTO RESTAURANTS (
                     restaurant_name, owner_name, restaurant_image_url,
                     email_address, street_address, city, state, zip_code,
@@ -433,7 +520,7 @@ app.post('/api/restaurants/register', async (req, res) => {
 
     } catch (error) {
         console.error('Restaurant registration error:', error);
-        if (error.code === '23505') { // Unique violation
+        if (isPgError(error) && error.code === PG_UNIQUE_VIOLATION) {
             res.status(409).json({ error: 'Restaurant name or email already exists' });
         } else {
             res.status(500).json({ error: 'Internal server error' });
@@ -441,16 +528,12 @@ app.post('/api/restaurants/register', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/restaurants/:id/approve
- * Approve a restaurant registration (admin only)
- */
-app.put('/api/restaurants/:id/approve', async (req, res) => {
+app.put('/api/restaurants/:id/approve', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
-            `UPDATE RESTAURANTS 
+        const result = await pool.query<Restaurant>(
+            `UPDATE RESTAURANTS
              SET account_status = 'APPROVED', approved_at = CURRENT_TIMESTAMP
              WHERE restaurant_id = $1 AND account_status = 'PENDING'
              RETURNING *`,
@@ -472,16 +555,11 @@ app.put('/api/restaurants/:id/approve', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/restaurants/:id/reject
- * Reject a restaurant registration (admin only)
- */
-app.put('/api/restaurants/:id/reject', async (req, res) => {
+app.put('/api/restaurants/:id/reject', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        // Reject by deleting the restaurant
-        const result = await pool.query(
+        const result = await pool.query<Restaurant>(
             'DELETE FROM RESTAURANTS WHERE restaurant_id = $1 AND account_status = \'PENDING\' RETURNING *',
             [id]
         );
@@ -501,15 +579,11 @@ app.put('/api/restaurants/:id/reject', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/restaurants/:id/suspend
- * Suspend a restaurant (withdrawal/deactivation)
- */
-app.put('/api/restaurants/:id/suspend', async (req, res) => {
+app.put('/api/restaurants/:id/suspend', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
+        const result = await pool.query<Restaurant>(
             `UPDATE RESTAURANTS
              SET account_status = 'SUSPENDED'
              WHERE restaurant_id = $1 AND account_status = 'APPROVED'
@@ -532,16 +606,11 @@ app.put('/api/restaurants/:id/suspend', async (req, res) => {
     }
 });
 
-/**
- * DELETE /api/restaurants/:id
- * Delete a restaurant (also deletes menu items, operating hours, and account via CASCADE)
- */
-app.delete('/api/restaurants/:id', async (req, res) => {
+app.delete('/api/restaurants/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        // First check if restaurant exists
-        const checkResult = await pool.query(
+        const checkResult = await pool.query<{ restaurant_id: number; username: string }>(
             'SELECT restaurant_id, username FROM RESTAURANTS WHERE restaurant_id = $1',
             [id]
         );
@@ -550,9 +619,6 @@ app.delete('/api/restaurants/:id', async (req, res) => {
             return res.status(404).json({ error: 'Restaurant not found' });
         }
 
-        const username = checkResult.rows[0].username;
-
-        // Delete the restaurant (CASCADE will delete menu items, hours, and account login)
         await pool.query(
             'DELETE FROM RESTAURANTS WHERE restaurant_id = $1',
             [id]
@@ -570,20 +636,16 @@ app.delete('/api/restaurants/:id', async (req, res) => {
 });
 
 // ============================================================================
-// 9. Menu Item Endpoints
+// 10. Menu Item Endpoints
 // ============================================================================
 
-/**
- * GET /api/restaurants/:id/menu
- * Get all menu items for a restaurant
- */
-app.get('/api/restaurants/:id/menu', async (req, res) => {
+app.get('/api/restaurants/:id/menu', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
-            `SELECT * FROM MENU_ITEMS 
-             WHERE restaurant_id = $1 
+        const result = await pool.query<MenuItem>(
+            `SELECT * FROM MENU_ITEMS
+             WHERE restaurant_id = $1
              ORDER BY item_name`,
             [id]
         );
@@ -596,29 +658,30 @@ app.get('/api/restaurants/:id/menu', async (req, res) => {
     }
 });
 
-/**
- * POST /api/restaurants/:id/menu
- * Add a new menu item
- * 
- * Body: { item_name, item_description, item_price, item_image_url, availability_status }
- */
-app.post('/api/restaurants/:id/menu', async (req, res) => {
+interface MenuItemBody {
+    item_name: string;
+    item_description?: string;
+    item_price: number;
+    item_image_url?: string;
+    availability_status?: 'AVAILABLE' | 'UNAVAILABLE';
+}
+
+app.post('/api/restaurants/:id/menu', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { item_name, item_description, item_price, item_image_url, availability_status } = req.body;
+        const { item_name, item_description, item_price, item_image_url, availability_status } = req.body as MenuItemBody;
 
-        // Validate required fields
         if (!item_name || !item_price) {
             return res.status(400).json({ error: 'Item name and price are required' });
         }
 
-        const result = await pool.query(
+        const result = await pool.query<MenuItem>(
             `INSERT INTO MENU_ITEMS (
-                restaurant_id, item_name, item_description, 
+                restaurant_id, item_name, item_description,
                 item_image_url, item_price, availability_status
             ) VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *`,
-            [id, item_name, item_description || null, 
+            [id, item_name, item_description || null,
              item_image_url || null, item_price, availability_status || 'AVAILABLE']
         );
 
@@ -633,17 +696,13 @@ app.post('/api/restaurants/:id/menu', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/menu-items/:id
- * Update a menu item
- */
-app.put('/api/menu-items/:id', async (req, res) => {
+app.put('/api/menu-items/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { item_name, item_description, item_price, item_image_url, availability_status } = req.body;
+        const { item_name, item_description, item_price, item_image_url, availability_status } = req.body as Partial<MenuItemBody>;
 
-        const result = await pool.query(
-            `UPDATE MENU_ITEMS 
+        const result = await pool.query<MenuItem>(
+            `UPDATE MENU_ITEMS
              SET item_name = COALESCE($1, item_name),
                  item_description = COALESCE($2, item_description),
                  item_price = COALESCE($3, item_price),
@@ -670,15 +729,11 @@ app.put('/api/menu-items/:id', async (req, res) => {
     }
 });
 
-/**
- * DELETE /api/menu-items/:id
- * Delete a menu item
- */
-app.delete('/api/menu-items/:id', async (req, res) => {
+app.delete('/api/menu-items/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
+        const result = await pool.query<MenuItem>(
             'DELETE FROM MENU_ITEMS WHERE menu_item_id = $1 RETURNING *',
             [id]
         );
@@ -696,25 +751,21 @@ app.delete('/api/menu-items/:id', async (req, res) => {
 });
 
 // ============================================================================
-// 10. Order Endpoints
+// 11. Order Endpoints
 // ============================================================================
 
-/**
- * POST /api/orders
- * Create a new order
- * 
- * Body: {
- *   restaurant_id,
- *   loyalty_number (optional),
- *   guest_phone (required if no loyalty_number),
- *   delivery_address: { building_number, street_name, apartment, city, state, zip_code },
- *   delivery_contact_name,
- *   delivery_contact_phone,
- *   items: [{ menu_item_id, quantity }],
- *   tip_amount
- * }
- */
-app.post('/api/orders', async (req, res) => {
+interface CreateOrderBody {
+    restaurant_id: number;
+    loyalty_number?: string;
+    guest_phone?: string;
+    delivery_address: DeliveryAddress;
+    delivery_contact_name: string;
+    delivery_contact_phone: string;
+    items: OrderItemInput[];
+    tip_amount?: number;
+}
+
+app.post('/api/orders', async (req: Request, res: Response) => {
     try {
         const {
             restaurant_id,
@@ -725,15 +776,13 @@ app.post('/api/orders', async (req, res) => {
             delivery_contact_phone,
             items,
             tip_amount
-        } = req.body;
+        } = req.body as CreateOrderBody;
 
-        // Validate required fields
-        if (!restaurant_id || !delivery_address || !delivery_contact_name || 
+        if (!restaurant_id || !delivery_address || !delivery_contact_name ||
             !delivery_contact_phone || !items || items.length === 0) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // For non-loyalty orders, guest_phone is required
         if (!loyalty_number && !guest_phone) {
             return res.status(400).json({ error: 'Guest phone is required for non-loyalty orders' });
         }
@@ -742,12 +791,16 @@ app.post('/api/orders', async (req, res) => {
         try {
             await client.query('BEGIN');
 
-            // Calculate subtotal by fetching prices from database
             let subtotal = 0;
-            const orderItems = [];
+            const orderItems: Array<{
+                menu_item_id: number;
+                item_name: string;
+                item_price: number;
+                quantity: number;
+            }> = [];
 
             for (const item of items) {
-                const menuResult = await client.query(
+                const menuResult = await client.query<{ item_name: string; item_price: string }>(
                     'SELECT item_name, item_price FROM MENU_ITEMS WHERE menu_item_id = $1',
                     [item.menu_item_id]
                 );
@@ -763,18 +816,16 @@ app.post('/api/orders', async (req, res) => {
                 orderItems.push({
                     menu_item_id: item.menu_item_id,
                     item_name: menuItem.item_name,
-                    item_price: menuItem.item_price,
+                    item_price: parseFloat(menuItem.item_price),
                     quantity: item.quantity
                 });
             }
 
-            // Calculate charges
             const serviceCharge = calculateServiceCharge(subtotal);
             let loyaltyDiscount = 0;
 
-            // Check loyalty points if loyalty_number provided
             if (loyalty_number) {
-                const loyaltyResult = await client.query(
+                const loyaltyResult = await client.query<{ loyalty_points: number }>(
                     'SELECT loyalty_points FROM LOYALTY_MEMBERS WHERE loyalty_number = $1',
                     [loyalty_number]
                 );
@@ -786,16 +837,14 @@ app.post('/api/orders', async (req, res) => {
             }
 
             const grandTotal = (
-                parseFloat(subtotal) + 
-                parseFloat(serviceCharge) + 
-                parseFloat(tip_amount || 0) - 
-                parseFloat(loyaltyDiscount)
+                subtotal +
+                parseFloat(serviceCharge) +
+                (tip_amount || 0) -
+                loyaltyDiscount
             ).toFixed(2);
 
-            // Generate order number
             const orderNumber = generateOrderNumber();
 
-            // Insert order
             await client.query(
                 `INSERT INTO ORDERS (
                     order_number, restaurant_id, loyalty_number, guest_phone,
@@ -807,29 +856,27 @@ app.post('/api/orders', async (req, res) => {
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'PENDING', CURRENT_TIMESTAMP + INTERVAL '45 minutes')`,
                 [
                     orderNumber, restaurant_id, loyalty_number || null, guest_phone || null,
-                    delivery_address.building_number, delivery_address.street_name, 
-                    delivery_address.apartment || null, delivery_address.city, 
+                    delivery_address.building_number, delivery_address.street_name,
+                    delivery_address.apartment || null, delivery_address.city,
                     delivery_address.state, delivery_address.zip_code,
                     delivery_contact_name, delivery_contact_phone,
                     subtotal, serviceCharge, tip_amount || 0, loyaltyDiscount, grandTotal
                 ]
             );
 
-            // Insert order items
             for (const orderItem of orderItems) {
                 await client.query(
                     `INSERT INTO ORDER_ITEMS (order_number, menu_item_id, item_name, item_price, quantity)
                      VALUES ($1, $2, $3, $4, $5)`,
-                    [orderNumber, orderItem.menu_item_id, orderItem.item_name, 
+                    [orderNumber, orderItem.menu_item_id, orderItem.item_name,
                      orderItem.item_price, orderItem.quantity]
                 );
             }
 
-            // Update loyalty points if applicable
             if (loyalty_number) {
-                const pointsEarned = Math.floor(subtotal); // 1 point per dollar
+                const pointsEarned = Math.floor(subtotal);
                 await client.query(
-                    `UPDATE LOYALTY_MEMBERS 
+                    `UPDATE LOYALTY_MEMBERS
                      SET loyalty_points = loyalty_points + $1 - $2
                      WHERE loyalty_number = $3`,
                     [pointsEarned, loyaltyDiscount > 0 ? 100 : 0, loyalty_number]
@@ -858,20 +905,16 @@ app.post('/api/orders', async (req, res) => {
 
     } catch (error) {
         console.error('Create order error:', error);
-        res.status(500).json({ error: error.message || 'Internal server error' });
+        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+        res.status(500).json({ error: errorMessage });
     }
 });
 
-/**
- * GET /api/orders/:orderNumber
- * Get order details
- */
-app.get('/api/orders/:orderNumber', async (req, res) => {
+app.get('/api/orders/:orderNumber', async (req: Request, res: Response) => {
     try {
         const { orderNumber } = req.params;
 
-        // Get order
-        const orderResult = await pool.query(
+        const orderResult = await pool.query<Order>(
             'SELECT * FROM ORDERS WHERE order_number = $1',
             [orderNumber]
         );
@@ -880,8 +923,7 @@ app.get('/api/orders/:orderNumber', async (req, res) => {
             return res.status(404).json({ error: 'Order not found' });
         }
 
-        // Get order items
-        const itemsResult = await pool.query(
+        const itemsResult = await pool.query<OrderItem>(
             'SELECT * FROM ORDER_ITEMS WHERE order_number = $1',
             [orderNumber]
         );
@@ -897,17 +939,12 @@ app.get('/api/orders/:orderNumber', async (req, res) => {
     }
 });
 
-/**
- * GET /api/orders
- * Get all orders (with optional filters)
- * Query params: status, restaurant_id
- */
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', async (req: Request, res: Response) => {
     try {
-        const { status, restaurant_id } = req.query;
+        const { status, restaurant_id } = req.query as { status?: string; restaurant_id?: string };
 
         let query = 'SELECT * FROM ORDERS WHERE 1=1';
-        const params = [];
+        const params: (string | number)[] = [];
 
         if (status) {
             params.push(status);
@@ -921,7 +958,7 @@ app.get('/api/orders', async (req, res) => {
 
         query += ' ORDER BY created_at DESC';
 
-        const result = await pool.query(query, params);
+        const result = await pool.query<Order>(query, params);
         res.json(result.rows);
 
     } catch (error) {
@@ -930,23 +967,17 @@ app.get('/api/orders', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/orders/:orderNumber/status
- * Update order status
- * 
- * Body: { status }
- */
-app.put('/api/orders/:orderNumber/status', async (req, res) => {
+app.put('/api/orders/:orderNumber/status', async (req: Request, res: Response) => {
     try {
         const { orderNumber } = req.params;
-        const { status } = req.body;
+        const { status } = req.body as { status: string };
 
         const validStatuses = ['PENDING', 'CONFIRMED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
 
-        const result = await pool.query(
+        const result = await pool.query<Order>(
             'UPDATE ORDERS SET order_status = $1 WHERE order_number = $2 RETURNING *',
             [status, orderNumber]
         );
@@ -966,23 +997,16 @@ app.put('/api/orders/:orderNumber/status', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/orders/:orderNumber/assign-driver
- * Assign a driver to an order
- *
- * Body: { driver_id }
- */
-app.put('/api/orders/:orderNumber/assign-driver', async (req, res) => {
+app.put('/api/orders/:orderNumber/assign-driver', async (req: Request, res: Response) => {
     try {
         const { orderNumber } = req.params;
-        const { driver_id } = req.body;
+        const { driver_id } = req.body as { driver_id?: number };
 
         if (!driver_id) {
             return res.status(400).json({ error: 'Driver ID is required' });
         }
 
-        // Check if driver exists
-        const driverCheck = await pool.query(
+        const driverCheck = await pool.query<{ driver_id: number }>(
             'SELECT driver_id FROM DRIVERS WHERE driver_id = $1',
             [driver_id]
         );
@@ -991,7 +1015,7 @@ app.put('/api/orders/:orderNumber/assign-driver', async (req, res) => {
             return res.status(404).json({ error: 'Driver not found' });
         }
 
-        const result = await pool.query(
+        const result = await pool.query<Order>(
             'UPDATE ORDERS SET assigned_driver_id = $1 WHERE order_number = $2 RETURNING *',
             [driver_id, orderNumber]
         );
@@ -1011,18 +1035,15 @@ app.put('/api/orders/:orderNumber/assign-driver', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/orders/:orderNumber/delivery-time
- * Update delivery time for an order
- *
- * Body: { actual_delivery_time, delivery_duration_minutes }
- */
-app.put('/api/orders/:orderNumber/delivery-time', async (req, res) => {
+app.put('/api/orders/:orderNumber/delivery-time', async (req: Request, res: Response) => {
     try {
         const { orderNumber } = req.params;
-        const { actual_delivery_time, delivery_duration_minutes } = req.body;
+        const { actual_delivery_time, delivery_duration_minutes } = req.body as {
+            actual_delivery_time?: string;
+            delivery_duration_minutes?: number;
+        };
 
-        const result = await pool.query(
+        const result = await pool.query<Order>(
             `UPDATE ORDERS
              SET actual_delivery_time = $1,
                  delivery_duration_minutes = $2
@@ -1047,19 +1068,21 @@ app.put('/api/orders/:orderNumber/delivery-time', async (req, res) => {
 });
 
 // ============================================================================
-// 11. Loyalty Member Endpoints
+// 12. Loyalty Member Endpoints
 // ============================================================================
 
-/**
- * POST /api/loyalty-members/register
- * Register a new loyalty member
- * 
- * Body: {
- *   first_name, last_name, email_address, phone_number,
- *   card_number, card_holder_name, card_expiry, card_cvv
- * }
- */
-app.post('/api/loyalty-members/register', async (req, res) => {
+interface LoyaltyRegistrationBody {
+    first_name: string;
+    last_name: string;
+    email_address: string;
+    phone_number: string;
+    card_number: string;
+    card_holder_name: string;
+    card_expiry: string;
+    card_cvv: string;
+}
+
+app.post('/api/loyalty-members/register', async (req: Request, res: Response) => {
     try {
         const {
             first_name,
@@ -1070,23 +1093,20 @@ app.post('/api/loyalty-members/register', async (req, res) => {
             card_holder_name,
             card_expiry,
             card_cvv
-        } = req.body;
+        } = req.body as LoyaltyRegistrationBody;
 
-        // Validate required fields
         if (!first_name || !last_name || !email_address || !phone_number ||
             !card_number || !card_holder_name || !card_expiry || !card_cvv) {
             return res.status(400).json({ error: 'All fields are required' });
         }
 
-        // Validate phone number
         if (!/^[1-9]\d{9}$/.test(phone_number)) {
             return res.status(400).json({ error: 'Invalid phone number format' });
         }
 
-        // Generate loyalty number
         const loyaltyNumber = generateLoyaltyNumber();
 
-        const result = await pool.query(
+        const result = await pool.query<Pick<LoyaltyMember, 'loyalty_number' | 'first_name' | 'last_name' | 'email_address' | 'loyalty_points'>>(
             `INSERT INTO LOYALTY_MEMBERS (
                 loyalty_number, first_name, last_name, email_address, phone_number,
                 card_number, card_holder_name, card_expiry, card_cvv,
@@ -1104,7 +1124,7 @@ app.post('/api/loyalty-members/register', async (req, res) => {
 
     } catch (error) {
         console.error('Loyalty member registration error:', error);
-        if (error.code === '23505') {
+        if (isPgError(error) && error.code === PG_UNIQUE_VIOLATION) {
             res.status(409).json({ error: 'Email address already registered' });
         } else {
             res.status(500).json({ error: 'Internal server error' });
@@ -1112,18 +1132,14 @@ app.post('/api/loyalty-members/register', async (req, res) => {
     }
 });
 
-/**
- * GET /api/loyalty-members/:loyaltyNumber
- * Get loyalty member details
- */
-app.get('/api/loyalty-members/:loyaltyNumber', async (req, res) => {
+app.get('/api/loyalty-members/:loyaltyNumber', async (req: Request, res: Response) => {
     try {
         const { loyaltyNumber } = req.params;
 
-        const result = await pool.query(
-            `SELECT loyalty_number, first_name, last_name, email_address, 
+        const result = await pool.query<Omit<LoyaltyMember, 'card_number' | 'card_holder_name' | 'card_expiry' | 'card_cvv'>>(
+            `SELECT loyalty_number, first_name, last_name, email_address,
                     phone_number, account_status, loyalty_points, created_at
-             FROM LOYALTY_MEMBERS 
+             FROM LOYALTY_MEMBERS
              WHERE loyalty_number = $1`,
             [loyaltyNumber]
         );
@@ -1141,30 +1157,21 @@ app.get('/api/loyalty-members/:loyaltyNumber', async (req, res) => {
 });
 
 // ============================================================================
-// 12. Staff Management Endpoints
+// 13. Staff Management Endpoints
 // ============================================================================
 
-/**
- * POST /api/staff
- * Add a new staff member (admin only)
- * 
- * Body: { first_name, last_name }
- */
-app.post('/api/staff', async (req, res) => {
+app.post('/api/staff', async (req: Request, res: Response) => {
     try {
-        const { first_name, last_name } = req.body;
+        const { first_name, last_name } = req.body as { first_name?: string; last_name?: string };
 
-        // Validate input
         if (!first_name || !last_name) {
             return res.status(400).json({ error: 'First name and last name are required' });
         }
 
-        // Generate username (lastname + 2 digits)
         const baseUsername = last_name.toLowerCase().substring(0, 8);
         const randomDigits = Math.floor(Math.random() * 90 + 10);
         const username = `${baseUsername}${randomDigits}`;
 
-        // Generate initial password
         const initialPassword = 'Staff' + Math.floor(Math.random() * 900 + 100);
         const hashedPassword = await hashPassword(initialPassword);
 
@@ -1172,15 +1179,13 @@ app.post('/api/staff', async (req, res) => {
         try {
             await client.query('BEGIN');
 
-            // Create account login
             await client.query(
                 `INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
                  VALUES ($1, $2, 'STAFF', 'ACTIVE')`,
                 [username, hashedPassword]
             );
 
-            // Create staff member
-            const staffResult = await client.query(
+            const staffResult = await client.query<StaffMember>(
                 `INSERT INTO STAFF_MEMBERS (first_name, last_name, username, account_status, is_first_login)
                  VALUES ($1, $2, $3, 'ACTIVE', TRUE)
                  RETURNING *`,
@@ -1211,13 +1216,9 @@ app.post('/api/staff', async (req, res) => {
     }
 });
 
-/**
- * GET /api/staff
- * Get all staff members
- */
-app.get('/api/staff', async (req, res) => {
+app.get('/api/staff', async (_req: Request, res: Response) => {
     try {
-        const result = await pool.query(
+        const result = await pool.query<StaffMember>(
             'SELECT * FROM STAFF_MEMBERS ORDER BY last_name, first_name'
         );
 
@@ -1229,23 +1230,17 @@ app.get('/api/staff', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/staff/:id
- * Update staff member status (activate/inactivate)
- *
- * Body: { account_status }
- */
-app.put('/api/staff/:id', async (req, res) => {
+app.put('/api/staff/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { account_status } = req.body;
+        const { account_status } = req.body as { account_status?: string };
 
         const validStatuses = ['ACTIVE', 'INACTIVE'];
-        if (!validStatuses.includes(account_status)) {
+        if (!account_status || !validStatuses.includes(account_status)) {
             return res.status(400).json({ error: 'Invalid status. Must be ACTIVE or INACTIVE' });
         }
 
-        const result = await pool.query(
+        const result = await pool.query<StaffMember>(
             'UPDATE STAFF_MEMBERS SET account_status = $1 WHERE staff_id = $2 RETURNING *',
             [account_status, id]
         );
@@ -1265,11 +1260,7 @@ app.put('/api/staff/:id', async (req, res) => {
     }
 });
 
-/**
- * DELETE /api/staff/:id
- * Delete a staff member
- */
-app.delete('/api/staff/:id', async (req, res) => {
+app.delete('/api/staff/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -1277,8 +1268,7 @@ app.delete('/api/staff/:id', async (req, res) => {
         try {
             await client.query('BEGIN');
 
-            // Get username first
-            const staffResult = await client.query(
+            const staffResult = await client.query<{ username: string }>(
                 'SELECT username FROM STAFF_MEMBERS WHERE staff_id = $1',
                 [id]
             );
@@ -1290,7 +1280,6 @@ app.delete('/api/staff/:id', async (req, res) => {
 
             const username = staffResult.rows[0].username;
 
-            // Delete staff member (will cascade delete account via FK)
             await client.query('DELETE FROM STAFF_MEMBERS WHERE staff_id = $1', [id]);
             await client.query('DELETE FROM ACCOUNT_LOGINS WHERE username = $1', [username]);
 
@@ -1312,24 +1301,18 @@ app.delete('/api/staff/:id', async (req, res) => {
 });
 
 // ============================================================================
-// 13. Driver Management Endpoints
+// 14. Driver Management Endpoints
 // ============================================================================
 
-/**
- * POST /api/drivers
- * Hire a new driver
- * 
- * Body: { driver_name }
- */
-app.post('/api/drivers', async (req, res) => {
+app.post('/api/drivers', async (req: Request, res: Response) => {
     try {
-        const { driver_name } = req.body;
+        const { driver_name } = req.body as { driver_name?: string };
 
         if (!driver_name) {
             return res.status(400).json({ error: 'Driver name is required' });
         }
 
-        const result = await pool.query(
+        const result = await pool.query<Driver>(
             `INSERT INTO DRIVERS (driver_name, driver_status)
              VALUES ($1, 'AVAILABLE')
              RETURNING *`,
@@ -1343,7 +1326,7 @@ app.post('/api/drivers', async (req, res) => {
 
     } catch (error) {
         console.error('Hire driver error:', error);
-        if (error.code === '23505') {
+        if (isPgError(error) && error.code === PG_UNIQUE_VIOLATION) {
             res.status(409).json({ error: 'Driver name already exists' });
         } else {
             res.status(500).json({ error: 'Internal server error' });
@@ -1351,13 +1334,9 @@ app.post('/api/drivers', async (req, res) => {
     }
 });
 
-/**
- * GET /api/drivers
- * Get all drivers
- */
-app.get('/api/drivers', async (req, res) => {
+app.get('/api/drivers', async (_req: Request, res: Response) => {
     try {
-        const result = await pool.query(
+        const result = await pool.query<Driver>(
             'SELECT * FROM DRIVERS ORDER BY driver_name'
         );
 
@@ -1369,23 +1348,17 @@ app.get('/api/drivers', async (req, res) => {
     }
 });
 
-/**
- * PUT /api/drivers/:id/status
- * Update driver status
- * 
- * Body: { status }
- */
-app.put('/api/drivers/:id/status', async (req, res) => {
+app.put('/api/drivers/:id/status', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status } = req.body as { status?: string };
 
         const validStatuses = ['AVAILABLE', 'BUSY', 'OFFLINE'];
-        if (!validStatuses.includes(status)) {
+        if (!status || !validStatuses.includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
 
-        const result = await pool.query(
+        const result = await pool.query<Driver>(
             'UPDATE DRIVERS SET driver_status = $1 WHERE driver_id = $2 RETURNING *',
             [status, id]
         );
@@ -1405,15 +1378,11 @@ app.put('/api/drivers/:id/status', async (req, res) => {
     }
 });
 
-/**
- * DELETE /api/drivers/:id
- * Fire a driver
- */
-app.delete('/api/drivers/:id', async (req, res) => {
+app.delete('/api/drivers/:id', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
+        const result = await pool.query<Driver>(
             'DELETE FROM DRIVERS WHERE driver_id = $1 RETURNING *',
             [id]
         );
@@ -1431,25 +1400,26 @@ app.delete('/api/drivers/:id', async (req, res) => {
 });
 
 // ============================================================================
-// 14. Operating Hours Endpoints
+// 15. Operating Hours Endpoints
 // ============================================================================
 
-/**
- * POST /api/restaurants/:id/hours
- * Set operating hours for a restaurant
- * 
- * Body: { day_of_week, opening_time, closing_time, is_closed }
- */
-app.post('/api/restaurants/:id/hours', async (req, res) => {
+interface OperatingHoursBody {
+    day_of_week: string;
+    opening_time?: string;
+    closing_time?: string;
+    is_closed?: boolean;
+}
+
+app.post('/api/restaurants/:id/hours', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { day_of_week, opening_time, closing_time, is_closed } = req.body;
+        const { day_of_week, opening_time, closing_time, is_closed } = req.body as OperatingHoursBody;
 
-        const result = await pool.query(
-            `INSERT INTO RESTAURANT_OPERATING_HOURS 
+        const result = await pool.query<OperatingHours>(
+            `INSERT INTO RESTAURANT_OPERATING_HOURS
              (restaurant_id, day_of_week, opening_time, closing_time, is_closed)
              VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (restaurant_id, day_of_week) 
+             ON CONFLICT (restaurant_id, day_of_week)
              DO UPDATE SET opening_time = $3, closing_time = $4, is_closed = $5
              RETURNING *`,
             [id, day_of_week, opening_time || null, closing_time || null, is_closed || false]
@@ -1466,18 +1436,14 @@ app.post('/api/restaurants/:id/hours', async (req, res) => {
     }
 });
 
-/**
- * GET /api/restaurants/:id/hours
- * Get operating hours for a restaurant
- */
-app.get('/api/restaurants/:id/hours', async (req, res) => {
+app.get('/api/restaurants/:id/hours', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await pool.query(
-            `SELECT * FROM RESTAURANT_OPERATING_HOURS 
-             WHERE restaurant_id = $1 
-             ORDER BY 
+        const result = await pool.query<OperatingHours>(
+            `SELECT * FROM RESTAURANT_OPERATING_HOURS
+             WHERE restaurant_id = $1
+             ORDER BY
                 CASE day_of_week
                     WHEN 'MONDAY' THEN 1
                     WHEN 'TUESDAY' THEN 2
@@ -1499,22 +1465,20 @@ app.get('/api/restaurants/:id/hours', async (req, res) => {
 });
 
 // ============================================================================
-// 15. Error Handling Middleware
+// 16. Error Handling Middleware
 // ============================================================================
 
-// 404 handler - must be after all routes
-app.use((req, res) => {
+app.use((_req: Request, res: Response) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// General error handler
-app.use((err, req, res, next) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Unhandled error:', err);
     res.status(500).json({ error: 'Internal server error' });
 });
 
 // ============================================================================
-// 16. Start Server
+// 17. Start Server
 // ============================================================================
 
 app.listen(PORT, () => {
@@ -1526,7 +1490,6 @@ app.listen(PORT, () => {
     console.log('================================================');
 });
 
-// Handle graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     pool.end(() => {
@@ -1534,3 +1497,5 @@ process.on('SIGTERM', () => {
         process.exit(0);
     });
 });
+
+export { app, pool };

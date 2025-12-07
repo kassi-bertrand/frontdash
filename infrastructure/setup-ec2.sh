@@ -245,16 +245,20 @@ echo "Step 4: Installing dependencies and starting API..."
 
 ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@${PUBLIC_IP} << 'REMOTE_EOF'
     cd /home/ubuntu/frontdash-api/api
-    
-    # Install npm packages
+
+    # Install npm packages (including TypeScript dev dependencies)
     npm install
-    
+
+    # Build TypeScript to JavaScript
+    echo "Building TypeScript..."
+    npm run build
+
     # Install PM2 globally for process management
     sudo npm install -g pm2
-    
+
     # Load database config
     source /home/ubuntu/frontdash-api/db-config.txt
-    
+
     # Create .env file
     cat > .env << ENV_EOF
 DB_HOST=\$DB_HOST
@@ -264,12 +268,12 @@ DB_USER=\$DB_USER
 DB_PASSWORD=\$DB_PASSWORD
 PORT=3000
 ENV_EOF
-    
-    # Start the API with PM2
-    pm2 start server.js --name frontdash-api
+
+    # Start the API with PM2 (using compiled dist/server.js)
+    pm2 start dist/server.js --name frontdash-api
     pm2 save
     pm2 startup | tail -n 1 | bash
-    
+
     echo "✓ API is now running!"
 REMOTE_EOF
 
