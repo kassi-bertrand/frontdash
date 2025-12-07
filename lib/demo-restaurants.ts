@@ -62,49 +62,23 @@
  */
 
 /**
- * Lightweight demo data that lets the customer flow ship ahead of the backend.
- * The structure mirrors what we expect from the future API so swapping it out
- * later is mostly a plumbing exercise.
+ * Re-export types from their canonical location.
+ * Types are defined in lib/types/customer.ts for proper organization.
  */
+export type {
+  CustomerRestaurant,
+  RestaurantMenuItem,
+  RestaurantMenuSection,
+} from '@/lib/types/customer'
 
-export type RestaurantMenuItem = {
-  id: string
-  name: string
-  description?: string
-  priceCents: number
-  imageUrl?: string
-  isAvailable: boolean
-}
-
-export type RestaurantMenuSection = {
-  title: string
-  items: RestaurantMenuItem[]
-}
+import type { CustomerRestaurant } from '@/lib/types/customer'
 
 /**
- * Shape of the restaurant records rendered on the homepage and detail routes.
+ * Static list of demo restaurants for pages that haven't been converted
+ * to use the backend API yet (checkout, payment, delivery, order confirmation).
  *
- * @property menu - Grouped menu data surfaced on `/restaurant/[slug]` to show a
- *   believable ordering experience before real endpoints exist.
- */
-export type CustomerRestaurant = {
-  id: string
-  slug: string
-  name: string
-  cuisine: string
-  neighborhood: string
-  priceTier: '$' | '$$' | '$$$' | '$$$$'
-  rating: number
-  reviewCount: number
-  isOpen: boolean
-  tags: string[]
-  shortDescription: string
-  menu: RestaurantMenuSection[]
-}
-
-/**
- * Static list of restaurants used for STORY-C001/C002/C003. Replace with API data
- * once services are wired up.
+ * NOTE: The homepage and restaurant detail pages now use real API data.
+ * These demos are only used by the order flow pages.
  */
 export const demoCustomerRestaurants: CustomerRestaurant[] = [
   {

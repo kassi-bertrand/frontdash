@@ -1,5 +1,14 @@
-// STORY-C001 landing experience: lists every restaurant and routes customers
-// into the individual menu pages.
+/**
+ * Customer Homepage
+ *
+ * Lists all approved restaurants from the backend API.
+ * Customers can browse and click through to individual menu pages.
+ *
+ * Data flow:
+ * 1. useRestaurants() fetches from GET /api/restaurants
+ * 2. Backend data is transformed to CustomerRestaurant format
+ * 3. RestaurantCard components display each restaurant
+ */
 'use client'
 
 import Link from 'next/link'
@@ -7,14 +16,57 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { RestaurantCard } from '@/components/customer/restaurant-card'
-import { demoCustomerRestaurants } from '@/lib/demo-restaurants'
+import { RestaurantSkeletonGrid } from '@/components/customer/restaurant-skeleton'
+import { useRestaurants } from '@/hooks/use-restaurants'
 
 /**
- * Customer homepage: hero copy + full restaurant grid sourced from the demo
- * dataset. Replace the data hook once the public browse API exists.
+ * Error state shown when restaurant fetch fails.
+ * Provides a retry button so users can attempt to reload.
+ */
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="mb-4 text-4xl">😕</div>
+      <h3 className="mb-2 text-lg font-medium text-neutral-900">
+        Something went wrong
+      </h3>
+      <p className="mb-6 max-w-md text-sm text-neutral-600">{message}</p>
+      <Button onClick={onRetry} variant="outline" className="rounded-xl">
+        Try again
+      </Button>
+    </div>
+  )
+}
+
+/**
+ * Empty state shown when no restaurants are available.
+ */
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="mb-4 text-4xl">🍽️</div>
+      <h3 className="mb-2 text-lg font-medium text-neutral-900">
+        No restaurants yet
+      </h3>
+      <p className="max-w-md text-sm text-neutral-600">
+        Check back soon—new restaurants are being added all the time.
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Customer homepage: hero copy + restaurant grid from backend API.
  */
 export default function Home() {
-  const openNow = demoCustomerRestaurants.filter((restaurant) => restaurant.isOpen).length
+  const { restaurants, isLoading, error, refetch } = useRestaurants()
+
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -41,7 +93,7 @@ export default function Home() {
       </header>
 
       <main>
-        {/* Overview hero keeps customers oriented before they dive into the grid. */}
+        {/* Hero section with stats */}
         <section className="border-b border-neutral-200 bg-gradient-to-b from-white via-white to-neutral-50">
           <div className="mx-auto grid max-w-6xl gap-6 px-6 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
             <div className="space-y-5 lg:col-span-2">
@@ -59,16 +111,17 @@ export default function Home() {
                 menu when inspiration strikes. No logins required—just pick, order, and
                 enjoy.
               </p>
-              <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
-                <span>{demoCustomerRestaurants.length} restaurants</span>
-                <span className="h-1.5 w-1.5 rounded-full bg-neutral-300" aria-hidden />
-                <span>{openNow} open right now</span>
-              </div>
+              {/* Stats line - only show when we have data */}
+              {!isLoading && !error && restaurants.length > 0 && (
+                <div className="text-sm text-neutral-500">
+                  {restaurants.length} restaurant{restaurants.length !== 1 ? 's' : ''} available
+                </div>
+              )}
             </div>
           </div>
         </section>
 
-        {/* Full catalogue satisfies STORY-C001 by showing every restaurant. */}
+        {/* Restaurant catalogue */}
         <section className="mx-auto w-full max-w-6xl px-6 py-12">
           <div className="mb-8">
             <h2 className="text-2xl font-semibold tracking-tight">
@@ -80,11 +133,26 @@ export default function Home() {
             </p>
           </div>
 
-          <div id="restaurants-grid" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {demoCustomerRestaurants.map((restaurant) => (
-              <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-            ))}
-          </div>
+          {/* Loading state */}
+          {isLoading && <RestaurantSkeletonGrid count={6} />}
+
+          {/* Error state */}
+          {error && <ErrorState message={error} onRetry={refetch} />}
+
+          {/* Empty state */}
+          {!isLoading && !error && restaurants.length === 0 && <EmptyState />}
+
+          {/* Restaurant grid */}
+          {!isLoading && !error && restaurants.length > 0 && (
+            <div
+              id="restaurants-grid"
+              className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3"
+            >
+              {restaurants.map((restaurant) => (
+                <RestaurantCard key={restaurant.id} restaurant={restaurant} />
+              ))}
+            </div>
+          )}
         </section>
       </main>
     </div>

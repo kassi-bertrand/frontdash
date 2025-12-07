@@ -137,9 +137,30 @@ export const restaurantApi = {
   getAll: () =>
     apiFetch<Restaurant[]>('/api/restaurants'),
 
-  // Get single restaurant
+  // Get single restaurant by ID
   getById: (id: number) =>
     apiFetch<Restaurant>(`/api/restaurants/${id}`),
+
+  /**
+   * Fetch restaurant by URL slug for customer detail page.
+   *
+   * @param slug - URL-friendly name derived from restaurant name (e.g., "joes-pizza")
+   * @returns The restaurant matching the slug
+   * @throws {ApiError} with status 404 if restaurant not found
+   *
+   * @example
+   * ```ts
+   * try {
+   *   const restaurant = await restaurantApi.getBySlug("joes-pizza");
+   * } catch (err) {
+   *   if (err instanceof ApiError && err.status === 404) {
+   *     // Handle not found
+   *   }
+   * }
+   * ```
+   */
+  getBySlug: (slug: string) =>
+    apiFetch<Restaurant>(`/api/restaurants/by-slug/${slug}`),
 
   // Register new restaurant
   register: (data: RestaurantRegistration) =>

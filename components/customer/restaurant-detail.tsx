@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import type { CustomerRestaurant, RestaurantMenuItem } from '@/lib/demo-restaurants'
+import type { CustomerRestaurant, RestaurantMenuItem } from '@/lib/types/customer'
 import { useCartStore } from '@/stores/use-cart-store'
 
 const compactNumber = new Intl.NumberFormat('en-US', {

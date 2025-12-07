@@ -448,6 +448,58 @@ app.get('/api/restaurants/:id', async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * Get restaurant by URL slug
+ *
+ * Finds a restaurant by matching its name-derived slug.
+ * Used by the customer-facing detail page: /restaurant/[slug]
+ *
+ * Slug generation logic (MUST match frontend lib/transforms/restaurant.ts):
+ * 1. Lowercase the name
+ * 2. Replace '&' with 'and'
+ * 3. Remove apostrophes
+ * 4. Replace non-alphanumeric chars with hyphens
+ * 5. Trim leading/trailing hyphens
+ *
+ * @example GET /api/restaurants/by-slug/joes-pizza
+ */
+app.get('/api/restaurants/by-slug/:slug', async (req: Request, res: Response) => {
+    try {
+        const { slug } = req.params;
+
+        // Match slug using PostgreSQL string functions
+        // This replicates the frontend toSlug() logic in SQL for efficient single-row lookup
+        const result = await pool.query<Restaurant>(`
+            SELECT *
+            FROM RESTAURANTS
+            WHERE account_status = 'APPROVED'
+            AND TRIM(BOTH '-' FROM
+                REGEXP_REPLACE(
+                    REGEXP_REPLACE(
+                        REGEXP_REPLACE(
+                            LOWER(restaurant_name),
+                            '&', 'and', 'g'
+                        ),
+                        '''', '', 'g'
+                    ),
+                    '[^a-z0-9]+', '-', 'g'
+                )
+            ) = $1
+            LIMIT 1
+        `, [slug]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+
+        res.json(result.rows[0]);
+
+    } catch (error) {
+        console.error('Get restaurant by slug error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // Update restaurant contact information
 interface RestaurantUpdateBody {
     owner_name?: string;
