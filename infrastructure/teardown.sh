@@ -215,81 +215,103 @@ echo "  Waiting 30 seconds for resources to fully terminate..."
 sleep 30
 
 # Delete EC2 security group
+# Try to get ID from config file, otherwise look up by name
+EC2_SG_ID=""
 if [ -f "ec2-config.txt" ]; then
     source ec2-config.txt
+fi
 
-    if [ ! -z "$EC2_SG_ID" ]; then
-        echo "  Deleting EC2 security group: $EC2_SG_ID"
+# Fallback: find by name if not in config
+if [ -z "$EC2_SG_ID" ]; then
+    EC2_SG_ID=$(aws ec2 describe-security-groups \
+        --filters "Name=group-name,Values=frontdash-ec2-sg" \
+        --region $REGION \
+        --query 'SecurityGroups[0].GroupId' \
+        --output text 2>/dev/null)
+fi
 
-        # Retry up to 3 times with increasing delays
-        RETRY_COUNT=0
-        MAX_RETRIES=3
-        DELETED=false
+if [ -n "$EC2_SG_ID" ] && [ "$EC2_SG_ID" != "None" ]; then
+    echo "  Deleting EC2 security group: $EC2_SG_ID"
 
-        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if aws ec2 delete-security-group \
-                --group-id $EC2_SG_ID \
-                --region $REGION 2>/dev/null; then
-                echo "  ✓ EC2 security group deleted"
-                DELETED=true
-                break
-            fi
+    # Retry up to 3 times with increasing delays
+    RETRY_COUNT=0
+    MAX_RETRIES=3
+    DELETED=false
 
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                WAIT_TIME=$((20 * RETRY_COUNT))
-                echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
-                sleep $WAIT_TIME
-            fi
-        done
-
-        if [ "$DELETED" = false ]; then
-            echo "  ❌ Failed to delete EC2 security group after $MAX_RETRIES attempts"
-            echo "  Run this command manually:"
-            echo "  aws ec2 delete-security-group --group-id $EC2_SG_ID --region $REGION"
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if aws ec2 delete-security-group \
+            --group-id $EC2_SG_ID \
+            --region $REGION 2>/dev/null; then
+            echo "  ✓ EC2 security group deleted"
+            DELETED=true
+            break
         fi
+
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            WAIT_TIME=$((20 * RETRY_COUNT))
+            echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
+            sleep $WAIT_TIME
+        fi
+    done
+
+    if [ "$DELETED" = false ]; then
+        echo "  ❌ Failed to delete EC2 security group after $MAX_RETRIES attempts"
+        echo "  Run this command manually:"
+        echo "  aws ec2 delete-security-group --group-id $EC2_SG_ID --region $REGION"
     fi
 else
-    echo "  ⚠️  No EC2 config found"
+    echo "  ⚠️  EC2 security group not found"
 fi
 
 # Delete DB security group
+# Try to get ID from config file, otherwise look up by name
+DB_SG_ID=""
 if [ -f "db-config.txt" ]; then
     source db-config.txt
+fi
 
-    if [ ! -z "$DB_SG_ID" ]; then
-        echo "  Deleting database security group: $DB_SG_ID"
+# Fallback: find by name if not in config
+if [ -z "$DB_SG_ID" ]; then
+    DB_SG_ID=$(aws ec2 describe-security-groups \
+        --filters "Name=group-name,Values=frontdash-db-sg" \
+        --region $REGION \
+        --query 'SecurityGroups[0].GroupId' \
+        --output text 2>/dev/null)
+fi
 
-        # Retry up to 3 times with increasing delays
-        RETRY_COUNT=0
-        MAX_RETRIES=3
-        DELETED=false
+if [ -n "$DB_SG_ID" ] && [ "$DB_SG_ID" != "None" ]; then
+    echo "  Deleting database security group: $DB_SG_ID"
 
-        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if aws ec2 delete-security-group \
-                --group-id $DB_SG_ID \
-                --region $REGION 2>/dev/null; then
-                echo "  ✓ Database security group deleted"
-                DELETED=true
-                break
-            fi
+    # Retry up to 3 times with increasing delays
+    RETRY_COUNT=0
+    MAX_RETRIES=3
+    DELETED=false
 
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                WAIT_TIME=$((20 * RETRY_COUNT))
-                echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
-                sleep $WAIT_TIME
-            fi
-        done
-
-        if [ "$DELETED" = false ]; then
-            echo "  ❌ Failed to delete database security group after $MAX_RETRIES attempts"
-            echo "  Run this command manually:"
-            echo "  aws ec2 delete-security-group --group-id $DB_SG_ID --region $REGION"
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if aws ec2 delete-security-group \
+            --group-id $DB_SG_ID \
+            --region $REGION 2>/dev/null; then
+            echo "  ✓ Database security group deleted"
+            DELETED=true
+            break
         fi
+
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            WAIT_TIME=$((20 * RETRY_COUNT))
+            echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
+            sleep $WAIT_TIME
+        fi
+    done
+
+    if [ "$DELETED" = false ]; then
+        echo "  ❌ Failed to delete database security group after $MAX_RETRIES attempts"
+        echo "  Run this command manually:"
+        echo "  aws ec2 delete-security-group --group-id $DB_SG_ID --region $REGION"
     fi
 else
-    echo "  ⚠️  No database config found"
+    echo "  ⚠️  Database security group not found"
 fi
 
 # ============================================================================
