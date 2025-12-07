@@ -213,9 +213,9 @@ fi
 echo ""
 echo "Step 5: Deleting security groups..."
 
-# Wait a bit to ensure resources are fully terminated
-echo "  Waiting 30 seconds for resources to fully terminate..."
-sleep 30
+# Wait for resources to fully release (AWS needs time to detach network interfaces)
+echo "  Waiting 60 seconds for resources to fully terminate..."
+sleep 60
 
 # Delete EC2 security group
 # Try to get ID from config file, otherwise look up by name
@@ -252,7 +252,7 @@ if [ -n "$EC2_SG_ID" ] && [ "$EC2_SG_ID" != "None" ]; then
 
         RETRY_COUNT=$((RETRY_COUNT + 1))
         if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-            WAIT_TIME=$((20 * RETRY_COUNT))
+            WAIT_TIME=$((30 * RETRY_COUNT))
             echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
             sleep $WAIT_TIME
         fi
@@ -302,7 +302,7 @@ if [ -n "$DB_SG_ID" ] && [ "$DB_SG_ID" != "None" ]; then
 
         RETRY_COUNT=$((RETRY_COUNT + 1))
         if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-            WAIT_TIME=$((20 * RETRY_COUNT))
+            WAIT_TIME=$((30 * RETRY_COUNT))
             echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
             sleep $WAIT_TIME
         fi
