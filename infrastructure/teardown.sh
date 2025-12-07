@@ -8,6 +8,9 @@
 
 set -e  # Exit on any error
 
+# Disable AWS CLI pager to prevent script from pausing
+export AWS_PAGER=""
+
 REGION="us-east-1"
 
 # Parse command line flags
