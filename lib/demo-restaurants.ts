@@ -1,4 +1,67 @@
 /**
+ * =============================================================================
+ * TODO: REPLACE WITH BACKEND API CALLS
+ * =============================================================================
+ *
+ * CURRENT STATE: Hardcoded demo restaurant data for customer-facing pages
+ * TARGET STATE: Fetch restaurants dynamically from Express backend
+ *
+ * BACKEND ENDPOINTS:
+ *   1. GET /api/restaurants
+ *      - Returns all APPROVED restaurants
+ *      - Response: Restaurant[] (see lib/api.ts for types)
+ *
+ *   2. GET /api/restaurants/:id/menu
+ *      - Returns menu items for a specific restaurant
+ *      - Response: MenuItem[] (see lib/api.ts for types)
+ *
+ * FIELD MAPPING (Backend → Frontend):
+ *   restaurant_id → id (convert to string)
+ *   restaurant_name → name
+ *   restaurant_image_url → (use for display)
+ *   account_status === 'APPROVED' → filter only approved
+ *
+ * MenuItem MAPPING:
+ *   menu_item_id → id (convert to string)
+ *   item_name → name
+ *   item_description → description
+ *   item_price → priceCents (multiply by 100)
+ *   item_image_url → imageUrl
+ *   availability_status === 'AVAILABLE' → isAvailable
+ *
+ * IMPLEMENTATION APPROACH:
+ *   Option A: Create a hook useRestaurants() that fetches on mount
+ *   Option B: Server component that fetches at render time
+ *   Option C: Keep this file but populate it from API at build/runtime
+ *
+ * EXAMPLE CODE:
+ *   import { restaurantApi, menuApi } from '@/lib/api';
+ *
+ *   // Fetch all approved restaurants
+ *   const restaurants = await restaurantApi.getAll();
+ *
+ *   // Transform to CustomerRestaurant format
+ *   const customerRestaurants = await Promise.all(
+ *     restaurants.map(async (r) => {
+ *       const menuItems = await menuApi.getByRestaurant(r.restaurant_id);
+ *       return {
+ *         id: String(r.restaurant_id),
+ *         slug: r.restaurant_name.toLowerCase().replace(/\s+/g, '-'),
+ *         name: r.restaurant_name,
+ *         // ... map other fields
+ *         menu: groupMenuBySection(menuItems),
+ *       };
+ *     })
+ *   );
+ *
+ * NOTES:
+ *   - Backend doesn't have cuisine/neighborhood/rating fields yet
+ *   - May need to add these to database or use placeholder values
+ *   - isOpen should be calculated from operating hours API
+ * =============================================================================
+ */
+
+/**
  * Lightweight demo data that lets the customer flow ship ahead of the backend.
  * The structure mirrors what we expect from the future API so swapping it out
  * later is mostly a plumbing exercise.

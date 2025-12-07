@@ -50,7 +50,7 @@ interface Restaurant {
   state: string;
   zip_code: string;
   phone_number: string;
-  account_status: 'PENDING' | 'APPROVED' | 'SUSPENDED';
+  account_status: 'PENDING' | 'APPROVED' | 'SUSPENDED' | 'WITHDRAWAL_PENDING' | 'WITHDRAWN';
   username: string;
   approved_at?: Date;
 }
@@ -388,6 +388,17 @@ app.post('/api/auth/change-password', async (req: Request, res: Response) => {
     }
 });
 
+// Logout endpoint - clears session (stateless API, client clears tokens)
+app.post('/api/auth/logout', async (_req: Request, res: Response) => {
+    // Since this is a stateless API (no server-side sessions),
+    // logout is handled client-side by clearing tokens/cookies.
+    // This endpoint exists for consistency and future session support.
+    res.json({
+        success: true,
+        message: 'Logged out successfully. Please clear local tokens.'
+    });
+});
+
 // ============================================================================
 // 9. Restaurant Endpoints
 // ============================================================================
@@ -433,6 +444,101 @@ app.get('/api/restaurants/:id', async (req: Request, res: Response) => {
 
     } catch (error) {
         console.error('Get restaurant error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update restaurant contact information
+interface RestaurantUpdateBody {
+    owner_name?: string;
+    email_address?: string;
+    street_address?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    phone_number?: string;
+    restaurant_image_url?: string;
+}
+
+app.put('/api/restaurants/:id', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const updates: RestaurantUpdateBody = req.body;
+
+        // Check restaurant exists
+        const checkResult = await pool.query<Restaurant>(
+            'SELECT * FROM RESTAURANTS WHERE restaurant_id = $1',
+            [id]
+        );
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+
+        // Validate phone number if provided
+        if (updates.phone_number && !/^[1-9]\d{9}$/.test(updates.phone_number)) {
+            return res.status(400).json({ error: 'Phone number must be 10 digits and cannot start with 0' });
+        }
+
+        // Build dynamic update query
+        const fields: string[] = [];
+        const values: (string | undefined)[] = [];
+        let paramIndex = 1;
+
+        if (updates.owner_name) {
+            fields.push(`owner_name = $${paramIndex++}`);
+            values.push(updates.owner_name);
+        }
+        if (updates.email_address) {
+            fields.push(`email_address = $${paramIndex++}`);
+            values.push(updates.email_address);
+        }
+        if (updates.street_address) {
+            fields.push(`street_address = $${paramIndex++}`);
+            values.push(updates.street_address);
+        }
+        if (updates.city) {
+            fields.push(`city = $${paramIndex++}`);
+            values.push(updates.city);
+        }
+        if (updates.state) {
+            fields.push(`state = $${paramIndex++}`);
+            values.push(updates.state);
+        }
+        if (updates.zip_code) {
+            fields.push(`zip_code = $${paramIndex++}`);
+            values.push(updates.zip_code);
+        }
+        if (updates.phone_number) {
+            fields.push(`phone_number = $${paramIndex++}`);
+            values.push(updates.phone_number);
+        }
+        if (updates.restaurant_image_url !== undefined) {
+            fields.push(`restaurant_image_url = $${paramIndex++}`);
+            values.push(updates.restaurant_image_url);
+        }
+
+        if (fields.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        values.push(id);
+        const query = `
+            UPDATE RESTAURANTS
+            SET ${fields.join(', ')}
+            WHERE restaurant_id = $${paramIndex}
+            RETURNING *
+        `;
+
+        const result = await pool.query<Restaurant>(query, values);
+
+        res.json({
+            message: 'Restaurant updated successfully',
+            restaurant: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Update restaurant error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -602,6 +708,128 @@ app.put('/api/restaurants/:id/suspend', async (req: Request, res: Response) => {
 
     } catch (error) {
         console.error('Suspend restaurant error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// ============================================================================
+// Restaurant Withdrawal Endpoints
+// ============================================================================
+
+// Request withdrawal from FrontDash (by restaurant)
+app.post('/api/restaurants/:id/withdraw', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query<Restaurant>(
+            `UPDATE RESTAURANTS
+             SET account_status = 'WITHDRAWAL_PENDING'
+             WHERE restaurant_id = $1 AND account_status = 'APPROVED'
+             RETURNING *`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found or not in approved status' });
+        }
+
+        res.json({
+            message: 'Withdrawal request submitted successfully. Awaiting admin approval.',
+            restaurant: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Withdraw restaurant error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get all withdrawal requests (admin)
+app.get('/api/restaurants/withdrawals', async (_req: Request, res: Response) => {
+    try {
+        const result = await pool.query<Restaurant>(
+            `SELECT * FROM RESTAURANTS
+             WHERE account_status = 'WITHDRAWAL_PENDING'
+             ORDER BY restaurant_name`
+        );
+
+        res.json(result.rows);
+
+    } catch (error) {
+        console.error('Get withdrawal requests error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Approve withdrawal request (admin)
+app.put('/api/restaurants/:id/withdraw/approve', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Get restaurant to find associated username
+        const restaurantResult = await pool.query<Restaurant>(
+            'SELECT username FROM RESTAURANTS WHERE restaurant_id = $1 AND account_status = \'WITHDRAWAL_PENDING\'',
+            [id]
+        );
+
+        if (restaurantResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found or no pending withdrawal' });
+        }
+
+        const username = restaurantResult.rows[0].username;
+
+        // Update restaurant status to WITHDRAWN
+        const result = await pool.query<Restaurant>(
+            `UPDATE RESTAURANTS
+             SET account_status = 'WITHDRAWN'
+             WHERE restaurant_id = $1
+             RETURNING *`,
+            [id]
+        );
+
+        // Deactivate the associated login account
+        await pool.query(
+            `UPDATE ACCOUNT_LOGINS
+             SET account_state = 'INACTIVE'
+             WHERE username = $1`,
+            [username]
+        );
+
+        res.json({
+            message: 'Withdrawal approved. Restaurant has been removed from FrontDash.',
+            restaurant: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Approve withdrawal error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Reject withdrawal request (admin)
+app.put('/api/restaurants/:id/withdraw/reject', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query<Restaurant>(
+            `UPDATE RESTAURANTS
+             SET account_status = 'APPROVED'
+             WHERE restaurant_id = $1 AND account_status = 'WITHDRAWAL_PENDING'
+             RETURNING *`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found or no pending withdrawal' });
+        }
+
+        res.json({
+            message: 'Withdrawal request rejected. Restaurant remains active.',
+            restaurant: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Reject withdrawal error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

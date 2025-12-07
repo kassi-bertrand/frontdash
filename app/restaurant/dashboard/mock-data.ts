@@ -1,3 +1,79 @@
+/**
+ * =============================================================================
+ * TODO: REPLACE WITH BACKEND API CALLS
+ * =============================================================================
+ *
+ * CURRENT STATE: Hardcoded mock data for restaurant dashboard
+ * TARGET STATE: Fetch real data from Express backend based on logged-in restaurant
+ *
+ * BACKEND ENDPOINTS NEEDED:
+ *
+ * 1. ORDERS - GET /api/orders?restaurant_id={id}
+ *    - Fetch orders for this restaurant
+ *    - Map order_status: PENDING→NEW, CONFIRMED→PREPARING, etc.
+ *    - Response: Order[]
+ *
+ * 2. MENU ITEMS - GET /api/restaurants/:id/menu
+ *    - Fetch menu items for this restaurant
+ *    - Response: MenuItem[]
+ *
+ * 3. OPERATING HOURS - GET /api/restaurants/:id/hours
+ *    - Fetch weekly hours
+ *    - Response: OperatingHours[]
+ *
+ * 4. CONTACT INFO - GET /api/restaurants/:id
+ *    - Fetch restaurant details
+ *    - Response: Restaurant
+ *
+ * FIELD MAPPINGS:
+ *
+ *   RestaurantOrder:
+ *     order_number → id
+ *     created_at → placedAt (format time)
+ *     (join with order_items) → items
+ *     delivery_contact_name → customer
+ *     order_status → status (map: PENDING→NEW, CONFIRMED/PREPARING→PREPARING, etc.)
+ *
+ *   RestaurantMenuItem:
+ *     menu_item_id → id
+ *     item_name → name
+ *     item_price → price
+ *     availability_status → availability
+ *     item_image_url → imageUrl
+ *
+ *   RestaurantHours:
+ *     day_of_week → day (convert: 0→Sunday, 1→Monday, etc.)
+ *     is_closed → !isOpen
+ *     open_time → open
+ *     close_time → close
+ *
+ *   RestaurantContactDetails:
+ *     owner_name → contactPerson
+ *     email_address → email
+ *     phone_number → phoneNumbers[0]
+ *     street_address → street
+ *     city, state, zip_code → city, state, postalCode
+ *
+ * EXAMPLE CODE:
+ *   import { orderApi, menuApi, restaurantApi } from '@/lib/api';
+ *
+ *   // Get restaurant ID from auth context/cookie
+ *   const restaurantId = getLoggedInRestaurantId();
+ *
+ *   // Fetch all data in parallel
+ *   const [orders, menuItems, restaurant] = await Promise.all([
+ *     orderApi.getAll({ restaurant_id: restaurantId }),
+ *     menuApi.getByRestaurant(restaurantId),
+ *     restaurantApi.getById(restaurantId),
+ *   ]);
+ *
+ * NOTES:
+ *   - Restaurant ID should come from auth token/session after login
+ *   - Insights (orders waiting, avg prep time) need to be calculated from orders
+ *   - May need additional backend endpoint for aggregated stats
+ * =============================================================================
+ */
+
 import { type RestaurantOrder } from './components/orders-table'
 
 export type RestaurantInsight = {

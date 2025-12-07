@@ -1,5 +1,51 @@
 import { NextResponse } from "next/server";
 
+/**
+ * =============================================================================
+ * TODO: CONNECT TO EXPRESS BACKEND
+ * =============================================================================
+ *
+ * CURRENT STATE: Uses hardcoded credentials (admin/Password1, staff/Temp1234)
+ * TARGET STATE: Call Express backend at POST /api/auth/login
+ *
+ * BACKEND ENDPOINT:
+ *   URL: ${process.env.NEXT_PUBLIC_API_URL}/api/auth/login
+ *   Method: POST
+ *   Content-Type: application/json
+ *
+ * REQUEST BODY:
+ *   {
+ *     "username": string,  // e.g., "admin" or "smith42"
+ *     "password": string   // e.g., "Password1"
+ *   }
+ *
+ * SUCCESS RESPONSE (200):
+ *   {
+ *     "message": "Login successful",
+ *     "role": "ADMIN" | "STAFF" | "RESTAURANT",
+ *     "username": string,
+ *     "must_change_password": boolean,  // true if first login for staff
+ *     "staff_id": number | undefined,   // only for staff
+ *     "restaurant_id": number | undefined  // only for restaurant
+ *   }
+ *
+ * ERROR RESPONSE (401):
+ *   { "error": "Invalid credentials" }
+ *
+ * EXAMPLE IMPLEMENTATION:
+ *   import { authApi } from '@/lib/api';
+ *
+ *   const result = await authApi.login({ username, password });
+ *   // result.role will be "ADMIN", "STAFF", or "RESTAURANT"
+ *   // Map to lowercase for frontend compatibility: result.role.toLowerCase()
+ *
+ * NOTES:
+ *   - Backend returns uppercase roles (ADMIN, STAFF, RESTAURANT)
+ *   - Frontend expects lowercase (admin, staff, restaurant)
+ *   - Check must_change_password for staff first-login enforcement
+ * =============================================================================
+ */
+
 type SignInBody = { username?: string; email?: string; password?: string };
 
 export async function POST(req: Request) {
@@ -7,6 +53,20 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as SignInBody;
     const username = (body.username || body.email || "").trim().toLowerCase();
     const password = body.password || "";
+
+    // TODO: Replace this hardcoded credential check with backend API call
+    // Example:
+    // const API_URL = process.env.NEXT_PUBLIC_API_URL;
+    // const backendRes = await fetch(`${API_URL}/api/auth/login`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ username, password }),
+    // });
+    // const data = await backendRes.json();
+    // if (!backendRes.ok) {
+    //   return NextResponse.json({ success: false, message: data.error }, { status: 401 });
+    // }
+    // const role = data.role.toLowerCase() as "admin" | "staff";
 
     let role: "admin" | "staff" | null = null;
     if (username === "admin" && password === "Password1") role = "admin";

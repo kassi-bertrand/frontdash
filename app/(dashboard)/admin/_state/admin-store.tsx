@@ -1,5 +1,93 @@
 'use client'
 
+/**
+ * =============================================================================
+ * TODO: CONNECT TO EXPRESS BACKEND
+ * =============================================================================
+ *
+ * CURRENT STATE: All data is hardcoded in React state (lines 122-170)
+ * TARGET STATE: Fetch data from Express backend APIs on mount & after mutations
+ *
+ * This file is the CENTRAL HUB for admin/staff dashboard data. Once connected
+ * to the backend, all pages using this store will automatically work.
+ *
+ * =============================================================================
+ * BACKEND ENDPOINTS TO USE:
+ * =============================================================================
+ *
+ * STAFF DATA:
+ *   GET  ${API_URL}/api/staff
+ *   POST ${API_URL}/api/staff          - Body: { first_name, last_name }
+ *   DELETE ${API_URL}/api/staff/:id
+ *
+ * DRIVER DATA:
+ *   GET  ${API_URL}/api/drivers
+ *   POST ${API_URL}/api/drivers        - Body: { driver_name }
+ *   DELETE ${API_URL}/api/drivers/:id
+ *
+ * RESTAURANT REGISTRATIONS:
+ *   GET  ${API_URL}/api/restaurants?status=PENDING   - Pending registrations
+ *   PUT  ${API_URL}/api/restaurants/:id/approve
+ *   PUT  ${API_URL}/api/restaurants/:id/reject
+ *
+ * WITHDRAWAL REQUESTS:
+ *   GET  ${API_URL}/api/restaurants/withdrawals
+ *   PUT  ${API_URL}/api/restaurants/:id/withdraw/approve
+ *   PUT  ${API_URL}/api/restaurants/:id/withdraw/reject
+ *
+ * ORDERS (for staff):
+ *   GET  ${API_URL}/api/orders?status=PENDING       - Order queue
+ *   PUT  ${API_URL}/api/orders/:orderNumber/assign-driver
+ *   PUT  ${API_URL}/api/orders/:orderNumber/delivery-time
+ *
+ * =============================================================================
+ * IMPLEMENTATION APPROACH:
+ * =============================================================================
+ *
+ * 1. Add API_URL constant:
+ *    const API_URL = process.env.NEXT_PUBLIC_API_URL;
+ *
+ * 2. Create fetch functions for each data type:
+ *    async function fetchStaff(): Promise<Staff[]> {
+ *      const res = await fetch(`${API_URL}/api/staff`);
+ *      const data = await res.json();
+ *      return data.map(s => ({
+ *        id: String(s.staff_id),
+ *        firstName: s.first_name,
+ *        lastName: s.last_name,
+ *        username: s.username,
+ *      }));
+ *    }
+ *
+ * 3. Use useEffect to load data on mount:
+ *    useEffect(() => {
+ *      fetchStaff().then(data => setState(prev => ({ ...prev, staff: data })));
+ *      fetchDrivers().then(data => setState(prev => ({ ...prev, drivers: data })));
+ *      // etc.
+ *    }, []);
+ *
+ * 4. Update action functions to call API then refresh state:
+ *    addStaff: async (first, last) => {
+ *      const res = await fetch(`${API_URL}/api/staff`, {
+ *        method: 'POST',
+ *        headers: { 'Content-Type': 'application/json' },
+ *        body: JSON.stringify({ first_name: first, last_name: last }),
+ *      });
+ *      const data = await res.json();
+ *      // Refresh staff list
+ *      const staff = await fetchStaff();
+ *      setState(prev => ({ ...prev, staff }));
+ *      return { first, last, username: data.credentials.username, password: data.credentials.password };
+ *    }
+ *
+ * =============================================================================
+ * IMPORT TO ADD:
+ *   import { staffApi, driverApi, restaurantApi, orderApi } from '@/lib/api';
+ *
+ * Then use: staffApi.getAll(), staffApi.create(), driverApi.hire(), etc.
+ * =============================================================================
+ */
+
 import * as React from 'react'
 
 // Types

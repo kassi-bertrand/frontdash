@@ -1,5 +1,73 @@
 'use client'
 
+/**
+ * =============================================================================
+ * TODO: CONNECT PASSWORD CHANGE TO BACKEND
+ * =============================================================================
+ *
+ * CURRENT STATE: Uses localStorage/sessionStorage for fake password change
+ * TARGET STATE: Call Express backend to actually change password
+ *
+ * BACKEND ENDPOINT:
+ *   URL: ${process.env.NEXT_PUBLIC_API_URL}/api/auth/change-password
+ *   Method: POST
+ *   Content-Type: application/json
+ *
+ * REQUEST BODY:
+ *   {
+ *     "username": string,        // Staff username from auth context
+ *     "current_password": string,
+ *     "new_password": string
+ *   }
+ *
+ * SUCCESS RESPONSE (200):
+ *   { "message": "Password changed successfully" }
+ *
+ * ERROR RESPONSES:
+ *   400: { "error": "New password must differ from current" }
+ *   401: { "error": "Current password is incorrect" }
+ *
+ * IMPLEMENTATION (replace lines 60-69 in onSubmit):
+ *   import { authApi } from '@/lib/api';
+ *
+ *   async function onSubmit(values: FormValues) {
+ *     try {
+ *       // Get username from auth context/cookie
+ *       const username = getLoggedInUsername(); // TODO: implement this
+ *
+ *       await authApi.changePassword({
+ *         username,
+ *         current_password: values.currentPassword,
+ *         new_password: values.newPassword,
+ *       });
+ *
+ *       // Clear first-login enforcement flags
+ *       localStorage.setItem('fd_pwd_changed', '1');
+ *       localStorage.removeItem('fd_must_change_pwd');
+ *
+ *       toast.success('Password updated successfully');
+ *       reset();
+ *       router.replace(onSuccessRedirect);
+ *     } catch (error) {
+ *       if (error instanceof ApiError && error.status === 401) {
+ *         setError('currentPassword', {
+ *           type: 'validate',
+ *           message: 'Current password is incorrect',
+ *         });
+ *       } else {
+ *         toast.error(error instanceof Error ? error.message : 'Failed to change password');
+ *       }
+ *     }
+ *   }
+ *
+ * NOTES:
+ *   - Backend validates password requirements (6+ chars, upper, lower, number)
+ *   - Frontend has stricter rules (8+ chars) - align with backend or update backend
+ *   - After success, is_first_login flag cleared in database automatically
+ *   - Username should come from JWT token or auth context, not sessionStorage
+ * =============================================================================
+ */
+
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'

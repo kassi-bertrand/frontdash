@@ -1,5 +1,61 @@
 'use client'
 
+/**
+ * =============================================================================
+ * TODO: CONNECT RESTAURANT LOGIN TO BACKEND
+ * =============================================================================
+ *
+ * CURRENT STATE: Restaurant login uses fake cookies (lines 62-73)
+ * TARGET STATE: Call Express backend for restaurant authentication
+ *
+ * BACKEND ENDPOINT:
+ *   URL: ${process.env.NEXT_PUBLIC_API_URL}/api/auth/login
+ *   Method: POST
+ *   Content-Type: application/json
+ *
+ * REQUEST BODY:
+ *   { "username": string, "password": string }
+ *   Example: { "username": "citrus-thyme-a1b2", "password": "XYZW1234" }
+ *
+ * SUCCESS RESPONSE (200):
+ *   {
+ *     "message": "Login successful",
+ *     "role": "RESTAURANT",
+ *     "username": "citrus-thyme-a1b2",
+ *     "restaurant_id": 5
+ *   }
+ *
+ * ERROR RESPONSE (401):
+ *   { "error": "Invalid credentials" }
+ *
+ * IMPLEMENTATION (replace lines 62-73):
+ *   import { authApi } from '@/lib/api';
+ *
+ *   if (isRestaurant) {
+ *     try {
+ *       const result = await authApi.login({ username, password });
+ *       if (result.role !== 'RESTAURANT') {
+ *         alert('Invalid restaurant credentials');
+ *         return;
+ *       }
+ *       // Store restaurant_id for subsequent API calls
+ *       document.cookie = `fd_restaurant_id=${result.restaurant_id}; path=/; max-age=3600`;
+ *       document.cookie = `fd_role=restaurant; path=/; max-age=3600`;
+ *       document.cookie = `authToken=authenticated; path=/; max-age=3600`;
+ *       router.replace('/restaurant/dashboard');
+ *     } catch (error) {
+ *       alert(error instanceof Error ? error.message : 'Login failed');
+ *     }
+ *     return;
+ *   }
+ *
+ * NOTES:
+ *   - Restaurant credentials are auto-generated during registration
+ *   - restaurant_id from response needed for all restaurant API calls
+ *   - Consider storing in React context or Zustand for easier access
+ * =============================================================================
+ */
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building, UtensilsCrossed } from 'lucide-react'
