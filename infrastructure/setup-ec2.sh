@@ -126,8 +126,8 @@ cat > user-data.sh << 'USERDATA_EOF'
 apt-get update
 apt-get upgrade -y
 
-# Install Node.js 18.x
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+# Install Node.js 20.x (LTS)
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
 
 # Install PostgreSQL client

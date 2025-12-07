@@ -106,11 +106,33 @@ if [ -f "ec2-config.txt" ]; then
 else
     echo "Step 3/4: Setting up EC2 instance with Elastic IP..."
     ./setup-ec2.sh
+fi
 
-    # EC2 needs time to boot and run its initialization script
-    echo ""
-    echo "Waiting 60 seconds for EC2 to fully initialize..."
-    sleep 60
+# Load EC2 config for polling
+source ec2-config.txt
+
+# Wait for EC2 initialization by polling for the setup-complete flag
+echo ""
+echo "Waiting for EC2 initialization to complete..."
+echo "  (user-data.sh installs Node.js, PostgreSQL client, git)"
+
+MAX_WAIT=300  # 5 minutes max
+WAITED=0
+while [ $WAITED -lt $MAX_WAIT ]; do
+    # Check if setup-complete file exists
+    if ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
+        ubuntu@${PUBLIC_IP} "test -f /home/ubuntu/setup-complete" 2>/dev/null; then
+        echo "  ✓ EC2 initialization complete! (${WAITED} seconds)"
+        break
+    fi
+
+    echo "  Waiting... (${WAITED} seconds elapsed)"
+    sleep 15
+    WAITED=$((WAITED + 15))
+done
+
+if [ $WAITED -ge $MAX_WAIT ]; then
+    echo "  ⚠️  Timeout after ${MAX_WAIT} seconds. Proceeding anyway..."
 fi
 
 echo ""

@@ -217,11 +217,19 @@ echo "Step 5: Deleting security groups..."
 echo "  Waiting 60 seconds for resources to fully terminate..."
 sleep 60
 
-# Delete EC2 security group
-# Try to get ID from config file, otherwise look up by name
+# IMPORTANT: Delete DB security group FIRST because it has a rule that
+# references the EC2 security group. You can't delete a security group
+# that is referenced by another security group.
+
+# Get security group IDs from config files or look up by name
 EC2_SG_ID=""
+DB_SG_ID=""
+
 if [ -f "ec2-config.txt" ]; then
     source ec2-config.txt
+fi
+if [ -f "db-config.txt" ]; then
+    source db-config.txt
 fi
 
 # Fallback: find by name if not in config
@@ -233,48 +241,6 @@ if [ -z "$EC2_SG_ID" ]; then
         --output text 2>/dev/null)
 fi
 
-if [ -n "$EC2_SG_ID" ] && [ "$EC2_SG_ID" != "None" ]; then
-    echo "  Deleting EC2 security group: $EC2_SG_ID"
-
-    # Retry up to 3 times with increasing delays
-    RETRY_COUNT=0
-    MAX_RETRIES=3
-    DELETED=false
-
-    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        if aws ec2 delete-security-group \
-            --group-id $EC2_SG_ID \
-            --region $REGION 2>/dev/null; then
-            echo "  ✓ EC2 security group deleted"
-            DELETED=true
-            break
-        fi
-
-        RETRY_COUNT=$((RETRY_COUNT + 1))
-        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-            WAIT_TIME=$((30 * RETRY_COUNT))
-            echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
-            sleep $WAIT_TIME
-        fi
-    done
-
-    if [ "$DELETED" = false ]; then
-        echo "  ❌ Failed to delete EC2 security group after $MAX_RETRIES attempts"
-        echo "  Run this command manually:"
-        echo "  aws ec2 delete-security-group --group-id $EC2_SG_ID --region $REGION"
-    fi
-else
-    echo "  ⚠️  EC2 security group not found"
-fi
-
-# Delete DB security group
-# Try to get ID from config file, otherwise look up by name
-DB_SG_ID=""
-if [ -f "db-config.txt" ]; then
-    source db-config.txt
-fi
-
-# Fallback: find by name if not in config
 if [ -z "$DB_SG_ID" ]; then
     DB_SG_ID=$(aws ec2 describe-security-groups \
         --filters "Name=group-name,Values=frontdash-db-sg" \
@@ -283,10 +249,10 @@ if [ -z "$DB_SG_ID" ]; then
         --output text 2>/dev/null)
 fi
 
+# Delete DB security group FIRST (it references EC2 SG)
 if [ -n "$DB_SG_ID" ] && [ "$DB_SG_ID" != "None" ]; then
-    echo "  Deleting database security group: $DB_SG_ID"
+    echo "  Deleting database security group first: $DB_SG_ID"
 
-    # Retry up to 3 times with increasing delays
     RETRY_COUNT=0
     MAX_RETRIES=3
     DELETED=false
@@ -315,6 +281,40 @@ if [ -n "$DB_SG_ID" ] && [ "$DB_SG_ID" != "None" ]; then
     fi
 else
     echo "  ⚠️  Database security group not found"
+fi
+
+# Delete EC2 security group SECOND (now safe since DB SG is gone)
+if [ -n "$EC2_SG_ID" ] && [ "$EC2_SG_ID" != "None" ]; then
+    echo "  Deleting EC2 security group: $EC2_SG_ID"
+
+    RETRY_COUNT=0
+    MAX_RETRIES=3
+    DELETED=false
+
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if aws ec2 delete-security-group \
+            --group-id $EC2_SG_ID \
+            --region $REGION 2>/dev/null; then
+            echo "  ✓ EC2 security group deleted"
+            DELETED=true
+            break
+        fi
+
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            WAIT_TIME=$((30 * RETRY_COUNT))
+            echo "  ⚠️  Deletion failed, waiting ${WAIT_TIME} seconds before retry $RETRY_COUNT/$MAX_RETRIES..."
+            sleep $WAIT_TIME
+        fi
+    done
+
+    if [ "$DELETED" = false ]; then
+        echo "  ❌ Failed to delete EC2 security group after $MAX_RETRIES attempts"
+        echo "  Run this command manually:"
+        echo "  aws ec2 delete-security-group --group-id $EC2_SG_ID --region $REGION"
+    fi
+else
+    echo "  ⚠️  EC2 security group not found"
 fi
 
 # ============================================================================
