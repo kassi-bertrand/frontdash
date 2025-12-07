@@ -271,11 +271,11 @@ sleep 30
 echo ""
 echo "Step 1: Preparing EC2 and copying API files..."
 
-ssh -i \${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@\${PUBLIC_IP} "mkdir -p /home/ubuntu/frontdash-api/api"
+ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@${PUBLIC_IP} "mkdir -p /home/ubuntu/frontdash-api/api"
 
 rsync -avz --exclude 'node_modules' --exclude 'dist' \\
-    -e "ssh -i \${KEY_NAME}.pem -o StrictHostKeyChecking=no" \\
-    ../backend/api/ ubuntu@\${PUBLIC_IP}:/home/ubuntu/frontdash-api/api/
+    -e "ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no" \\
+    ../backend/api/ ubuntu@${PUBLIC_IP}:/home/ubuntu/frontdash-api/api/
 
 echo "✓ API files uploaded (node_modules excluded)"
 
