@@ -44,13 +44,11 @@ const withdrawalReasonLabels: Record<WithdrawalReason, string> = {
 const withdrawSchema = z.object({
   effectiveDate: z.string().min(1, 'Select an effective date'),
   reason: z.enum(withdrawalReasonValues, {
-    required_error: 'Pick the closest reason for your request',
+    error: 'Pick the closest reason for your request',
   }),
   details: z.string().min(16, 'Share at least a short sentence so our team has context'),
-  acknowledgement: z.literal(true, {
-    errorMap: () => ({
-      message: 'Please confirm there are no open orders or unpaid balances',
-    }),
+  acknowledgement: z.boolean().refine((val) => val === true, {
+    message: 'Please confirm there are no open orders or unpaid balances',
   }),
 })
 
