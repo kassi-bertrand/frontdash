@@ -344,10 +344,10 @@ VALUES ('Michael', 'Williams', 'staff_test', 'ACTIVE', false);
 INSERT INTO ORDERS (order_number, restaurant_id, guest_phone, delivery_building_number, delivery_street_name, delivery_city, delivery_state, delivery_zip_code, delivery_contact_name, delivery_contact_phone, subtotal_amount, service_charge, tip_amount, grand_total, order_status)
 VALUES ('ORD-20251028-TEST', 1, '2145559999', '789', 'Test Street', 'Dallas', 'TX', '75201', 'Test User', '2145559999', 25.98, 2.34, 5.00, 33.32, 'PENDING');
 
--- Insert order items for the test order
+-- Insert order items for the test order (only if it doesn't already exist)
 INSERT INTO ORDER_ITEMS (order_number, menu_item_id, item_name, item_price, quantity)
-VALUES
-('ORD-20251028-TEST', 1, 'Margherita Pizza', 12.99, 2);
+SELECT 'ORD-20251028-TEST', 1, 'Margherita Pizza', 12.99, 2
+WHERE NOT EXISTS (SELECT 1 FROM ORDER_ITEMS WHERE order_number = 'ORD-20251028-TEST' AND menu_item_id = 1);
 
 COMMIT;
 
