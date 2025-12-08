@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { FormattedTime } from '@/components/ui/formatted-time'
 import { SectionCard } from '@/components/ui/section-card'
-import { StaffAssignedOrder } from '@/app/(dashboard)/admin/_state/admin-store'
 import { useStaffOrderActions } from '@/hooks/use-staff-order-actions'
 import { IconDownload, IconTruckDelivery, IconCheck, IconSearch } from '@tabler/icons-react'
 
@@ -47,7 +46,15 @@ export default function StaffOrdersPage() {
                         delivered.find((o) => o.id.toLowerCase() === findId.trim().toLowerCase())
 
   // Details modal
-  const [detail, setDetail] = React.useState<StaffAssignedOrder | null>(null)
+  // Use a local type for compatibility with the hook's return shape
+  type OrderDetail = {
+    id: string
+    restaurantName: string
+    estimatedDeliveryAt?: string
+    deliveredAt?: string
+    driverId?: string
+  }
+  const [detail, setDetail] = React.useState<OrderDetail | null>(null)
 
   return (
     <div className="space-y-6">

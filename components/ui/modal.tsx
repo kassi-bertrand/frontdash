@@ -1,6 +1,13 @@
 'use client'
 
 import * as React from 'react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 
 export interface ModalProps {
   /** Whether the modal is open */
@@ -13,10 +20,12 @@ export interface ModalProps {
   children: React.ReactNode
   /** Maximum width class (default: 'max-w-md') */
   maxWidth?: string
+  /** Enable scrollable content area */
+  scroll?: boolean
 }
 
 /**
- * Modal component for displaying content in an overlay dialog
+ * Modal component built on shadcn Dialog
  *
  * @example
  * ```tsx
@@ -32,48 +41,21 @@ export function Modal({
   title,
   children,
   maxWidth = 'max-w-md',
+  scroll = false,
 }: ModalProps) {
-  // Handle escape key to close modal
-  React.useEffect(() => {
-    if (!open) return
-
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [open, onClose])
-
-  if (!open) return null
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        // Close when clicking backdrop
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
-    >
-      <div className={`w-full ${maxWidth} rounded-lg border bg-background shadow-lg`}>
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-medium">{title}</h2>
-          <button
-            className="rounded p-1 hover:bg-muted"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent
+        className={cn(maxWidth, scroll && 'max-h-[85vh] overflow-hidden')}
+        showCloseButton
+      >
+        <DialogHeader>
+          <DialogTitle className="text-sm font-medium">{title}</DialogTitle>
+        </DialogHeader>
+        <div className={cn(scroll && 'max-h-[60vh] overflow-y-auto')}>
+          {children}
         </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

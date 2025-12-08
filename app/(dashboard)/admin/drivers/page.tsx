@@ -7,97 +7,41 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from '@/components/ui/alert-dialog'
+import { Confirm } from '@/components/ui/confirm'
+import { Modal } from '@/components/ui/modal'
 import { IconTrash, IconUserPlus, IconEye, IconSearch } from '@tabler/icons-react'
-import { useAdminStore } from '../_state/admin-store'
-
-function Confirm({
-  trigger, title, description, confirmLabel, onConfirm,
-}: {
-  trigger: React.ReactNode
-  title: string
-  description?: string
-  confirmLabel: string
-  onConfirm: () => void
-}) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction asChild>
-            <Button size="sm" variant="destructive" onClick={onConfirm}>{confirmLabel}</Button>
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
-
-function Modal({
-  open, onClose, title, children, maxWidth = 'max-w-md',
-}: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; maxWidth?: string }) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
-      <div className={`w-full ${maxWidth} rounded-lg border bg-background shadow-lg`}>
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-medium">{title}</h2>
-          <button className="rounded p-1 hover:bg-muted" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>
-  )
-}
-
-function timeAgo(iso?: string) {
-  if (!iso) return '—'
-  const diff = Date.now() - new Date(iso).getTime()
-  const days = Math.floor(diff / 86400000)
-  if (days >= 1) return `${days}d ago`
-  const hours = Math.floor(diff / 3600000)
-  if (hours >= 1) return `${hours}h ago`
-  const mins = Math.floor(diff / 60000)
-  return mins > 0 ? `${mins}m ago` : 'just now'
-}
+import { useDriverStore, type Driver, type DriverId } from '@/lib/stores'
+import { toDriverId } from '@/lib/types/ids'
+import { timeAgo } from '@/lib/utils'
 
 export default function AdminDriversPage() {
-  const { state, actions } = useAdminStore()
+  // Zustand store
+  const { drivers, fetchDrivers, hireDriver, fireDriver } = useDriverStore()
+
+  // Fetch drivers on mount
+  React.useEffect(() => {
+    fetchDrivers()
+  }, [fetchDrivers])
+
   const [name, setName] = React.useState('')
-  const [viewDriverId, setViewDriverId] = React.useState<string | null>(null)
-  const driverToView = state.drivers.find((d) => d.id === viewDriverId) || null
+  const [viewDriverId, setViewDriverId] = React.useState<DriverId | null>(null)
+  const driverToView = drivers.find((d) => d.id === viewDriverId) || null
 
   // Hire confirmation modal
-  const [hireModal, setHireModal] = React.useState<{ open: boolean; name: string; email?: string; phone?: string; vehicle?: { make?: string; model?: string; plate?: string; color?: string } }>({
-    open: false, name: '', email: '', phone: '', vehicle: undefined,
+  const [hireModal, setHireModal] = React.useState<{ open: boolean; name: string }>({
+    open: false, name: '',
   })
 
   // Search + pagination
-  const [q, setQ] = React.useState('')
+  const [searchQuery, setSearchQuery] = React.useState('')
   const PAGE_SIZE = 5
   const [page, setPage] = React.useState(1)
 
   const filtered = React.useMemo(() => {
-    const term = q.trim().toLowerCase()
-    const base = !term ? state.drivers : state.drivers.filter((d) => d.name.toLowerCase().includes(term))
+    const term = searchQuery.trim().toLowerCase()
+    const base = !term ? drivers : drivers.filter((d) => d.name.toLowerCase().includes(term))
     return base.slice().sort((a, b) => a.name.localeCompare(b.name))
-  }, [state.drivers, q])
+  }, [drivers, searchQuery])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageItems = React.useMemo(
@@ -105,14 +49,14 @@ export default function AdminDriversPage() {
     [filtered, page]
   )
 
-  React.useEffect(() => { setPage(1) }, [q])
+  React.useEffect(() => { setPage(1) }, [searchQuery])
 
   async function hire() {
     const clean = name.trim()
     if (clean.length < 2) return toast.error('Driver name must be at least 2 characters.')
-    if (state.drivers.some((d) => d.name.toLowerCase() === clean.toLowerCase())) return toast.error('Driver name must be unique.')
+    if (drivers.some((d) => d.name.toLowerCase() === clean.toLowerCase())) return toast.error('Driver name must be unique.')
     try {
-      const res = await actions.hireDriver(clean)
+      const res = await hireDriver(clean)
       setName('')
       setHireModal({ open: true, name: res.name })
     } catch {
@@ -120,10 +64,10 @@ export default function AdminDriversPage() {
     }
   }
 
-  async function fire(id: string) {
-    const d = state.drivers.find((x) => x.id === id)
+  async function fire(id: DriverId) {
+    const d = drivers.find((x) => x.id === id)
     try {
-      await actions.fireDriver(id)
+      await fireDriver(id)
       toast.success(`Fired driver: ${d?.name}`)
       const nextCount = filtered.length - 1
       const nextTotalPages = Math.max(1, Math.ceil(nextCount / PAGE_SIZE))
@@ -164,8 +108,8 @@ export default function AdminDriversPage() {
             <input
               className="h-9 w-[240px] rounded-md border pl-8 pr-3 text-sm outline-none focus-visible:ring-2"
               placeholder="Search driver name…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search drivers"
             />
           </div>
@@ -176,13 +120,23 @@ export default function AdminDriversPage() {
             <thead className="text-muted-foreground">
               <tr className="border-b">
                 <th className="py-2 pr-2 text-left font-medium">Name</th>
+                <th className="py-2 px-2 text-left font-medium">Status</th>
                 <th className="py-2 pl-2 text-left font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {pageItems.map((d) => (
-                <tr key={d.id} className="border-b last:border-0">
+                <tr key={String(d.id)} className="border-b last:border-0">
                   <td className="py-2 pr-2">{d.name}</td>
+                  <td className="py-2 px-2">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      d.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' :
+                      d.status === 'ON_TRIP' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {d.status === 'ON_TRIP' ? 'On Trip' : d.status.charAt(0) + d.status.slice(1).toLowerCase()}
+                    </span>
+                  </td>
                   <td className="py-2 pl-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => setViewDriverId(d.id)}>
@@ -202,7 +156,7 @@ export default function AdminDriversPage() {
               ))}
               {pageItems.length === 0 && (
                 <tr>
-                  <td colSpan={2} className="py-6 text-center text-muted-foreground">No drivers.</td>
+                  <td colSpan={3} className="py-6 text-center text-muted-foreground">No drivers.</td>
                 </tr>
               )}
             </tbody>
@@ -228,28 +182,12 @@ export default function AdminDriversPage() {
               <div className="font-medium">{driverToView.name}</div>
             </div>
             <div>
-              <div className="text-muted-foreground">Email</div>
-              <div className="font-mono text-sm">{driverToView.email ?? '—'}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Phone</div>
-              <div className="font-mono text-sm">{driverToView.phone ?? '—'}</div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Vehicle</div>
-              <div>
-                {driverToView.vehicle
-                  ? `${driverToView.vehicle.color ?? ''} ${driverToView.vehicle.make ?? ''} ${driverToView.vehicle.model ?? ''} • ${driverToView.vehicle.plate ?? ''}`.trim()
-                  : '—'}
-              </div>
-            </div>
-            <div>
-              <div className="text-muted-foreground">Last assignment</div>
-              <div>{timeAgo(driverToView.lastAssignmentAt)}</div>
-            </div>
-            <div>
               <div className="text-muted-foreground">Status</div>
-              <div>{(driverToView.status ?? 'AVAILABLE').toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase())}</div>
+              <div>{driverToView.status === 'ON_TRIP' ? 'On Trip' : driverToView.status.charAt(0) + driverToView.status.slice(1).toLowerCase()}</div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Hired</div>
+              <div>{timeAgo(driverToView.hiredDate)}</div>
             </div>
             <div className="pt-2">
               <Button size="sm" variant="outline" className="ml-auto" onClick={() => setViewDriverId(null)}>Close</Button>
@@ -262,12 +200,7 @@ export default function AdminDriversPage() {
       <Modal open={hireModal.open} onClose={() => setHireModal((m) => ({ ...m, open: false }))} title="Driver Hired">
         <div className="space-y-3 text-sm">
           <div><span className="text-muted-foreground">Name</span><div className="font-medium">{hireModal.name}</div></div>
-          <div><span className="text-muted-foreground">Email</span><div className="font-mono text-sm">{hireModal.email ?? '—'}</div></div>
-          <div><span className="text-muted-foreground">Phone</span><div className="font-mono text-sm">{hireModal.phone ?? '—'}</div></div>
-          <div>
-            <span className="text-muted-foreground">Vehicle</span>
-            <div>{hireModal.vehicle ? `${hireModal.vehicle.color ?? ''} ${hireModal.vehicle.make ?? ''} ${hireModal.vehicle.model ?? ''} • ${hireModal.vehicle.plate ?? ''}`.trim() : '—'}</div>
-          </div>
+          <p className="text-muted-foreground">Driver has been added to the system and is now available for deliveries.</p>
           <div className="pt-1">
             <Button size="sm" className="w-full" onClick={() => setHireModal((m) => ({ ...m, open: false }))}>Close</Button>
           </div>

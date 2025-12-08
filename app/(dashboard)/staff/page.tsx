@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { FormattedTime } from '@/components/ui/formatted-time'
+import { Modal } from '@/components/ui/modal'
 import { SectionCard } from '@/components/ui/section-card'
 import { useAuth, isStaffUser } from '@/hooks/use-auth'
 import { useStaffOrderActions } from '@/hooks/use-staff-order-actions'
@@ -19,6 +20,7 @@ import {
   IconClipboardList,
   IconChevronRight,
 } from '@tabler/icons-react'
+
 function KpiCard({
   title,
   value,
@@ -38,34 +40,6 @@ function KpiCard({
       <div className="mt-4">
         <div className="text-sm text-muted-foreground">{title}</div>
         <div className="mt-1 text-2xl font-semibold">{value}</div>
-      </div>
-    </div>
-  )
-}
-function Modal({
-  open,
-  onClose,
-  title,
-  children,
-  maxWidth = 'max-w-md',
-}: {
-  open: boolean
-  onClose: () => void
-  title: string
-  children: ReactNode
-  maxWidth?: string
-}) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
-      <div className={`w-full ${maxWidth} rounded-lg border bg-background shadow-lg`}>
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-medium">{title}</h2>
-          <button className="rounded p-1 hover:bg-muted" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </div>
-        <div className="p-4">{children}</div>
       </div>
     </div>
   )

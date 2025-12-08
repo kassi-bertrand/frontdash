@@ -15,49 +15,13 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border bg-background p-4 shadow-sm">
       <h3 className="mb-3 text-sm font-medium">{title}</h3>
       {children}
-    </div>
-  )
-}
-
-function Modal({
-  open,
-  onClose,
-  title,
-  children,
-  maxWidth = 'max-w-md',
-}: {
-  open: boolean
-  onClose: () => void
-  title: string
-  children: React.ReactNode
-  maxWidth?: string
-}) {
-  if (!open) return null
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className={`w-full ${maxWidth} rounded-lg border bg-background shadow-lg`}>
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-medium">{title}</h2>
-          <button
-            className="rounded p-1 hover:bg-muted"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
     </div>
   )
 }

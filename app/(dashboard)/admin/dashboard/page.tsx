@@ -1,13 +1,11 @@
 'use client'
 
 /**
- * Admin Dashboard — using shared AdminStore
- * - Shortcuts appear above Quick Actions
- * - Quick Actions:
- *   • Staff: "Hire" + confirmation modal
- *   • Drivers: "Hire" + confirmation modal
- * - Newest Registration Requests:
- *   • Added "View" (eye) button with details modal (placeholder details if missing)
+ * Admin Dashboard
+ * - KPIs: Active Restaurants, Orders Today, Orders in Queue, etc.
+ * - Shortcuts to admin pages
+ * - Quick Actions: Hire Staff, Hire Driver
+ * - Newest Registration Requests + Orders in Queue
  */
 
 import * as React from 'react'
@@ -25,59 +23,27 @@ import {
   IconUserPlus,
   IconCheck,
   IconX,
-  IconX as IconClose,
   IconSettings,
   IconEye,
 } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
+import { Confirm } from '@/components/ui/confirm'
+import { Modal } from '@/components/ui/modal'
 import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from '@/components/ui/alert-dialog'
-import { useAdminStore, selectMetrics, QueuedOrder, RegistrationRequest, RegistrationDetails } from '@/app/(dashboard)/admin/_state/admin-store'
+  useDriverStore,
+  useStaffStore,
+  useRestaurantStore,
+  useOrderStore,
+  type RegistrationRequest,
+  type RestaurantAddress,
+} from '@/lib/stores'
+import { timeAgo } from '@/lib/utils'
 
-// Helpers
-function timeAgo(iso: string) {
-  const diffMs = Date.now() - new Date(iso).getTime()
-  const mins = Math.round(diffMs / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  const rem = mins % 60
-  return rem ? `${hrs}h ${rem}m ago` : `${hrs}h ago`
-}
 function StatusDot({ color }: { color: string }) {
   return <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
 }
 
-// Local placeholder builder for registration details (mirrors Restaurants page)
-function buildPlaceholderDetails(): RegistrationDetails {
-  const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)]
-  const streets = ['100 Sample Rd', '42 Garden Ave', '725 Pine St', '15 River Way', '908 Canyon Dr']
-  const cities = ['Austin', 'Dallas', 'Seattle', 'Atlanta', 'Denver']
-  const states = ['TX', 'WA', 'GA', 'CO', 'CA']
-  const hours = ['Mon–Fri 9:00–21:00; Sat–Sun 10:00–22:00', 'Daily 11:00–23:00', 'Mon–Sat 10:00–20:00; Sun 12:00–18:00']
-  const phones = ['512-555-0100', '206-555-0101', '404-555-0102', '303-555-0103', '415-555-0104']
-  return {
-    address: {
-      street: pick(streets),
-      city: pick(cities),
-      state: pick(states),
-      zip: String(10000 + Math.floor(Math.random() * 89999)),
-    },
-    phone: pick(phones),
-    hours: pick(hours),
-  }
-}
-
-// UI bits
+// UI components
 function KpiCard({ title, value, icon, accent = 'bg-primary/10 text-primary', delta, deltaPositive }: { title: string; value: string | number; icon: React.ReactNode; accent?: string; delta?: string; deltaPositive?: boolean }) {
   return (
     <div className="rounded-lg border bg-background p-4 shadow-sm">
@@ -97,6 +63,7 @@ function KpiCard({ title, value, icon, accent = 'bg-primary/10 text-primary', de
     </div>
   )
 }
+
 function SectionCard({ title, children, actionButton }: { title: string; children: React.ReactNode; actionButton?: React.ReactNode }) {
   return (
     <div className="rounded-lg border bg-background p-4 shadow-sm">
@@ -108,63 +75,66 @@ function SectionCard({ title, children, actionButton }: { title: string; childre
     </div>
   )
 }
-function Confirm({ trigger, title, description, confirmLabel = 'Confirm', cancelLabel = 'Cancel', onConfirm, confirmVariant = 'default' }: { trigger: React.ReactNode; title: string; description?: string; confirmLabel?: string; cancelLabel?: string; onConfirm: () => void; confirmVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' }) {
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
-          <AlertDialogAction asChild>
-            <Button size="sm" variant={confirmVariant} onClick={onConfirm}>
-              {confirmLabel}
-            </Button>
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
-function Modal({ open, onClose, title, children, maxWidth = 'max-w-2xl', scroll = false }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; maxWidth?: string; scroll?: boolean }) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label={title}>
-      <div className={`relative w-full ${maxWidth} rounded-lg border bg-background shadow-lg`}>
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h2 className="text-sm font-medium">{title}</h2>
-          <button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-muted">
-            <IconClose className="h-4 w-4" />
-          </button>
-        </div>
-        <div className={`p-4 ${scroll ? 'max-h-[60vh] overflow-y-auto' : ''}`}>{children}</div>
-      </div>
-    </div>
-  )
+
+function formatAddress(address?: RestaurantAddress): string {
+  if (!address) return '—'
+  const parts = [address.street, address.city, address.state, address.zip].filter(Boolean)
+  return parts.length > 0 ? parts.join(', ') : '—'
 }
 
 export default function AdminDashboardPage() {
-  const { state, actions } = useAdminStore()
-  const metrics = selectMetrics(state)
+  // Zustand stores
+  const driverStore = useDriverStore()
+  const staffStore = useStaffStore()
+  const restaurantStore = useRestaurantStore()
+  const orderStore = useOrderStore()
 
-  const registrationsPending = state.registrations.filter((r) => r.status === 'PENDING').slice(0, 5)
-  const ordersShort = state.orders.slice(0, 5)
+  // Fetch all data on mount - use getState() to avoid stale closures
+  React.useEffect(() => {
+    useDriverStore.getState().fetchDrivers()
+    useStaffStore.getState().fetchStaff()
+    useRestaurantStore.getState().fetchRestaurants().then(() => {
+      // Access fresh state after fetch completes
+      const { restaurantMap } = useRestaurantStore.getState()
+      useOrderStore.getState().setRestaurantMap(restaurantMap)
+      useOrderStore.getState().fetchOrders()
+    })
+  }, [])
+
+  // Keep restaurant map in sync
+  React.useEffect(() => {
+    if (Object.keys(restaurantStore.restaurantMap).length > 0) {
+      useOrderStore.getState().setRestaurantMap(restaurantStore.restaurantMap)
+    }
+  }, [restaurantStore.restaurantMap])
+
+  // Computed metrics
+  const metrics = {
+    activeRestaurants: restaurantStore.activeRestaurants.length,
+    pendingRegistrations: restaurantStore.registrations.filter((r) => r.status === 'PENDING').length,
+    pendingWithdrawals: restaurantStore.withdrawals.filter((w) => w.status === 'PENDING').length,
+    ordersToday: orderStore.ordersDeliveredToday,
+    driversAvailable: driverStore.drivers.filter((d) => d.status === 'AVAILABLE').length,
+    staffCount: staffStore.staffMembers.length,
+  }
+
+  const registrationsPending = restaurantStore.registrations.filter((r) => r.status === 'PENDING').slice(0, 5)
+  const ordersShort = orderStore.queuedOrders.slice(0, 5)
 
   const [showRegistrationsModal, setShowRegistrationsModal] = React.useState(false)
   const [showOrdersModal, setShowOrdersModal] = React.useState(false)
 
-  // Hire Staff confirmation modal
-  const [staffModal, setStaffModal] = React.useState<{ open: boolean; first: string; last: string; username: string; password: string }>({ open: false, first: '', last: '', username: '', password: '' })
-
-  // Hire Driver confirmation modal
-  const [driverModal, setDriverModal] = React.useState<{ open: boolean; name: string; email?: string; phone?: string; vehicle?: { make?: string; model?: string; plate?: string; color?: string } }>({
-    open: false, name: '', email: '', phone: '', vehicle: undefined,
+  // Staff hire confirmation modal
+  const [staffModal, setStaffModal] = React.useState<{ open: boolean; firstName: string; lastName: string; username: string; password: string }>({
+    open: false, firstName: '', lastName: '', username: '', password: ''
   })
 
-  // Registration Details modal (for "Newest Registration Requests")
+  // Driver hire confirmation modal
+  const [driverModal, setDriverModal] = React.useState<{ open: boolean; name: string }>({
+    open: false, name: ''
+  })
+
+  // Registration details modal
   const [viewReg, setViewReg] = React.useState<RegistrationRequest | null>(null)
 
   // Quick Actions form state
@@ -181,7 +151,7 @@ export default function AdminDashboardPage() {
       return
     }
     try {
-      const res = await actions.addStaff(f, l)
+      const res = await staffStore.addStaffMember(f, l)
       setStaffModal({ open: true, ...res })
       setFirstName('')
       setLastName('')
@@ -190,47 +160,42 @@ export default function AdminDashboardPage() {
     }
   }
 
-  // Drivers: Hire handler
+  // Driver: Hire handler
   async function hireDriverQuick() {
     const name = driverName.trim()
     if (name.length < 2) {
       toast.error('Driver name must be at least 2 characters.')
       return
     }
-    if (state.drivers.some((d) => d.name.toLowerCase() === name.toLowerCase())) {
+    if (driverStore.drivers.some((d) => d.name.toLowerCase() === name.toLowerCase())) {
       toast.error('Driver name must be unique.')
       return
     }
     try {
-      const res = await actions.hireDriver(name)
-      setDriverModal((m) => ({ ...m, open: true, name: res.name }))
+      const res = await driverStore.hireDriver(name)
+      setDriverModal({ open: true, name: res.name })
       setDriverName('')
     } catch {
       toast.error('Failed to hire driver.')
     }
   }
 
-  function openRegView(r: RegistrationRequest) {
-    let reg = r
-    if (!reg.details) {
-      const details = buildPlaceholderDetails()
-      actions.setRegistrationDetails(reg.id, details)
-      reg = { ...reg, details }
+  async function handleApproveReg(reg: RegistrationRequest) {
+    try {
+      await restaurantStore.approveRegistration(reg.id)
+      toast.success(`Approved ${reg.restaurantName}`)
+    } catch {
+      toast.error('Failed to approve registration')
     }
-    setViewReg(reg)
   }
 
-  function approveFromModal(id: string) {
-    actions.approveRegistration(id)
-    setViewReg(null)
-  }
-  function rejectFromModal(id: string) {
-    actions.rejectRegistration(id)
-    setViewReg(null)
-  }
-
-  function ordersInQueueCount() {
-    return state.orders.filter((o) => o.status === 'QUEUED').length
+  async function handleRejectReg(reg: RegistrationRequest) {
+    try {
+      await restaurantStore.rejectRegistration(reg.id)
+      toast.warning(`Rejected ${reg.restaurantName}`)
+    } catch {
+      toast.error('Failed to reject registration')
+    }
   }
 
   return (
@@ -239,13 +204,13 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <KpiCard title="Active Restaurants" value={metrics.activeRestaurants} icon={<IconBuildingStore className="h-5 w-5" />} accent="bg-blue-500/10 text-blue-600" delta="+8 this week" deltaPositive />
         <KpiCard title="Orders Today" value={metrics.ordersToday} icon={<IconShoppingCart className="h-5 w-5" />} accent="bg-emerald-500/10 text-emerald-600" delta="+15%" deltaPositive />
-        <KpiCard title="Orders in Queue" value={ordersInQueueCount()} icon={<IconPlaylistAdd className="h-5 w-5" />} accent="bg-amber-500/10 text-amber-600" />
+        <KpiCard title="Orders in Queue" value={orderStore.queuedOrders.length} icon={<IconPlaylistAdd className="h-5 w-5" />} accent="bg-amber-500/10 text-amber-600" />
         <KpiCard title="Pending Registrations" value={metrics.pendingRegistrations} icon={<IconAlertTriangle className="h-5 w-5" />} accent="bg-rose-500/10 text-rose-600" />
         <KpiCard title="Drivers Available" value={metrics.driversAvailable} icon={<IconTruckDelivery className="h-5 w-5" />} accent="bg-cyan-500/10 text-cyan-600" />
         <KpiCard title="Staff Members" value={metrics.staffCount} icon={<IconUsersGroup className="h-5 w-5" />} accent="bg-violet-500/10 text-violet-600" />
       </div>
 
-      {/* Shortcuts (above Quick Actions) */}
+      {/* Shortcuts */}
       <SectionCard title="Shortcuts">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Button asChild variant="outline" className="h-20 justify-start gap-3">
@@ -329,12 +294,12 @@ export default function AdminDashboardPage() {
               </thead>
               <tbody>
                 {registrationsPending.map((r) => (
-                  <tr key={r.id} className="border-b last:border-0">
+                  <tr key={String(r.id)} className="border-b last:border-0">
                     <td className="py-2 pr-2">{r.restaurantName}</td>
                     <td className="py-2 px-2">{timeAgo(r.submittedAt)}</td>
                     <td className="py-2 pl-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openRegView(r)}>
+                        <Button size="sm" variant="outline" onClick={() => setViewReg(r)}>
                           <IconEye className="mr-1 h-4 w-4" />
                           View
                         </Button>
@@ -342,14 +307,14 @@ export default function AdminDashboardPage() {
                           trigger={<Button size="sm" variant="outline"><IconCheck className="mr-1 h-4 w-4" />Approve</Button>}
                           title={`Approve ${r.restaurantName}?`}
                           confirmLabel="Approve"
-                          onConfirm={() => actions.approveRegistration(r.id)}
+                          onConfirm={() => handleApproveReg(r)}
                         />
                         <Confirm
                           trigger={<Button size="sm" variant="destructive"><IconX className="mr-1 h-4 w-4" />Reject</Button>}
                           title={`Reject ${r.restaurantName}?`}
                           confirmLabel="Reject"
                           confirmVariant="destructive"
-                          onConfirm={() => actions.rejectRegistration(r.id)}
+                          onConfirm={() => handleRejectReg(r)}
                         />
                       </div>
                     </td>
@@ -382,7 +347,7 @@ export default function AdminDashboardPage() {
               </thead>
               <tbody>
                 {ordersShort.map((o) => (
-                  <tr key={o.id} className="border-b last:border-0">
+                  <tr key={String(o.id)} className="border-b last:border-0">
                     <td className="py-2 pr-2">{o.id}</td>
                     <td className="py-2 px-2">{o.restaurantName}</td>
                     <td className="py-2 px-2">{timeAgo(o.placedAt)}</td>
@@ -410,10 +375,11 @@ export default function AdminDashboardPage() {
       {/* Staff Hire Confirmation Modal */}
       <Modal open={staffModal.open} onClose={() => setStaffModal((m) => ({ ...m, open: false }))} title="Staff Account Created" maxWidth="max-w-md">
         <div className="space-y-3 text-sm">
-          <div className="flex flex-col gap-1"><span className="text-muted-foreground">First name</span><span className="font-medium">{staffModal.first}</span></div>
-          <div className="flex flex-col gap-1"><span className="text-muted-foreground">Last name</span><span className="font-medium">{staffModal.last}</span></div>
+          <div className="flex flex-col gap-1"><span className="text-muted-foreground">First name</span><span className="font-medium">{staffModal.firstName}</span></div>
+          <div className="flex flex-col gap-1"><span className="text-muted-foreground">Last name</span><span className="font-medium">{staffModal.lastName}</span></div>
           <div className="flex flex-col gap-1"><span className="text-muted-foreground">Username</span><span className="font-mono text-sm">{staffModal.username}</span></div>
           <div className="flex flex-col gap-1"><span className="text-muted-foreground">Temporary Password</span><span className="font-mono text-sm select-none">•••••••• (hidden)</span></div>
+          <p className="text-xs text-muted-foreground">The staff member will be required to change their password on first login.</p>
           <div className="pt-1"><Button size="sm" className="w-full" onClick={() => setStaffModal((m) => ({ ...m, open: false }))}>Close</Button></div>
         </div>
       </Modal>
@@ -422,23 +388,14 @@ export default function AdminDashboardPage() {
       <Modal open={driverModal.open} onClose={() => setDriverModal((m) => ({ ...m, open: false }))} title="Driver Hired" maxWidth="max-w-md">
         <div className="space-y-3 text-sm">
           <div><span className="text-muted-foreground">Name</span><div className="font-medium">{driverModal.name}</div></div>
-          <div><span className="text-muted-foreground">Email</span><div className="font-mono text-sm">{driverModal.email ?? '—'}</div></div>
-          <div><span className="text-muted-foreground">Phone</span><div className="font-mono text-sm">{driverModal.phone ?? '—'}</div></div>
-          <div>
-            <span className="text-muted-foreground">Vehicle</span>
-            <div>
-              {driverModal.vehicle
-                ? `${driverModal.vehicle.color ?? ''} ${driverModal.vehicle.make ?? ''} ${driverModal.vehicle.model ?? ''} • ${driverModal.vehicle.plate ?? ''}`.trim()
-                : '—'}
-            </div>
-          </div>
+          <p className="text-muted-foreground">Driver has been added to the system and is now available for deliveries.</p>
           <div className="pt-1">
             <Button size="sm" className="w-full" onClick={() => setDriverModal((m) => ({ ...m, open: false }))}>Close</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Registration Details Modal (from Newest Registration Requests) */}
+      {/* Registration Details Modal */}
       <Modal open={!!viewReg} onClose={() => setViewReg(null)} title="Registration Details" maxWidth="max-w-md">
         {viewReg && (
           <div className="space-y-4 text-sm">
@@ -454,24 +411,16 @@ export default function AdminDashboardPage() {
               <div className="font-medium">Provided Details</div>
               <div className="grid gap-1">
                 <div className="text-muted-foreground">Address</div>
-                <div>
-                  {viewReg.details?.address?.street ?? '—'}{viewReg.details?.address?.street ? ',' : ''}{' '}
-                  {viewReg.details?.address?.city ?? ''}{viewReg.details?.address?.city ? ',' : ''}{' '}
-                  {viewReg.details?.address?.state ?? ''} {viewReg.details?.address?.zip ?? ''}
-                </div>
+                <div>{formatAddress(viewReg.address)}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Phone</div>
-                <div>{viewReg.details?.phone ?? '—'}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Hours</div>
-                <div>{viewReg.details?.hours ?? '—'}</div>
+                <div>{viewReg.phone ?? '—'}</div>
               </div>
             </div>
             <div className="flex gap-2 pt-2">
-              <Button size="sm" onClick={() => approveFromModal(viewReg.id)}>Approve</Button>
-              <Button size="sm" variant="destructive" onClick={() => rejectFromModal(viewReg.id)}>Reject</Button>
+              <Button size="sm" onClick={() => { handleApproveReg(viewReg); setViewReg(null) }}>Approve</Button>
+              <Button size="sm" variant="destructive" onClick={() => { handleRejectReg(viewReg); setViewReg(null) }}>Reject</Button>
               <Button size="sm" variant="outline" className="ml-auto" onClick={() => setViewReg(null)}>Close</Button>
             </div>
           </div>
@@ -490,8 +439,8 @@ export default function AdminDashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {state.registrations.map((r) => (
-              <tr key={r.id} className="border-b last:border-0">
+            {restaurantStore.registrations.map((r) => (
+              <tr key={String(r.id)} className="border-b last:border-0">
                 <td className="py-2 pr-2">{r.restaurantName}</td>
                 <td className="py-2 px-2">{timeAgo(r.submittedAt)}</td>
                 <td className="py-2 px-2">
@@ -504,8 +453,8 @@ export default function AdminDashboardPage() {
                 <td className="py-2 pl-2">
                   {r.status === 'PENDING' ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <Confirm trigger={<Button size="sm" variant="outline"><IconCheck className="mr-1 h-4 w-4" />Approve</Button>} title={`Approve ${r.restaurantName}?`} confirmLabel="Approve" onConfirm={() => actions.approveRegistration(r.id)} />
-                      <Confirm trigger={<Button size="sm" variant="destructive"><IconX className="mr-1 h-4 w-4" />Reject</Button>} title={`Reject ${r.restaurantName}?`} confirmLabel="Reject" confirmVariant="destructive" onConfirm={() => actions.rejectRegistration(r.id)} />
+                      <Confirm trigger={<Button size="sm" variant="outline"><IconCheck className="mr-1 h-4 w-4" />Approve</Button>} title={`Approve ${r.restaurantName}?`} confirmLabel="Approve" onConfirm={() => handleApproveReg(r)} />
+                      <Confirm trigger={<Button size="sm" variant="destructive"><IconX className="mr-1 h-4 w-4" />Reject</Button>} title={`Reject ${r.restaurantName}?`} confirmLabel="Reject" confirmVariant="destructive" onConfirm={() => handleRejectReg(r)} />
                     </div>
                   ) : <span className="text-muted-foreground text-xs">No actions</span>}
                 </td>
@@ -528,8 +477,8 @@ export default function AdminDashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {state.orders.map((o: QueuedOrder) => (
-              <tr key={o.id} className="border-b last:border-0">
+            {orderStore.queuedOrders.map((o) => (
+              <tr key={String(o.id)} className="border-b last:border-0">
                 <td className="py-2 pr-2">{o.id}</td>
                 <td className="py-2 px-2">{o.restaurantName}</td>
                 <td className="py-2 px-2">{timeAgo(o.placedAt)}</td>

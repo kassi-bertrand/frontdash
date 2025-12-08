@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { SidebarProvider, Sidebar, SidebarInset } from '@/components/ui/sidebar'
-import { AdminStoreProvider } from '../admin/_state/admin-store'
 import { StaffSidebar } from './components/staff-sidebar'
 import { StaffSiteHeader } from './components/site-header'
 import { Toaster } from 'sonner'
@@ -47,24 +46,22 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
 
   return (
     <SidebarProvider>
-      <AdminStoreProvider>
-        <Sidebar
-          variant="inset"
-          className={
-            (collapsed ? 'w-16 min-w-[4rem]' : 'w-64 min-w-[16rem]') +
-            ' overflow-hidden transition-[width] duration-200'
-          }
-        >
-          <StaffSidebar collapsed={collapsed} />
-        </Sidebar>
-        <SidebarInset>
-          <StaffSiteHeader collapsed={collapsed} onToggleSidebar={toggleSidebar} />
-          <main className="flex-1 p-4 md:p-6">
-            <div className="mx-auto w-full max-w-6xl">{children}</div>
-          </main>
-          <Toaster richColors position="top-right" />
-        </SidebarInset>
-      </AdminStoreProvider>
+      <Sidebar
+        variant="inset"
+        className={
+          (collapsed ? 'w-16 min-w-[4rem]' : 'w-64 min-w-[16rem]') +
+          ' overflow-hidden transition-[width] duration-200'
+        }
+      >
+        <StaffSidebar collapsed={collapsed} />
+      </Sidebar>
+      <SidebarInset>
+        <StaffSiteHeader collapsed={collapsed} onToggleSidebar={toggleSidebar} />
+        <main className="flex-1 p-4 md:p-6">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
+        <Toaster richColors position="top-right" />
+      </SidebarInset>
     </SidebarProvider>
   )
 }
