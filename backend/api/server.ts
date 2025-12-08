@@ -1389,22 +1389,27 @@ app.get('/api/orders', async (req: Request, res: Response) => {
     try {
         const { status, restaurant_id } = req.query as { status?: string; restaurant_id?: string };
 
-        let query = 'SELECT * FROM ORDERS WHERE 1=1';
+        let query = `
+            SELECT o.*, r.restaurant_name
+            FROM ORDERS o
+            LEFT JOIN RESTAURANTS r ON o.restaurant_id = r.restaurant_id
+            WHERE 1=1
+        `;
         const params: (string | number)[] = [];
 
         if (status) {
             params.push(status);
-            query += ` AND order_status = $${params.length}`;
+            query += ` AND o.order_status = $${params.length}`;
         }
 
         if (restaurant_id) {
             params.push(restaurant_id);
-            query += ` AND restaurant_id = $${params.length}`;
+            query += ` AND o.restaurant_id = $${params.length}`;
         }
 
-        query += ' ORDER BY created_at DESC';
+        query += ' ORDER BY o.created_at DESC';
 
-        const result = await pool.query<Order>(query, params);
+        const result = await pool.query<Order & { restaurant_name: string }>(query, params);
         res.json(result.rows);
 
     } catch (error) {
@@ -1423,8 +1428,9 @@ app.put('/api/orders/:orderNumber/status', async (req: Request, res: Response) =
             return res.status(400).json({ error: 'Invalid status' });
         }
 
-        const result = await pool.query<Order>(
-            'UPDATE ORDERS SET order_status = $1 WHERE order_number = $2 RETURNING *',
+        const result = await pool.query<Order & { restaurant_name: string }>(
+            `UPDATE ORDERS SET order_status = $1 WHERE order_number = $2
+             RETURNING *, (SELECT restaurant_name FROM RESTAURANTS WHERE restaurant_id = ORDERS.restaurant_id)`,
             [status, orderNumber]
         );
 
