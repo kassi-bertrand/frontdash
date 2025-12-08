@@ -202,8 +202,9 @@ export const useOrderStore = create<OrderState & OrderActions>((set, get) => ({
         ])
 
       const { restaurantMap } = get()
+      // Use restaurant_name from API response (joined), fallback to map lookup, then default
       const getRestaurantName = (order: ApiOrder): string =>
-        restaurantMap[toRestaurantId(order.restaurant_id)] || `Restaurant #${order.restaurant_id}`
+        order.restaurant_name || restaurantMap[toRestaurantId(order.restaurant_id)] || `Restaurant #${order.restaurant_id}`
 
       // Transform queued orders
       const queuedOrders = pendingOrders.map((o) => toQueuedOrder(o, getRestaurantName(o)))
@@ -245,7 +246,8 @@ export const useOrderStore = create<OrderState & OrderActions>((set, get) => ({
 
     try {
       const result = await orderApi.updateStatus(firstOrder.id, 'CONFIRMED')
-      const restaurantName = restaurantMap[toRestaurantId(result.order.restaurant_id)] || firstOrder.restaurantName
+      // Use restaurant_name from response, fallback to map, then to cached name
+      const restaurantName = result.order.restaurant_name || restaurantMap[toRestaurantId(result.order.restaurant_id)] || firstOrder.restaurantName
 
       // Refresh data to get updated lists
       await get().fetchOrders()
@@ -270,7 +272,8 @@ export const useOrderStore = create<OrderState & OrderActions>((set, get) => ({
 
     try {
       const result = await orderApi.updateStatus(orderId, 'CONFIRMED')
-      const restaurantName = restaurantMap[toRestaurantId(result.order.restaurant_id)] || order.restaurantName
+      // Use restaurant_name from response, fallback to map, then to cached name
+      const restaurantName = result.order.restaurant_name || restaurantMap[toRestaurantId(result.order.restaurant_id)] || order.restaurantName
 
       await get().fetchOrders()
 

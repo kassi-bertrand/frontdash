@@ -19,7 +19,10 @@ import {
   IconInbox,
   IconClipboardList,
   IconChevronRight,
+  IconChevronLeft,
 } from '@tabler/icons-react'
+
+const PAGE_SIZE = 10
 
 function KpiCard({
   title,
@@ -60,10 +63,13 @@ export default function StaffDashboardPage() {
     setAssigning,
     deliveredHHMM,
     setDeliveredHHMM,
-    retrieveFirst,
+    retrieveById,
     assignDriver,
     markDelivered,
   } = useStaffOrderActions()
+
+  // Pagination state for order queue
+  const [queuePage, setQueuePage] = useState(0)
 
   // Enforce password change redirect (safety net for direct URL access)
   useEffect(() => {
@@ -77,6 +83,21 @@ export default function StaffDashboardPage() {
   const active = assignedOrders.filter((a) => a.status !== 'DELIVERED')
   const delivered = assignedOrders.filter((a) => a.status === 'DELIVERED')
   const driversAvailable = drivers.filter((d) => d.status !== 'ON_TRIP').length
+
+  // Paginated queue
+  const queueStart = queuePage * PAGE_SIZE
+  const queueEnd = queueStart + PAGE_SIZE
+  const paginatedQueue = queue.slice(queueStart, queueEnd)
+  const totalQueuePages = Math.ceil(queue.length / PAGE_SIZE)
+
+  // Claim an order from the queue
+  async function handleClaim(orderId: string) {
+    await retrieveById(orderId)
+    // Reset to first page if current page becomes empty
+    if (paginatedQueue.length === 1 && queuePage > 0) {
+      setQueuePage((p) => p - 1)
+    }
+  }
 
   const deliveredToday = delivered.filter((a) => {
     if (!a.deliveredAt) return false
@@ -139,31 +160,8 @@ export default function StaffDashboardPage() {
         <KpiCard title="Drivers Available" value={driversAvailable} icon={<IconUsers className="h-5 w-5" />} accent="bg-violet-500/10 text-violet-600" />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <SectionCard
-          title="Quick Actions"
-          right={
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={retrieveFirst} disabled={mustChangePwd}>
-                <IconDownload className="mr-1 h-4 w-4" />
-                Retrieve First
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <Link href="/staff/orders">
-                  View Orders <IconChevronRight className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          }
-        >
-          <p className="text-sm text-muted-foreground">
-            Take the first order from the queue and start processing. Assign a driver and confirm delivery from “My Active Orders.”
-          </p>
-        </SectionCard>
-      </div>
-
       <SectionCard
-        title="Order Queue (Preview)"
+        title="Order Queue"
         right={
           <Button asChild size="sm" variant="outline">
             <Link href="/staff/orders">
@@ -179,23 +177,33 @@ export default function StaffDashboardPage() {
                 <th className="py-2 pr-2 text-left font-medium">Order</th>
                 <th className="py-2 px-2 text-left font-medium">Restaurant</th>
                 <th className="py-2 px-2 text-left font-medium">Placed</th>
-                <th className="py-2 pl-2 text-left font-medium">ETA</th>
-                <th />
+                <th className="py-2 px-2 text-left font-medium">ETA</th>
+                <th className="py-2 pl-2 text-left font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {queue.slice(0, 5).map((o) => (
+              {paginatedQueue.map((o) => (
                 <tr key={o.id} className="border-b last:border-0">
                   <td className="py-2 pr-2">{o.id}</td>
                   <td className="py-2 px-2">{o.restaurantName}</td>
                   <td className="py-2 px-2">
                     <span suppressHydrationWarning>{timeAgo(o.placedAt)}</span>
                   </td>
-                  <td className="py-2 pl-2">{o.etaMinutes != null ? `${o.etaMinutes} min` : '—'}</td>
+                  <td className="py-2 px-2">{o.etaMinutes != null ? `${o.etaMinutes} min` : '—'}</td>
                   <td className="py-2 pl-2">
-                    <Button size="sm" variant="ghost" onClick={() => openOrderDetail(o)}>
-                      Details
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        disabled={mustChangePwd}
+                        onClick={() => handleClaim(o.id)}
+                      >
+                        <IconDownload className="mr-1 h-4 w-4" />
+                        Claim
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => openOrderDetail(o)}>
+                        Details
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -209,6 +217,33 @@ export default function StaffDashboardPage() {
             </tbody>
           </table>
         </div>
+        {queue.length > PAGE_SIZE && (
+          <div className="mt-4 flex items-center justify-between border-t pt-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {queueStart + 1}–{Math.min(queueEnd, queue.length)} of {queue.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={queuePage === 0}
+                onClick={() => setQueuePage((p) => p - 1)}
+              >
+                <IconChevronLeft className="mr-1 h-4 w-4" />
+                Prev
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={queuePage >= totalQueuePages - 1}
+                onClick={() => setQueuePage((p) => p + 1)}
+              >
+                Next
+                <IconChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </SectionCard>
 
       <SectionCard title="My Active Orders">
