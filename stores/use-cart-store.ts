@@ -10,6 +10,7 @@ export type CartItemSnapshot = {
 }
 
 export type RestaurantSnapshot = {
+  id: string    // restaurant_id from database (needed for order submission)
   slug: string
   name: string
 }
@@ -28,6 +29,7 @@ export type DeliveryDetails = {
   apartment?: string
   city: string
   state: string
+  zipCode: string
   contactName: string
   contactPhone: string
 }

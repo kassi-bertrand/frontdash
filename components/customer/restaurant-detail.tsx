@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { CustomerRestaurant, RestaurantMenuItem } from '@/lib/types/customer'
 import { useCartStore } from '@/stores/use-cart-store'
+import { MAX_ITEM_QUANTITY } from '@/lib/checkout-utils'
 
 const compactNumber = new Intl.NumberFormat('en-US', {
   notation: 'compact',
@@ -57,8 +58,8 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
   // Register the current restaurant in the global store so its cart survives
   // when the guest hops between menus.
   useEffect(() => {
-    setActiveRestaurant({ slug: restaurant.slug, name: restaurant.name })
-  }, [restaurant.name, restaurant.slug, setActiveRestaurant])
+    setActiveRestaurant({ id: restaurant.id, slug: restaurant.slug, name: restaurant.name })
+  }, [restaurant.id, restaurant.name, restaurant.slug, setActiveRestaurant])
 
   // Flatten the stored cart items into an array for subtotal math and the sticky
   // footer badge.
@@ -81,10 +82,16 @@ export function RestaurantDetail({ restaurant }: RestaurantDetailProps) {
       return
     }
 
+    // Enforce maximum quantity per item
+    const currentQuantity = cartForRestaurant?.items[menuItem.id]?.quantity ?? 0
+    if (currentQuantity >= MAX_ITEM_QUANTITY) {
+      return
+    }
+
     // Snapshot the essential item data in the store so we can render summaries
     // outside of the menu context (e.g., on the checkout page).
     incrementItem({
-      restaurant: { slug: restaurant.slug, name: restaurant.name },
+      restaurant: { id: restaurant.id, slug: restaurant.slug, name: restaurant.name },
       item: {
         id: menuItem.id,
         name: menuItem.name,
