@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useCartStore } from '@/stores/use-cart-store'
+import { calculateOrderTotals, emptyOrderTotals } from '@/lib/checkout-utils'
 
 const cardOptions = ['VISA', 'MasterCard', 'Discover', 'American Express'] as const
 type CardType = (typeof cardOptions)[number]
@@ -121,33 +122,7 @@ export function PaymentForm({ restaurantSlug }: PaymentFormProps) {
   }, [maxDigitsForType])
 
   const cartSummary = useMemo(() => {
-    if (!cart) {
-      return {
-        subtotalCents: 0,
-        serviceChargeCents: 0,
-        tipCents: 0,
-        grandTotalCents: 0,
-      }
-    }
-
-    const subtotalCents = Object.values(cart.items).reduce(
-      (acc, item) => acc + item.priceCents * item.quantity,
-      0,
-    )
-    const serviceChargeCents = Math.round(subtotalCents * 0.0825)
-    const tipCents =
-      cart.tip?.mode === 'percent'
-        ? Math.round(subtotalCents * (cart.tip.percent / 100))
-        : cart.tip?.mode === 'fixed'
-          ? cart.tip.cents
-          : 0
-
-    return {
-      subtotalCents,
-      serviceChargeCents,
-      tipCents,
-      grandTotalCents: subtotalCents + serviceChargeCents + tipCents,
-    }
+    return cart ? calculateOrderTotals(cart) : emptyOrderTotals()
   }, [cart])
 
   if (!cart) {

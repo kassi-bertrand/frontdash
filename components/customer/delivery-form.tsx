@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCartStore, type DeliveryDetails } from '@/stores/use-cart-store'
+import { calculateOrderTotals, emptyOrderTotals } from '@/lib/checkout-utils'
 
 // Format helpers keep the inputs resilient while guests type.
 const phoneDigits = (value: string) => value.replace(/[^0-9]/g, '')
@@ -93,6 +94,7 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
   const [apartment, setApartment] = useState('')
   const [city, setCity] = useState('')
   const [stateValue, setStateValue] = useState('')
+  const [zipCode, setZipCode] = useState('')
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -109,38 +111,13 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
     setApartment(delivery.apartment ?? '')
     setCity(delivery.city)
     setStateValue(delivery.state.toUpperCase())
+    setZipCode(delivery.zipCode ?? '')
     setContactName(delivery.contactName)
     setContactPhone(delivery.contactPhone)
   }, [cart?.delivery])
 
   const orderSummary = useMemo(() => {
-    if (!cart) {
-      return {
-        subtotalCents: 0,
-        serviceChargeCents: 0,
-        tipCents: 0,
-        grandTotalCents: 0,
-      }
-    }
-
-    const subtotalCents = Object.values(cart.items).reduce(
-      (acc, item) => acc + item.priceCents * item.quantity,
-      0,
-    )
-    const serviceChargeCents = Math.round(subtotalCents * 0.0825)
-    const tipCents =
-      cart.tip?.mode === 'percent'
-        ? Math.round(subtotalCents * (cart.tip.percent / 100))
-        : cart.tip?.mode === 'fixed'
-          ? cart.tip.cents
-          : 0
-
-    return {
-      subtotalCents,
-      serviceChargeCents,
-      tipCents,
-      grandTotalCents: subtotalCents + serviceChargeCents + tipCents,
-    }
+    return cart ? calculateOrderTotals(cart) : emptyOrderTotals()
   }, [cart])
 
   if (!cart) {
@@ -195,6 +172,12 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
       return
     }
 
+    const trimmedZip = zipCode.trim()
+    if (!trimmedZip || !/^\d{5}(-\d{4})?$/.test(trimmedZip)) {
+      setErrorMessage('Enter a valid 5-digit ZIP code (e.g., 94102).')
+      return
+    }
+
     if (contactName.trim().length < 2) {
       setErrorMessage('Enter a valid contact name (at least two letters).')
       return
@@ -211,6 +194,7 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
       apartment: apartment.trim() || undefined,
       city: city.trim(),
       state: upperState,
+      zipCode: trimmedZip,
       contactName: contactName.trim(),
       contactPhone,
     }
@@ -253,9 +237,9 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
             </div>
           </section>
 
-          <section className="grid gap-4 sm:grid-cols-3">
+          <section className="grid gap-4 sm:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="apartment">Apartment / Unit (optional)</Label>
+              <Label htmlFor="apartment">Apt / Unit (optional)</Label>
               <Input
                 id="apartment"
                 value={apartment}
@@ -290,9 +274,19 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
                 placeholder="CA"
                 autoComplete="shipping address-level1"
               />
-              <p className="text-xs text-neutral-500">
-                Two-letter state abbreviation (e.g., CA).
-              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="zip-code">ZIP Code</Label>
+              <Input
+                id="zip-code"
+                value={zipCode}
+                onChange={(event) =>
+                  setZipCode(event.target.value.replace(/[^0-9-]/g, '').slice(0, 10))
+                }
+                placeholder="94102"
+                inputMode="numeric"
+                autoComplete="shipping postal-code"
+              />
             </div>
           </section>
 
