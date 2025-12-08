@@ -1,25 +1,17 @@
 // STORY-C004 order review route: renders the cart summary once the customer
 // chooses to review their selections.
-import { notFound } from 'next/navigation'
+'use client'
 
+import { use } from 'react'
 import { OrderReview } from '@/components/customer/order-review'
-import { demoCustomerRestaurants } from '@/lib/demo-restaurants'
 
 type CheckoutPageProps = {
   params: Promise<{ slug: string }>
 }
 
-export function generateStaticParams() {
-  return demoCustomerRestaurants.map((restaurant) => ({ slug: restaurant.slug }))
-}
+export default function CheckoutPage({ params }: CheckoutPageProps) {
+  const { slug } = use(params)
 
-export default async function CheckoutPage({ params }: CheckoutPageProps) {
-  const { slug } = await params
-  const restaurantExists = demoCustomerRestaurants.some((item) => item.slug === slug)
-
-  if (!restaurantExists) {
-    notFound()
-  }
-
+  // OrderReview handles "empty cart" state internally - shows message + redirect links
   return <OrderReview restaurantSlug={slug} />
 }
