@@ -3,92 +3,45 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { useAdminStore, StaffAssignedOrder, Driver } from '@/app/(dashboard)/admin/_state/admin-store'
+import { FormattedTime } from '@/components/ui/formatted-time'
+import { SectionCard } from '@/components/ui/section-card'
+import { StaffAssignedOrder } from '@/app/(dashboard)/admin/_state/admin-store'
+import { useStaffOrderActions } from '@/hooks/use-staff-order-actions'
 import { IconDownload, IconTruckDelivery, IconCheck, IconSearch } from '@tabler/icons-react'
 
-// Stable minute-only formatter (UTC) and hydration-safe time
-const dtf = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'UTC',
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-})
-function Time({ iso }: { iso?: string }) {
-  if (!iso) return <span>—</span>
-  return <span suppressHydrationWarning>{dtf.format(new Date(iso))}</span>
-}
-
-function Card({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border bg-background p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium">{title}</h3>
-        {right}
-      </div>
-      {children}
-    </div>
-  )
-}
-
 export default function StaffOrdersPage() {
-  const { state, actions } = useAdminStore()
-  const queue = state.orders
-  const assigned: StaffAssignedOrder[] = state.assignedOrders
-  const active = assigned.filter((a) => a.status !== 'DELIVERED')
-  const delivered = assigned.filter((a) => a.status === 'DELIVERED')
-  const drivers: Driver[] = state.drivers
+  // Use shared hook for order actions
+  const {
+    state,
+    drivers,
+    orders: queue,
+    assignedOrders,
+    assigning,
+    setAssigning,
+    deliveredHHMM,
+    setDeliveredHHMM,
+    retrieveFirst,
+    retrieveById,
+    assignDriver,
+    markDelivered,
+  } = useStaffOrderActions()
 
-  // Retrieve first
-  function retrieveFirst() {
-    const res = actions.staffRetrieveFirstOrder?.()
-    if (!res) return toast.warning('No orders in queue.')
-    toast.success(`Retrieved order ${res.id}`)
-  }
+  const active = assignedOrders.filter((a) => a.status !== 'DELIVERED')
+  const delivered = assignedOrders.filter((a) => a.status === 'DELIVERED')
 
-  // Retrieve specific (select any order from queue)
+  // Retrieve specific order from dropdown
   const [selectedOrderId, setSelectedOrderId] = React.useState('')
-  function retrieveSelected() {
+  async function retrieveSelected() {
     const id = selectedOrderId.trim()
-    if (!id) return toast.error('Select an order from the queue.')
-    const res = actions.staffRetrieveOrderById?.(id)
-    if (!res) return toast.error('Order not found in queue (maybe already taken).')
-    toast.success(`Retrieved order ${id}`)
-    setSelectedOrderId('')
+    if (!id) {
+      toast.error('Select an order from the queue.')
+      return
+    }
+    const result = await retrieveById(id)
+    if (result) setSelectedOrderId('')
   }
 
-  // Assign driver
-  const [assigning, setAssigning] = React.useState<Record<string, string>>({})
-  function assignDriver(orderId: string) {
-    const driverId = assigning[orderId]
-    if (!driverId) return toast.error('Select a driver first.')
-    actions.staffAssignDriver?.(orderId, driverId)
-    toast.success('Driver assigned.')
-    setAssigning((m) => ({ ...m, [orderId]: '' }))
-  }
-
-  // Delivered time
-  const [deliveredHHMM, setDeliveredHHMM] = React.useState<Record<string, string>>({})
-  function parseHHMM(hhmm: string): string | null {
-    const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(hhmm)
-    if (!m) return null
-    const d = new Date()
-    d.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0) // seconds=0
-    return d.toISOString()
-  }
-  function markDelivered(orderId: string, driverId?: string) {
-    if (!driverId) return toast.error('Assign a driver before confirming delivery.')
-    const hhmm = deliveredHHMM[orderId]
-    if (!hhmm) return toast.error('Enter delivered time as HH:MM (24h).')
-    const iso = parseHHMM(hhmm)
-    if (!iso) return toast.error('Time must be HH:MM (24h).')
-    actions.staffMarkDelivered?.(orderId, iso)
-    toast.success('Delivery recorded.')
-    setDeliveredHHMM((m) => ({ ...m, [orderId]: '' }))
-  }
-
-  // Find assigned order by ID (for orders with an assigned driver already)
+  // Find assigned order by ID (search box)
   const [findId, setFindId] = React.useState('')
   const foundAssigned = active.find((o) => o.id.toLowerCase() === findId.trim().toLowerCase()) ||
                         delivered.find((o) => o.id.toLowerCase() === findId.trim().toLowerCase())
@@ -99,7 +52,7 @@ export default function StaffOrdersPage() {
   return (
     <div className="space-y-6">
       {/* Retrieve */}
-      <Card
+      <SectionCard
         title="Retrieve Orders"
         right={
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
@@ -129,10 +82,10 @@ export default function StaffOrdersPage() {
           <br />
           - Retrieve Selected: choose any order from the queue to take next.
         </div>
-      </Card>
+      </SectionCard>
 
       {/* Find assigned order by ID */}
-      <Card
+      <SectionCard
         title="Find Assigned/Out-for-Delivery Order"
         right={
           <div className="flex items-center gap-2">
@@ -152,7 +105,7 @@ export default function StaffOrdersPage() {
               <div className="rounded-md border p-3">
                 <div className="mb-2 text-sm font-medium">{foundAssigned.id} — {foundAssigned.restaurantName}</div>
                 <div className="grid gap-2 text-sm">
-                  <div className="text-muted-foreground">Estimated: <Time iso={foundAssigned.estimatedDeliveryAt} /></div>
+                  <div className="text-muted-foreground">Estimated: <FormattedTime iso={foundAssigned.estimatedDeliveryAt} /></div>
                   <div className="flex items-center gap-2">
                     {foundAssigned.driverId ? (
                       <span>
@@ -199,10 +152,10 @@ export default function StaffOrdersPage() {
             <div className="text-muted-foreground">Enter an Order ID to manage an order that already has an assigned driver.</div>
           )}
         </div>
-      </Card>
+      </SectionCard>
 
       {/* Queue */}
-      <Card title="Order Queue">
+      <SectionCard title="Order Queue">
         <ul className="text-sm">
           {queue.map((o) => (
             <li key={o.id} className="flex items-center justify-between border-b py-2 last:border-0">
@@ -212,10 +165,10 @@ export default function StaffOrdersPage() {
           ))}
           {queue.length === 0 && <li className="py-4 text-center text-muted-foreground">Queue is empty.</li>}
         </ul>
-      </Card>
+      </SectionCard>
 
       {/* My Active */}
-      <Card title="My Active Orders">
+      <SectionCard title="My Active Orders">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-muted-foreground">
@@ -235,7 +188,7 @@ export default function StaffOrdersPage() {
                   <tr key={a.id} className="border-b last:border-0">
                     <td className="py-2 pr-2">{a.id}</td>
                     <td className="py-2 px-2">{a.restaurantName}</td>
-                    <td className="py-2 px-2"><Time iso={a.estimatedDeliveryAt} /></td>
+                    <td className="py-2 px-2"><FormattedTime iso={a.estimatedDeliveryAt} /></td>
                     <td className="py-2 px-2">
                       {a.driverId ? (
                         <span className="text-sm">
@@ -286,10 +239,10 @@ export default function StaffOrdersPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </SectionCard>
 
       {/* Delivered: hide inline times; use a View details button */}
-      <Card title="Delivered Orders">
+      <SectionCard title="Delivered Orders">
         <ul className="text-sm">
           {delivered.map((a) => (
             <li key={a.id} className="flex items-center justify-between border-b py-2 last:border-0">
@@ -303,7 +256,7 @@ export default function StaffOrdersPage() {
           ))}
           {delivered.length === 0 && <li className="py-4 text-center text-muted-foreground">No delivered orders yet.</li>}
         </ul>
-      </Card>
+      </SectionCard>
 
       {/* Details modal */}
       {detail && (
@@ -324,11 +277,11 @@ export default function StaffOrdersPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Estimated</span>
-                <span className="font-medium"><Time iso={detail.estimatedDeliveryAt} /></span>
+                <span className="font-medium"><FormattedTime iso={detail.estimatedDeliveryAt} /></span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Delivered</span>
-                <span className="font-medium"><Time iso={detail.deliveredAt} /></span>
+                <span className="font-medium"><FormattedTime iso={detail.deliveredAt} /></span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Driver</span>

@@ -3,10 +3,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { useAdminStore } from '../admin/_state/admin-store'
+import { FormattedTime } from '@/components/ui/formatted-time'
+import { SectionCard } from '@/components/ui/section-card'
 import { useAuth, isStaffUser } from '@/hooks/use-auth'
+import { useStaffOrderActions } from '@/hooks/use-staff-order-actions'
+import { timeAgo } from '@/lib/utils'
 import {
   IconDownload,
   IconTruckDelivery,
@@ -17,49 +19,6 @@ import {
   IconClipboardList,
   IconChevronRight,
 } from '@tabler/icons-react'
-
-// Stable minute-only formatter (UTC) to avoid SSR/client mismatch
-const dtf = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'UTC',
-  year: 'numeric',
-  month: 'numeric',
-  day: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-})
-function Time({ iso }: { iso?: string }) {
-  if (!iso) return <span>—</span>
-  return <span suppressHydrationWarning>{dtf.format(new Date(iso))}</span>
-}
-function timeAgo(iso?: string) {
-  if (!iso) return '—'
-  const diff = Date.now() - new Date(iso).getTime()
-  const d = Math.floor(diff / 86400000)
-  if (d >= 1) return `${d}d ago`
-  const h = Math.floor(diff / 3600000)
-  if (h >= 1) return `${h}h ago`
-  const m = Math.floor(diff / 60000)
-  return m > 0 ? `${m}m ago` : 'just now'
-}
-function sameDayISOWithTime(hhmm: string): string | null {
-  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(hhmm)
-  if (!m) return null
-  const now = new Date()
-  now.setHours(parseInt(m[1], 10), parseInt(m[2], 10), 0, 0) // seconds=0
-  return now.toISOString()
-}
-
-function Card({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
-  return (
-    <div className="rounded-lg border bg-background p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium">{title}</h3>
-        {right}
-      </div>
-      {children}
-    </div>
-  )
-}
 function KpiCard({
   title,
   value,
@@ -114,11 +73,23 @@ function Modal({
 
 export default function StaffDashboardPage() {
   const router = useRouter()
-  const { state, actions } = useAdminStore()
   const { user, isLoading } = useAuth()
 
-  // Derived state: does staff user need to change password?
-  const mustChangePwd = isStaffUser(user) && user.mustChangePassword
+  // Use shared hook for order actions
+  const {
+    state,
+    drivers,
+    orders,
+    assignedOrders,
+    mustChangePwd,
+    assigning,
+    setAssigning,
+    deliveredHHMM,
+    setDeliveredHHMM,
+    retrieveFirst,
+    assignDriver,
+    markDelivered,
+  } = useStaffOrderActions()
 
   // Enforce password change redirect (safety net for direct URL access)
   useEffect(() => {
@@ -128,11 +99,9 @@ export default function StaffDashboardPage() {
     }
   }, [mustChangePwd, isLoading, router])
 
-  const queue = (state?.orders ?? []).filter((o) => o.status === 'QUEUED')
-  const assigned = state?.assignedOrders ?? []
-  const active = assigned.filter((a) => a.status !== 'DELIVERED')
-  const delivered = assigned.filter((a) => a.status === 'DELIVERED')
-  const drivers = state?.drivers ?? []
+  const queue = orders.filter((o) => o.status === 'QUEUED')
+  const active = assignedOrders.filter((a) => a.status !== 'DELIVERED')
+  const delivered = assignedOrders.filter((a) => a.status === 'DELIVERED')
   const driversAvailable = drivers.filter((d) => d.status !== 'ON_TRIP').length
 
   const deliveredToday = delivered.filter((a) => {
@@ -145,45 +114,6 @@ export default function StaffDashboardPage() {
       dt.getUTCDate() === now.getUTCDate()
     )
   })
-
-  function retrieveFirst() {
-    if (mustChangePwd) {
-      toast.warning('Please change your password in Settings before taking actions.')
-      return
-    }
-    const res = actions.staffRetrieveFirstOrder?.()
-    if (!res) return toast.warning('No orders in queue.')
-    toast.success(`Retrieved order ${res.id}`)
-  }
-
-  const [assigning, setAssigning] = useState<Record<string, string>>({})
-  function assignDriver(orderId: string, driverAssigned?: string) {
-    if (mustChangePwd) {
-      toast.warning('Please change your password in Settings before taking actions.')
-      return
-    }
-    const driverId = assigning[orderId] || driverAssigned
-    if (!driverId) return toast.error('Select a driver first.')
-    actions.staffAssignDriver?.(orderId, driverId)
-    toast.success('Driver assigned.')
-    setAssigning((m) => ({ ...m, [orderId]: '' }))
-  }
-
-  const [deliveredHHMM, setDeliveredHHMM] = useState<Record<string, string>>({})
-  function markDelivered(orderId: string, driverId?: string) {
-    if (mustChangePwd) {
-      toast.warning('Please change your password in Settings before taking actions.')
-      return
-    }
-    if (!driverId) return toast.error('Assign a driver before confirming delivery.')
-    const hhmm = deliveredHHMM[orderId]
-    if (!hhmm) return toast.error('Enter delivered time as HH:MM (24h).')
-    const iso = sameDayISOWithTime(hhmm)
-    if (!iso) return toast.error('Time must be HH:MM in 24-hour format.')
-    actions.staffMarkDelivered?.(orderId, iso)
-    toast.success('Delivery recorded.')
-    setDeliveredHHMM((m) => ({ ...m, [orderId]: '' }))
-  }
 
   interface OrderDetail {
     id: string
@@ -236,7 +166,7 @@ export default function StaffDashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card
+        <SectionCard
           title="Quick Actions"
           right={
             <div className="flex items-center gap-2">
@@ -255,10 +185,10 @@ export default function StaffDashboardPage() {
           <p className="text-sm text-muted-foreground">
             Take the first order from the queue and start processing. Assign a driver and confirm delivery from “My Active Orders.”
           </p>
-        </Card>
+        </SectionCard>
       </div>
 
-      <Card
+      <SectionCard
         title="Order Queue (Preview)"
         right={
           <Button asChild size="sm" variant="outline">
@@ -305,9 +235,9 @@ export default function StaffDashboardPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </SectionCard>
 
-      <Card title="My Active Orders">
+      <SectionCard title="My Active Orders">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-muted-foreground">
@@ -330,7 +260,7 @@ export default function StaffDashboardPage() {
                     <td className="py-2 pr-2">{a.id}</td>
                     <td className="py-2 px-2">{a.restaurantName}</td>
                     <td className="py-2 px-2">
-                      <Time iso={a.estimatedDeliveryAt} />
+                      <FormattedTime iso={a.estimatedDeliveryAt} />
                     </td>
                     <td className="py-2 px-2">
                       {a.driverId ? (
@@ -397,9 +327,9 @@ export default function StaffDashboardPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </SectionCard>
 
-      <Card
+      <SectionCard
         title="Recent Delivered"
         right={
           <Button asChild size="sm" variant="outline">
@@ -427,10 +357,10 @@ export default function StaffDashboardPage() {
                   <td className="py-2 pr-2">{a.id}</td>
                   <td className="py-2 px-2">{a.restaurantName}</td>
                   <td className="py-2 px-2">
-                    <Time iso={a.deliveredAt} />
+                    <FormattedTime iso={a.deliveredAt} />
                   </td>
                   <td className="py-2 px-2">
-                    <Time iso={a.estimatedDeliveryAt} />
+                    <FormattedTime iso={a.estimatedDeliveryAt} />
                   </td>
                   <td className="py-2 pl-2">{state.drivers.find((d) => d.id === a.driverId)?.name ?? '—'}</td>
                   <td className="py-2 pl-2">
@@ -450,7 +380,7 @@ export default function StaffDashboardPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </SectionCard>
 
       <Modal open={!!orderDetail} onClose={closeOrderDetail} title="Order Details">
         {orderDetail && (
@@ -466,14 +396,14 @@ export default function StaffDashboardPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Placed At</span>
               <span className="font-medium">
-                <Time iso={orderDetail.placedAt} />
+                <FormattedTime iso={orderDetail.placedAt} />
               </span>
             </div>
             {orderDetail.estimatedDeliveryAt && (
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Estimated Delivery</span>
                 <span className="font-medium">
-                  <Time iso={orderDetail.estimatedDeliveryAt} />
+                  <FormattedTime iso={orderDetail.estimatedDeliveryAt} />
                 </span>
               </div>
             )}
@@ -481,7 +411,7 @@ export default function StaffDashboardPage() {
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Delivered At</span>
                 <span className="font-medium">
-                  <Time iso={orderDetail.deliveredAt} />
+                  <FormattedTime iso={orderDetail.deliveredAt} />
                 </span>
               </div>
             )}

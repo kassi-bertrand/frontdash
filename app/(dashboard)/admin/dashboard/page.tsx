@@ -173,21 +173,25 @@ export default function AdminDashboardPage() {
   const [driverName, setDriverName] = React.useState('')
 
   // Staff: Hire handler
-  function hireStaff() {
+  async function hireStaff() {
     const f = firstName.trim()
     const l = lastName.trim()
     if (f.length < 2 || l.length < 2) {
       toast.error('Names must be at least 2 letters.')
       return
     }
-    const res = actions.addStaff(f, l)
-    setStaffModal({ open: true, ...res })
-    setFirstName('')
-    setLastName('')
+    try {
+      const res = await actions.addStaff(f, l)
+      setStaffModal({ open: true, ...res })
+      setFirstName('')
+      setLastName('')
+    } catch {
+      toast.error('Failed to add staff member.')
+    }
   }
 
   // Drivers: Hire handler
-  function hireDriverQuick() {
+  async function hireDriverQuick() {
     const name = driverName.trim()
     if (name.length < 2) {
       toast.error('Driver name must be at least 2 characters.')
@@ -197,10 +201,13 @@ export default function AdminDashboardPage() {
       toast.error('Driver name must be unique.')
       return
     }
-  const res = actions.hireDriver(name)
-  // hireDriver currently returns only { name }; optional details (email/phone/vehicle) aren't provided
-  setDriverModal((m) => ({ ...m, open: true, name: res.name }))
-    setDriverName('')
+    try {
+      const res = await actions.hireDriver(name)
+      setDriverModal((m) => ({ ...m, open: true, name: res.name }))
+      setDriverName('')
+    } catch {
+      toast.error('Failed to hire driver.')
+    }
   }
 
   function openRegView(r: RegistrationRequest) {

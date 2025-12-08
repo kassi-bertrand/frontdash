@@ -1,94 +1,40 @@
 'use client'
 
 /**
+ * Admin/Staff Store - Connected to Backend
  * =============================================================================
- * TODO: CONNECT TO EXPRESS BACKEND
- * =============================================================================
+ * Central state management for admin and staff dashboards.
+ * Fetches data from Express backend on mount and syncs after mutations.
  *
- * CURRENT STATE: All data is hardcoded in React state (lines 122-170)
- * TARGET STATE: Fetch data from Express backend APIs on mount & after mutations
+ * DATA FLOW:
+ * 1. On mount: fetchData() loads orders, drivers, staff, restaurants
+ * 2. On mutation: API call → refresh relevant data → update local state
+ * 3. Components use useAdminStore() to read state and call actions
  *
- * This file is the CENTRAL HUB for admin/staff dashboard data. Once connected
- * to the backend, all pages using this store will automatically work.
- *
- * =============================================================================
- * BACKEND ENDPOINTS TO USE:
- * =============================================================================
- *
- * STAFF DATA:
- *   GET  ${API_URL}/api/staff
- *   POST ${API_URL}/api/staff          - Body: { first_name, last_name }
- *   DELETE ${API_URL}/api/staff/:id
- *
- * DRIVER DATA:
- *   GET  ${API_URL}/api/drivers
- *   POST ${API_URL}/api/drivers        - Body: { driver_name }
- *   DELETE ${API_URL}/api/drivers/:id
- *
- * RESTAURANT REGISTRATIONS:
- *   GET  ${API_URL}/api/restaurants?status=PENDING   - Pending registrations
- *   PUT  ${API_URL}/api/restaurants/:id/approve
- *   PUT  ${API_URL}/api/restaurants/:id/reject
- *
- * WITHDRAWAL REQUESTS:
- *   GET  ${API_URL}/api/restaurants/withdrawals
- *   PUT  ${API_URL}/api/restaurants/:id/withdraw/approve
- *   PUT  ${API_URL}/api/restaurants/:id/withdraw/reject
- *
- * ORDERS (for staff):
- *   GET  ${API_URL}/api/orders?status=PENDING       - Order queue
- *   PUT  ${API_URL}/api/orders/:orderNumber/assign-driver
- *   PUT  ${API_URL}/api/orders/:orderNumber/delivery-time
- *
- * =============================================================================
- * IMPLEMENTATION APPROACH:
- * =============================================================================
- *
- * 1. Add API_URL constant:
- *    const API_URL = process.env.NEXT_PUBLIC_API_URL;
- *
- * 2. Create fetch functions for each data type:
- *    async function fetchStaff(): Promise<Staff[]> {
- *      const res = await fetch(`${API_URL}/api/staff`);
- *      const data = await res.json();
- *      return data.map(s => ({
- *        id: String(s.staff_id),
- *        firstName: s.first_name,
- *        lastName: s.last_name,
- *        username: s.username,
- *      }));
- *    }
- *
- * 3. Use useEffect to load data on mount:
- *    useEffect(() => {
- *      fetchStaff().then(data => setState(prev => ({ ...prev, staff: data })));
- *      fetchDrivers().then(data => setState(prev => ({ ...prev, drivers: data })));
- *      // etc.
- *    }, []);
- *
- * 4. Update action functions to call API then refresh state:
- *    addStaff: async (first, last) => {
- *      const res = await fetch(`${API_URL}/api/staff`, {
- *        method: 'POST',
- *        headers: { 'Content-Type': 'application/json' },
- *        body: JSON.stringify({ first_name: first, last_name: last }),
- *      });
- *      const data = await res.json();
- *      // Refresh staff list
- *      const staff = await fetchStaff();
- *      setState(prev => ({ ...prev, staff }));
- *      return { first, last, username: data.credentials.username, password: data.credentials.password };
- *    }
- *
- * =============================================================================
- * IMPORT TO ADD:
- *   import { staffApi, driverApi, restaurantApi, orderApi } from '@/lib/api';
- *
- * Then use: staffApi.getAll(), staffApi.create(), driverApi.hire(), etc.
+ * ORDER STATUS MAPPING:
+ *   Backend PENDING → Frontend QUEUED (in queue, not claimed)
+ *   Backend CONFIRMED → Frontend ASSIGNED (staff claimed it)
+ *   Backend OUT_FOR_DELIVERY → Frontend OUT_FOR_DELIVERY
+ *   Backend DELIVERED → Frontend DELIVERED
  * =============================================================================
  */
 
 import * as React from 'react'
+import {
+  orderApi,
+  driverApi,
+  staffApi,
+  restaurantApi,
+  ApiError,
+  type Order,
+  type Restaurant,
+} from '@/lib/api'
+import {
+  toQueuedOrder,
+  toAssignedOrder,
+  toDriver,
+  toStaff,
+} from '@/lib/transforms/staff'
 
 // Types
 export type RegistrationStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
@@ -153,35 +99,43 @@ export type Driver = {
 }
 
 export type AdminState = {
+  // Loading and error state
+  isLoading: boolean
+  error: string | null
+  // Data
   registrations: RegistrationRequest[]
   withdrawals: WithdrawalRequest[]
   activeRestaurants: string[]
   staff: Staff[]
   drivers: Driver[]
-  orders: QueuedOrder[]            // Queue
-  assignedOrders: StaffAssignedOrder[] // Staff working set (saved before removal)
+  orders: QueuedOrder[]            // Queue (PENDING orders)
+  assignedOrders: StaffAssignedOrder[] // Staff working set (CONFIRMED+ orders)
   ordersToday: number
+  // Restaurant lookup (for order display)
+  restaurantMap: Record<number, string>
 }
 
 export type AdminActions = {
+  // Data fetching
+  fetchData: () => Promise<void>
   // Admin
-  approveRegistration: (id: string) => void
-  rejectRegistration: (id: string) => void
-  approveWithdrawal: (id: string) => void
-  disapproveWithdrawal: (id: string) => void
+  approveRegistration: (id: string) => Promise<void>
+  rejectRegistration: (id: string) => Promise<void>
+  approveWithdrawal: (id: string) => Promise<void>
+  disapproveWithdrawal: (id: string) => Promise<void>
   addRegistrationRequest: (restaurantName: string, details?: RegistrationDetails) => void
   addWithdrawalRequest: (restaurantName: string, reason?: string) => void
   setRegistrationDetails: (id: string, details: RegistrationDetails) => void
-  addStaff: (first: string, last: string) => { first: string; last: string; username: string; password: string }
-  removeStaff: (id: string) => void
-  hireDriver: (name: string) => { name: string }
-  fireDriver: (id: string) => void
+  addStaff: (first: string, last: string) => Promise<{ first: string; last: string; username: string; password: string }>
+  removeStaff: (id: string) => Promise<void>
+  hireDriver: (name: string) => Promise<{ name: string }>
+  fireDriver: (id: string) => Promise<void>
 
   // Staff workflow
-  staffRetrieveFirstOrder: () => (StaffAssignedOrder & { status: OrderStatus }) | null
-  staffRetrieveOrderById: (orderId: string) => (StaffAssignedOrder & { status: OrderStatus }) | null
-  staffAssignDriver: (orderId: string, driverId: string) => void
-  staffMarkDelivered: (orderId: string, deliveredAtISO?: string) => void
+  staffRetrieveFirstOrder: () => Promise<(StaffAssignedOrder & { status: OrderStatus }) | null>
+  staffRetrieveOrderById: (orderId: string) => Promise<(StaffAssignedOrder & { status: OrderStatus }) | null>
+  staffAssignDriver: (orderId: string, driverId: string, staffId: number) => Promise<void>
+  staffMarkDelivered: (orderId: string, deliveredAtISO?: string) => Promise<void>
 }
 
 export type AdminMetrics = {
@@ -193,262 +147,395 @@ export type AdminMetrics = {
   staffCount: number
 }
 
-// Helpers to avoid SSR/client drift: generate ISO with seconds=0
-function isoMinutesAgo(mins: number) {
-  const d = new Date()
-  d.setMinutes(d.getMinutes() - mins, 0, 0) // seconds=0
-  return d.toISOString()
-}
-function addMinutes(iso?: string, mins?: number) {
-  if (!iso || !mins || mins <= 0) return undefined
-  const d = new Date(iso)
-  d.setMinutes(d.getMinutes() + mins, 0, 0) // seconds=0
-  return d.toISOString()
-}
-
-// Demo data
-const initialRegistrations: RegistrationRequest[] = [
-  { id: 'rq-1009', restaurantName: 'Spice Villa', submittedAt: isoMinutesAgo(60), status: 'PENDING' },
-  { id: 'rq-1010', restaurantName: 'Green Bowl', submittedAt: isoMinutesAgo(120), status: 'PENDING' },
-  { id: 'rq-0999', restaurantName: 'Golden Wok', submittedAt: isoMinutesAgo(24 * 60), status: 'APPROVED' },
-]
-
-const initialWithdrawals: WithdrawalRequest[] = [
-  { id: 'wd-2001', restaurantName: 'Old Town Bakery', requestedAt: isoMinutesAgo(5 * 60), status: 'PENDING', reason: 'Renovations' },
-]
-
-const initialActiveRestaurants = ['Spice Villa', 'Green Bowl', 'Bella Pasta', 'Ocean Catch', 'Golden Wok']
-
-const initialStaff: Staff[] = [
-  { id: 's-1', firstName: 'Nora', lastName: 'James', username: 'james42', email: 'james42@frontdash.app', lastPasswordChangedAt: isoMinutesAgo(0) },
-  { id: 's-2', firstName: 'Liam', lastName: 'Chen', username: 'chen67', email: 'chen67@frontdash.app', lastPasswordChangedAt: isoMinutesAgo(0) },
-]
-
-// Drivers: d-1 currently ON_TRIP (has an active order), others AVAILABLE
-const initialDrivers: Driver[] = [
-  { id: 'd-1', name: 'Alex Morgan', status: 'ON_TRIP',  lastAssignmentAt: isoMinutesAgo(40) },
-  { id: 'd-2', name: 'Priya Shah',  status: 'AVAILABLE' },
-  { id: 'd-3', name: 'Diego Ramos', status: 'AVAILABLE' },
-]
-
-// Queue: a few orders waiting (seconds=0 to avoid hydration drift)
-const initialOrders: QueuedOrder[] = [
-  { id: 'ORD-30241', restaurantName: 'Bella Pasta',  placedAt: isoMinutesAgo(9),  etaMinutes: 38, status: 'QUEUED' },
-  { id: 'ORD-30242', restaurantName: 'Spice Villa',  placedAt: isoMinutesAgo(15), etaMinutes: 42, status: 'QUEUED' },
-  { id: 'ORD-30243', restaurantName: 'Green Bowl',   placedAt: isoMinutesAgo(27), etaMinutes: 31, status: 'QUEUED' },
-  { id: 'ORD-30244', restaurantName: 'Ocean Catch',  placedAt: isoMinutesAgo(33), etaMinutes: 44, status: 'QUEUED' },
-  { id: 'ORD-30245', restaurantName: 'Golden Wok',   placedAt: isoMinutesAgo(48), etaMinutes: 36, status: 'QUEUED' },
-]
-
 // Context
 const AdminStoreContext = React.createContext<{ state: AdminState; actions: AdminActions } | null>(null)
 
 export function AdminStoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<AdminState>({
-    registrations: initialRegistrations,
-    withdrawals: initialWithdrawals,
-    activeRestaurants: initialActiveRestaurants,
-    staff: initialStaff,
-    drivers: initialDrivers,
-    orders: initialOrders,
-    // Seed some active and delivered orders so dashboards aren't empty
-    assignedOrders: [
-      // Active (OUT_FOR_DELIVERY) — driver d-1 currently on trip
-      {
-        id: 'ORD-30235',
-        restaurantName: 'Golden Wok',
-        placedAt: isoMinutesAgo(50),
-        etaMinutes: 35,
-        estimatedDeliveryAt: addMinutes(isoMinutesAgo(50), 35),
-        assignedAt: isoMinutesAgo(40),
-        driverId: 'd-1',
-        status: 'OUT_FOR_DELIVERY',
-      },
-      // Delivered — driver became available
-      {
-        id: 'ORD-30231',
-        restaurantName: 'Bella Pasta',
-        placedAt: isoMinutesAgo(90),
-        etaMinutes: 40,
-        estimatedDeliveryAt: addMinutes(isoMinutesAgo(90), 40),
-        assignedAt: isoMinutesAgo(80),
-        driverId: 'd-3',
-        deliveredAt: isoMinutesAgo(30),
-        status: 'DELIVERED',
-      },
-      {
-        id: 'ORD-30230',
-        restaurantName: 'Ocean Catch',
-        placedAt: isoMinutesAgo(120),
-        etaMinutes: 45,
-        estimatedDeliveryAt: addMinutes(isoMinutesAgo(120), 45),
-        assignedAt: isoMinutesAgo(110),
-        driverId: 'd-2',
-        deliveredAt: isoMinutesAgo(70),
-        status: 'DELIVERED',
-      },
-    ],
-    ordersToday: 1847,
+    isLoading: true,
+    error: null,
+    registrations: [],
+    withdrawals: [],
+    activeRestaurants: [],
+    staff: [],
+    drivers: [],
+    orders: [],
+    assignedOrders: [],
+    ordersToday: 0,
+    restaurantMap: {},
   })
 
-  // Admin actions (unchanged omitted for brevity) ...
+  /**
+   * Fetch all data from backend APIs.
+   * Called on mount and after mutations to refresh state.
+   */
+  const fetchData = React.useCallback(async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }))
 
-  const approveRegistration: AdminActions['approveRegistration'] = (id) => {
-    setState((prev) => {
-      const target = prev.registrations.find((r) => r.id === id)
-      if (!target) return prev
-      const name = target.restaurantName
-      const registrations = prev.registrations.map((r): RegistrationRequest =>
-        r.id === id ? { ...r, status: 'APPROVED' as const } :
-        (r.restaurantName === name && r.status === 'PENDING') ? { ...r, status: 'REJECTED' as const } : r
-      )
-      const withdrawals = prev.withdrawals.filter((w) => !(w.restaurantName === name && w.status === 'PENDING'))
-      const activeRestaurants = prev.activeRestaurants.includes(name) ? prev.activeRestaurants : [name, ...prev.activeRestaurants]
-      return { ...prev, registrations, withdrawals, activeRestaurants }
-    })
+    try {
+      // Fetch all data in parallel
+      const [
+        pendingOrders,
+        confirmedOrders,
+        outForDeliveryOrders,
+        deliveredOrders,
+        apiDrivers,
+        apiStaff,
+        pendingRestaurants,
+        withdrawalRestaurants,
+        allRestaurants,
+      ] = await Promise.all([
+        orderApi.getAll({ status: 'PENDING' }),
+        orderApi.getAll({ status: 'CONFIRMED' }),
+        orderApi.getAll({ status: 'OUT_FOR_DELIVERY' }),
+        orderApi.getAll({ status: 'DELIVERED' }),
+        driverApi.getAll(),
+        staffApi.getAll(),
+        restaurantApi.getAll().then(r => r.filter(rest => rest.account_status === 'PENDING')),
+        restaurantApi.getWithdrawals(),
+        restaurantApi.getAll(),
+      ])
+
+      // Build restaurant lookup map
+      const restaurantMap: Record<number, string> = {}
+      allRestaurants.forEach(r => { restaurantMap[r.restaurant_id] = r.restaurant_name })
+
+      // Helper to get restaurant name from order
+      const getRestaurantName = (order: Order) =>
+        restaurantMap[order.restaurant_id] || `Restaurant #${order.restaurant_id}`
+
+      // Transform orders
+      const queuedOrders = pendingOrders.map(o => toQueuedOrder(o, getRestaurantName(o)))
+
+      const assignedOrders = [
+        ...confirmedOrders.map(o => toAssignedOrder(o, getRestaurantName(o))),
+        ...outForDeliveryOrders.map(o => toAssignedOrder(o, getRestaurantName(o))),
+        ...deliveredOrders
+          .filter(o => {
+            // Only show orders delivered today
+            const deliveredDate = new Date(o.actual_delivery_time || o.created_at)
+            const today = new Date()
+            return deliveredDate.toDateString() === today.toDateString()
+          })
+          .map(o => toAssignedOrder(o, getRestaurantName(o))),
+      ]
+
+      // Transform registrations from pending restaurants
+      const registrations: RegistrationRequest[] = pendingRestaurants.map(r => ({
+        id: String(r.restaurant_id),
+        restaurantName: r.restaurant_name,
+        submittedAt: r.approved_at || new Date().toISOString(),
+        status: 'PENDING' as const,
+        details: {
+          address: {
+            street: r.street_address,
+            city: r.city,
+            state: r.state,
+            zip: r.zip_code,
+          },
+          phone: r.phone_number,
+        },
+      }))
+
+      // Transform withdrawals
+      const withdrawals: WithdrawalRequest[] = withdrawalRestaurants.map(r => ({
+        id: String(r.restaurant_id),
+        restaurantName: r.restaurant_name,
+        requestedAt: new Date().toISOString(),
+        status: 'PENDING' as const,
+        reason: 'Withdrawal requested',
+      }))
+
+      // Get active restaurants (APPROVED status)
+      const activeRestaurants = allRestaurants
+        .filter(r => r.account_status === 'APPROVED')
+        .map(r => r.restaurant_name)
+
+      // Count orders today
+      const today = new Date().toDateString()
+      const ordersToday = deliveredOrders.filter(o => {
+        const orderDate = new Date(o.created_at)
+        return orderDate.toDateString() === today
+      }).length
+
+      setState({
+        isLoading: false,
+        error: null,
+        registrations,
+        withdrawals,
+        activeRestaurants,
+        staff: apiStaff.map(toStaff),
+        drivers: apiDrivers.map(toDriver),
+        orders: queuedOrders,
+        assignedOrders,
+        ordersToday,
+        restaurantMap,
+      })
+    } catch (err) {
+      console.error('Failed to fetch admin data:', err)
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to load data',
+      }))
+    }
+  }, [])
+
+  // Fetch data on mount
+  React.useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // =========================================================================
+  // Admin Actions
+  // =========================================================================
+
+  const approveRegistration: AdminActions['approveRegistration'] = async (id) => {
+    try {
+      await restaurantApi.approve(Number(id))
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to approve registration:', err)
+      throw err
+    }
   }
-  const rejectRegistration: AdminActions['rejectRegistration'] = (id) => {
-    setState((prev) => ({ ...prev, registrations: prev.registrations.map((r): RegistrationRequest => r.id === id ? { ...r, status: 'REJECTED' as const } : r) }))
+
+  const rejectRegistration: AdminActions['rejectRegistration'] = async (id) => {
+    try {
+      await restaurantApi.reject(Number(id))
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to reject registration:', err)
+      throw err
+    }
   }
-  const approveWithdrawal: AdminActions['approveWithdrawal'] = (id) => {
-    setState((prev) => ({ ...prev, withdrawals: prev.withdrawals.filter((w) => w.id !== id) }))
+
+  const approveWithdrawal: AdminActions['approveWithdrawal'] = async (id) => {
+    try {
+      await restaurantApi.approveWithdrawal(Number(id))
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to approve withdrawal:', err)
+      throw err
+    }
   }
-  const disapproveWithdrawal: AdminActions['disapproveWithdrawal'] = (id) => {
-    setState((prev) => {
-      const req = prev.withdrawals.find((w) => w.id === id)
-      const activeRestaurants = req && !prev.activeRestaurants.includes(req.restaurantName)
-        ? [req.restaurantName, ...prev.activeRestaurants] : prev.activeRestaurants
-      return { ...prev, withdrawals: prev.withdrawals.filter((w) => w.id !== id), activeRestaurants }
-    })
+
+  const disapproveWithdrawal: AdminActions['disapproveWithdrawal'] = async (id) => {
+    try {
+      await restaurantApi.rejectWithdrawal(Number(id))
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to disapprove withdrawal:', err)
+      throw err
+    }
   }
+
+  // These remain local-only (no backend support yet)
   const addRegistrationRequest: AdminActions['addRegistrationRequest'] = (restaurantName, details) => {
-    const name = restaurantName.trim(); if (!name) return
+    const name = restaurantName.trim()
+    if (!name) return
     setState((prev) => {
       if (prev.activeRestaurants.includes(name)) return prev
       if (prev.registrations.some((r) => r.restaurantName.toLowerCase() === name.toLowerCase() && r.status === 'PENDING')) return prev
-      const reg: RegistrationRequest = { id: `rq-${Date.now()}`, restaurantName: name, submittedAt: isoMinutesAgo(0), status: 'PENDING', details }
+      const reg: RegistrationRequest = { id: `rq-${Date.now()}`, restaurantName: name, submittedAt: new Date().toISOString(), status: 'PENDING', details }
       return { ...prev, registrations: [reg, ...prev.registrations] }
     })
   }
+
   const addWithdrawalRequest: AdminActions['addWithdrawalRequest'] = (restaurantName, reason) => {
-    const name = restaurantName.trim(); if (!name) return
+    const name = restaurantName.trim()
+    if (!name) return
     setState((prev) => {
       if (!prev.activeRestaurants.includes(name)) return prev
       if (prev.withdrawals.some((w) => w.restaurantName === name && w.status === 'PENDING')) return prev
-      const wd: WithdrawalRequest = { id: `wd-${Date.now()}`, restaurantName: name, requestedAt: isoMinutesAgo(0), status: 'PENDING', reason: reason?.trim() || 'No reason' }
+      const wd: WithdrawalRequest = { id: `wd-${Date.now()}`, restaurantName: name, requestedAt: new Date().toISOString(), status: 'PENDING', reason: reason?.trim() || 'No reason' }
       return { ...prev, withdrawals: [wd, ...prev.withdrawals], activeRestaurants: prev.activeRestaurants.filter((n) => n !== name) }
     })
   }
+
   const setRegistrationDetails: AdminActions['setRegistrationDetails'] = (id, details) => {
     setState((prev) => ({ ...prev, registrations: prev.registrations.map((r) => r.id === id ? { ...r, details: { ...r.details, ...details } } : r) }))
   }
 
-  // Staff & drivers (unchanged from your latest) ...
-  const addStaff: AdminActions['addStaff'] = (first, last) => {
-    const f = first.trim(), l = last.trim(); if (!f || !l) return { first: f, last: l, username: '', password: '' }
-    let username = ''; let tries = 0
-    do { username = `${l.toLowerCase()}${String(Math.floor(Math.random() * 90) + 10)}`; tries++ } while (tries < 10 && state.staff.some((s) => s.username === username))
-    const password = (() => {
-      const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ', lower = 'abcdefghijkmnopqrstuvwxyz', digits = '23456789'
-      const pool = upper + lower + digits, pick = (s: string) => s[Math.floor(Math.random() * s.length)]
-      const base = [pick(upper), pick(lower), pick(digits), ...Array.from({ length: 5 }, () => pick(pool))]
-      for (let i = base.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [base[i], base[j]] = [base[j], base[i]] }
-      return base.join('')
-    })()
-    const email = `${username}@frontdash.app`
-    const lastPasswordChangedAt = isoMinutesAgo(0)
-    setState((prev) => ({ ...prev, staff: [{ id: `s-${Date.now()}`, firstName: f, lastName: l, username, email, lastPasswordChangedAt }, ...prev.staff] }))
-    return { first: f, last: l, username, password }
-  }
-  const removeStaff: AdminActions['removeStaff'] = (id) => {
-    setState((prev) => ({ ...prev, staff: prev.staff.filter((s) => s.id !== id) }))
-  }
-  const hireDriver: AdminActions['hireDriver'] = (name) => {
-    const n = name.trim(); if (!n) return { name: n }
-    setState((prev) => ({ ...prev, drivers: [{ id: `d-${Date.now()}`, name: n, status: 'AVAILABLE' }, ...prev.drivers] }))
-    return { name: n }
-  }
-  const fireDriver: AdminActions['fireDriver'] = (id) => {
-    setState((prev) => ({ ...prev, drivers: prev.drivers.filter((d) => d.id !== id) }))
-  }
+  // =========================================================================
+  // Staff & Driver CRUD
+  // =========================================================================
 
-  // Staff order workflow
-  const staffRetrieveFirstOrder: AdminActions['staffRetrieveFirstOrder'] = () => {
-    let picked: QueuedOrder | undefined
-    let assignedCopy: StaffAssignedOrder | null = null
-    setState((prev) => {
-      const idx = prev.orders.findIndex((o) => o.status === 'QUEUED')
-      if (idx === -1) return prev
-      const nextOrders = prev.orders.slice()
-      picked = nextOrders[idx]
-      nextOrders.splice(idx, 1)
-      assignedCopy = {
-        id: picked.id,
-        restaurantName: picked.restaurantName,
-        placedAt: picked.placedAt,
-        etaMinutes: picked.etaMinutes,
-        estimatedDeliveryAt: addMinutes(picked.placedAt, picked.etaMinutes),
-        assignedAt: isoMinutesAgo(0),
-        status: 'ASSIGNED',
-      }
-      return { ...prev, orders: nextOrders, assignedOrders: [assignedCopy, ...prev.assignedOrders] }
-    })
-    return assignedCopy
-  }
+  const addStaff: AdminActions['addStaff'] = async (first, last) => {
+    const f = first.trim(), l = last.trim()
+    if (!f || !l) return { first: f, last: l, username: '', password: '' }
 
-  const staffRetrieveOrderById: AdminActions['staffRetrieveOrderById'] = (orderId) => {
-    let picked: QueuedOrder | undefined
-    let assignedCopy: StaffAssignedOrder | null = null
-    setState((prev) => {
-      const idx = prev.orders.findIndex((o) => o.status === 'QUEUED' && o.id === orderId)
-      if (idx === -1) return prev
-      const nextOrders = prev.orders.slice()
-      picked = nextOrders[idx]
-      nextOrders.splice(idx, 1)
-      assignedCopy = {
-        id: picked.id,
-        restaurantName: picked.restaurantName,
-        placedAt: picked.placedAt,
-        etaMinutes: picked.etaMinutes,
-        estimatedDeliveryAt: addMinutes(picked.placedAt, picked.etaMinutes),
-        assignedAt: isoMinutesAgo(0),
-        status: 'ASSIGNED',
-      }
-      return { ...prev, orders: nextOrders, assignedOrders: [assignedCopy, ...prev.assignedOrders] }
-    })
-    return assignedCopy
-  }
-
-  const staffAssignDriver: AdminActions['staffAssignDriver'] = (orderId, driverId) => {
-    setState((prev) => ({
-      ...prev,
-      assignedOrders: prev.assignedOrders.map((a) =>
-        a.id === orderId ? { ...a, driverId, status: 'OUT_FOR_DELIVERY' } : a
-      ),
-      drivers: prev.drivers.map((d) =>
-        d.id === driverId ? { ...d, status: 'ON_TRIP', lastAssignmentAt: isoMinutesAgo(0) } : d
-      ),
-    }))
-  }
-
-  const staffMarkDelivered: AdminActions['staffMarkDelivered'] = (orderId, deliveredAtISO) => {
-    const deliveredAt = deliveredAtISO || isoMinutesAgo(0)
-    setState((prev) => {
-      const order = prev.assignedOrders.find((a) => a.id === orderId)
-      const driverId = order?.driverId
+    try {
+      const result = await staffApi.create({ first_name: f, last_name: l })
+      await fetchData()
       return {
-        ...prev,
-        assignedOrders: prev.assignedOrders.map((a) =>
-          a.id === orderId ? { ...a, deliveredAt, status: 'DELIVERED' } : a
-        ),
-        drivers: driverId
-          ? prev.drivers.map((d) => (d.id === driverId ? { ...d, status: 'AVAILABLE' } : d))
-          : prev.drivers,
+        first: f,
+        last: l,
+        username: result.credentials.username,
+        password: result.credentials.password,
       }
-    })
+    } catch (err) {
+      console.error('Failed to add staff:', err)
+      throw err
+    }
+  }
+
+  const removeStaff: AdminActions['removeStaff'] = async (id) => {
+    try {
+      await staffApi.delete(Number(id))
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to remove staff:', err)
+      throw err
+    }
+  }
+
+  const hireDriver: AdminActions['hireDriver'] = async (name) => {
+    const n = name.trim()
+    if (!n) return { name: n }
+
+    try {
+      await driverApi.hire(n)
+      await fetchData()
+      return { name: n }
+    } catch (err) {
+      console.error('Failed to hire driver:', err)
+      throw err
+    }
+  }
+
+  const fireDriver: AdminActions['fireDriver'] = async (id) => {
+    try {
+      await driverApi.fire(Number(id))
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to fire driver:', err)
+      throw err
+    }
+  }
+
+  // =========================================================================
+  // Staff Order Workflow
+  // =========================================================================
+
+  /**
+   * Retrieve the first order from the queue.
+   * Changes order status from PENDING to CONFIRMED in backend.
+   *
+   * NOTE: Race condition possible if two staff click simultaneously.
+   * Backend returns 409 Conflict if order was already claimed.
+   */
+  const staffRetrieveFirstOrder: AdminActions['staffRetrieveFirstOrder'] = async () => {
+    const firstOrder = state.orders.find(o => o.status === 'QUEUED')
+    if (!firstOrder) return null
+
+    try {
+      // Update status to CONFIRMED (staff has claimed it)
+      const result = await orderApi.updateStatus(firstOrder.id, 'CONFIRMED')
+      const restaurantName = state.restaurantMap[result.order.restaurant_id] || firstOrder.restaurantName
+
+      // Refresh data to get updated lists
+      await fetchData()
+
+      // Return the assigned order for UI feedback
+      return toAssignedOrder(result.order, restaurantName)
+    } catch (err) {
+      // Handle conflict - another staff member claimed it first
+      if (err instanceof ApiError && err.status === 409) {
+        await fetchData() // Refresh to see current state
+        return null // Signal that order was taken
+      }
+      console.error('Failed to retrieve order:', err)
+      throw err
+    }
+  }
+
+  /**
+   * Retrieve a specific order by ID from the queue.
+   *
+   * NOTE: Race condition possible if two staff click simultaneously.
+   * Backend returns 409 Conflict if order was already claimed.
+   */
+  const staffRetrieveOrderById: AdminActions['staffRetrieveOrderById'] = async (orderId) => {
+    const order = state.orders.find(o => o.id === orderId && o.status === 'QUEUED')
+    if (!order) return null
+
+    try {
+      const result = await orderApi.updateStatus(orderId, 'CONFIRMED')
+      const restaurantName = state.restaurantMap[result.order.restaurant_id] || order.restaurantName
+
+      await fetchData()
+
+      return toAssignedOrder(result.order, restaurantName)
+    } catch (err) {
+      // Handle conflict - another staff member claimed it first
+      if (err instanceof ApiError && err.status === 409) {
+        await fetchData() // Refresh to see current state
+        return null // Signal that order was taken
+      }
+      console.error('Failed to retrieve order:', err)
+      throw err
+    }
+  }
+
+  /**
+   * Assign a driver to an order (atomic operation).
+   *
+   * Uses the atomic /assign-and-dispatch endpoint which performs in a single transaction:
+   * 1. Assigns driver to order
+   * 2. Sets driver status to BUSY
+   * 3. Updates order status to OUT_FOR_DELIVERY
+   *
+   * Returns 409 Conflict if driver is already BUSY or order already assigned.
+   *
+   * @param orderId - Order to assign
+   * @param driverId - Driver to assign
+   * @param staffId - ID of staff member making the assignment (from auth)
+   */
+  const staffAssignDriver: AdminActions['staffAssignDriver'] = async (orderId, driverId, staffId) => {
+    try {
+      // Atomic: assign driver + set driver BUSY + set order OUT_FOR_DELIVERY
+      await orderApi.assignAndDispatch(orderId, Number(driverId), staffId)
+      await fetchData()
+    } catch (err) {
+      // Handle race condition - driver or order state changed
+      if (err instanceof ApiError && err.status === 409) {
+        await fetchData() // Refresh to see current state
+      }
+      console.error('Failed to assign driver:', err)
+      throw err
+    }
+  }
+
+  /**
+   * Mark an order as delivered (atomic operation).
+   *
+   * Uses the atomic /deliver endpoint which performs in a single transaction:
+   * 1. Records actual delivery time
+   * 2. Updates order status to DELIVERED
+   * 3. Sets driver back to AVAILABLE
+   *
+   * Returns 409 Conflict if order already delivered, 400 if no driver assigned.
+   */
+  const staffMarkDelivered: AdminActions['staffMarkDelivered'] = async (orderId, deliveredAtISO) => {
+    const deliveredAt = deliveredAtISO || new Date().toISOString()
+
+    try {
+      // Atomic: record delivery time + set DELIVERED + set driver AVAILABLE
+      await orderApi.markDelivered(orderId, deliveredAt)
+      await fetchData()
+    } catch (err) {
+      // Handle race condition - order already delivered
+      if (err instanceof ApiError && err.status === 409) {
+        await fetchData() // Refresh to see current state
+      }
+      console.error('Failed to mark delivered:', err)
+      throw err
+    }
   }
 
   const actions: AdminActions = {
+    fetchData,
     approveRegistration,
     rejectRegistration,
     approveWithdrawal,
@@ -477,7 +564,7 @@ export function useAdminStore() {
 }
 
 // Metrics for Admin Dashboard
-export function selectMetrics(state: AdminState) {
+export function selectMetrics(state: AdminState): AdminMetrics {
   return {
     activeRestaurants: state.activeRestaurants.length,
     pendingRegistrations: state.registrations.filter((r) => r.status === 'PENDING').length,

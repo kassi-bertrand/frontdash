@@ -18,7 +18,7 @@
 // ============================================================================
 
 import express, { Request, Response, NextFunction, Application } from 'express';
-import pg from 'pg';
+import pg, { PoolClient } from 'pg';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv';
@@ -264,6 +264,38 @@ function isPgError(error: unknown): error is { code: string; message?: string } 
         'code' in error &&
         typeof (error as { code: unknown }).code === 'string'
     );
+}
+
+/**
+ * Error class for HTTP errors thrown within transactions.
+ * Allows clean error handling with status codes.
+ */
+class HttpError extends Error {
+    constructor(public status: number, message: string) {
+        super(message);
+        this.name = 'HttpError';
+    }
+}
+
+/**
+ * Execute database operations within a transaction.
+ * Automatically handles BEGIN, COMMIT, ROLLBACK, and connection release.
+ */
+async function withTransaction<T>(
+    operation: (client: PoolClient) => Promise<T>
+): Promise<T> {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await operation(client);
+        await client.query('COMMIT');
+        return result;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
 }
 
 function calculateServiceCharge(subtotal: number): string {
@@ -1477,6 +1509,153 @@ app.put('/api/orders/:orderNumber/delivery-time', async (req: Request, res: Resp
 
     } catch (error) {
         console.error('Update delivery time error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Atomic endpoint: Mark order as delivered
+ *
+ * Performs in a single transaction:
+ * 1. Records actual delivery time
+ * 2. Updates order status to DELIVERED
+ * 3. Sets assigned driver back to AVAILABLE
+ */
+app.put('/api/orders/:orderNumber/deliver', async (req: Request, res: Response) => {
+    const { orderNumber } = req.params;
+    const { actual_delivery_time } = req.body as { actual_delivery_time?: string };
+
+    if (!actual_delivery_time) {
+        return res.status(400).json({ error: 'actual_delivery_time is required' });
+    }
+
+    try {
+        const order = await withTransaction(async (client) => {
+            const orderCheck = await client.query<Order>(
+                'SELECT * FROM ORDERS WHERE order_number = $1',
+                [orderNumber]
+            );
+
+            if (orderCheck.rows.length === 0) {
+                throw new HttpError(404, 'Order not found');
+            }
+
+            const existing = orderCheck.rows[0];
+
+            if (existing.order_status === 'DELIVERED') {
+                throw new HttpError(409, 'Order already delivered');
+            }
+
+            if (!existing.assigned_driver_id) {
+                throw new HttpError(400, 'No driver assigned to this order');
+            }
+
+            // Update order: set delivery time and status
+            const result = await client.query<Order>(
+                `UPDATE ORDERS
+                 SET actual_delivery_time = $1, order_status = 'DELIVERED'
+                 WHERE order_number = $2
+                 RETURNING *`,
+                [actual_delivery_time, orderNumber]
+            );
+
+            // Set driver back to AVAILABLE
+            await client.query(
+                'UPDATE DRIVERS SET driver_status = $1 WHERE driver_id = $2',
+                ['AVAILABLE', existing.assigned_driver_id]
+            );
+
+            return result.rows[0];
+        });
+
+        res.json({ message: 'Order marked as delivered', order });
+    } catch (error) {
+        if (error instanceof HttpError) {
+            return res.status(error.status).json({ error: error.message });
+        }
+        console.error('Mark delivered error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * Atomic endpoint: Assign driver and dispatch order
+ *
+ * Performs in a single transaction:
+ * 1. Assigns driver to order
+ * 2. Sets driver status to BUSY
+ * 3. Updates order status to OUT_FOR_DELIVERY
+ *
+ * Returns 409 Conflict if driver is already BUSY or order already assigned.
+ */
+app.put('/api/orders/:orderNumber/assign-and-dispatch', async (req: Request, res: Response) => {
+    const { orderNumber } = req.params;
+    const { driver_id } = req.body as { driver_id?: number };
+
+    if (!driver_id) {
+        return res.status(400).json({ error: 'driver_id is required' });
+    }
+
+    try {
+        const order = await withTransaction(async (client) => {
+            // Check order exists and is in valid state
+            const orderCheck = await client.query<Order>(
+                'SELECT * FROM ORDERS WHERE order_number = $1',
+                [orderNumber]
+            );
+
+            if (orderCheck.rows.length === 0) {
+                throw new HttpError(404, 'Order not found');
+            }
+
+            const existing = orderCheck.rows[0];
+
+            if (existing.order_status === 'DELIVERED' || existing.order_status === 'CANCELLED') {
+                throw new HttpError(409, `Cannot assign driver to ${existing.order_status} order`);
+            }
+
+            if (existing.assigned_driver_id) {
+                throw new HttpError(409, 'Order already has a driver assigned');
+            }
+
+            // Check driver exists and is AVAILABLE
+            const driverCheck = await client.query<Driver>(
+                'SELECT * FROM DRIVERS WHERE driver_id = $1',
+                [driver_id]
+            );
+
+            if (driverCheck.rows.length === 0) {
+                throw new HttpError(404, 'Driver not found');
+            }
+
+            if (driverCheck.rows[0].driver_status === 'BUSY') {
+                throw new HttpError(409, 'Driver is already on another delivery');
+            }
+
+            // Assign driver and update order status
+            const result = await client.query<Order>(
+                `UPDATE ORDERS
+                 SET assigned_driver_id = $1, order_status = 'OUT_FOR_DELIVERY'
+                 WHERE order_number = $2
+                 RETURNING *`,
+                [driver_id, orderNumber]
+            );
+
+            // Set driver to BUSY
+            await client.query(
+                'UPDATE DRIVERS SET driver_status = $1 WHERE driver_id = $2',
+                ['BUSY', driver_id]
+            );
+
+            return result.rows[0];
+        });
+
+        res.json({ message: 'Driver assigned and order dispatched', order });
+    } catch (error) {
+        if (error instanceof HttpError) {
+            return res.status(error.status).json({ error: error.message });
+        }
+        console.error('Assign and dispatch error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

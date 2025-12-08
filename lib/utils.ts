@@ -37,3 +37,29 @@ export function getErrorMessage(err: unknown, fallback = 'An error occurred'): s
   }
   return fallback
 }
+
+/**
+ * Parse HH:MM (24h) input to an ISO string for today's date.
+ * Returns null if the format is invalid.
+ */
+export function parseTimeToISO(hhmm: string): string | null {
+  const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(hhmm)
+  if (!match) return null
+  const date = new Date()
+  date.setHours(parseInt(match[1], 10), parseInt(match[2], 10), 0, 0)
+  return date.toISOString()
+}
+
+/**
+ * Format a duration as relative time (e.g., "5m ago", "2h ago", "3d ago").
+ */
+export function timeAgo(iso?: string): string {
+  if (!iso) return '—'
+  const diff = Date.now() - new Date(iso).getTime()
+  const days = Math.floor(diff / 86400000)
+  if (days >= 1) return `${days}d ago`
+  const hours = Math.floor(diff / 3600000)
+  if (hours >= 1) return `${hours}h ago`
+  const mins = Math.floor(diff / 60000)
+  return mins > 0 ? `${mins}m ago` : 'just now'
+}

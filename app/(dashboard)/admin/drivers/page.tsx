@@ -107,22 +107,30 @@ export default function AdminDriversPage() {
 
   React.useEffect(() => { setPage(1) }, [q])
 
-  function hire() {
+  async function hire() {
     const clean = name.trim()
     if (clean.length < 2) return toast.error('Driver name must be at least 2 characters.')
     if (state.drivers.some((d) => d.name.toLowerCase() === clean.toLowerCase())) return toast.error('Driver name must be unique.')
-    const res = actions.hireDriver(clean) // returns details for confirmation modal
-    setName('')
-    setHireModal({ open: true, name: res.name })
+    try {
+      const res = await actions.hireDriver(clean)
+      setName('')
+      setHireModal({ open: true, name: res.name })
+    } catch {
+      toast.error('Failed to hire driver.')
+    }
   }
 
-  function fire(id: string) {
+  async function fire(id: string) {
     const d = state.drivers.find((x) => x.id === id)
-    actions.fireDriver(id)
-    toast.success(`Fired driver: ${d?.name}`)
-    const nextCount = filtered.length - 1
-    const nextTotalPages = Math.max(1, Math.ceil(nextCount / PAGE_SIZE))
-    if (page > nextTotalPages) setPage(nextTotalPages)
+    try {
+      await actions.fireDriver(id)
+      toast.success(`Fired driver: ${d?.name}`)
+      const nextCount = filtered.length - 1
+      const nextTotalPages = Math.max(1, Math.ceil(nextCount / PAGE_SIZE))
+      if (page > nextTotalPages) setPage(nextTotalPages)
+    } catch {
+      toast.error('Failed to fire driver.')
+    }
   }
 
   return (

@@ -148,24 +148,32 @@ export default function AdminStaffPage() {
     setPage(1)
   }, [q])
 
-  function hire() {
+  async function hire() {
     if (first.trim().length < 2 || last.trim().length < 2) {
       toast.error('First and last names must be at least 2 letters.')
       return
     }
-    const res = actions.addStaff(first, last)
-    setFirst('')
-    setLast('')
-    setHireModal({ open: true, ...res })
+    try {
+      const res = await actions.addStaff(first, last)
+      setFirst('')
+      setLast('')
+      setHireModal({ open: true, ...res })
+    } catch {
+      toast.error('Failed to add staff member.')
+    }
   }
 
-  function fire(id: string) {
+  async function fire(id: string) {
     const s = state.staff.find((x) => x.id === id)
-    actions.removeStaff(id)
-    toast.success(`Fired staff: ${s?.firstName} ${s?.lastName}`)
-    const nextCount = filtered.length - 1
-    const nextTotalPages = Math.max(1, Math.ceil(nextCount / PAGE_SIZE))
-    if (page > nextTotalPages) setPage(nextTotalPages)
+    try {
+      await actions.removeStaff(id)
+      toast.success(`Fired staff: ${s?.firstName} ${s?.lastName}`)
+      const nextCount = filtered.length - 1
+      const nextTotalPages = Math.max(1, Math.ceil(nextCount / PAGE_SIZE))
+      if (page > nextTotalPages) setPage(nextTotalPages)
+    } catch {
+      toast.error('Failed to remove staff member.')
+    }
   }
 
   return (

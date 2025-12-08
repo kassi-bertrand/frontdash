@@ -385,6 +385,34 @@ export const orderApi = {
       `/api/orders/${orderNumber}/delivery-time`,
       { method: 'PUT', body: JSON.stringify({ delivery_time: deliveryTime }) }
     ),
+
+  /**
+   * Atomic: Assign driver and dispatch order in a single transaction.
+   * - Assigns driver to order
+   * - Sets driver status to BUSY
+   * - Updates order status to OUT_FOR_DELIVERY
+   *
+   * Returns 409 if driver is already BUSY or order already has a driver.
+   */
+  assignAndDispatch: (orderNumber: string, driverId: number, staffId?: number) =>
+    apiFetch<{ message: string; order: Order }>(
+      `/api/orders/${orderNumber}/assign-and-dispatch`,
+      { method: 'PUT', body: JSON.stringify({ driver_id: driverId, staff_id: staffId }) }
+    ),
+
+  /**
+   * Atomic: Mark order as delivered in a single transaction.
+   * - Records actual delivery time
+   * - Updates order status to DELIVERED
+   * - Sets driver back to AVAILABLE
+   *
+   * Returns 409 if order already delivered, 400 if no driver assigned.
+   */
+  markDelivered: (orderNumber: string, deliveryTime: string) =>
+    apiFetch<{ message: string; order: Order }>(
+      `/api/orders/${orderNumber}/deliver`,
+      { method: 'PUT', body: JSON.stringify({ actual_delivery_time: deliveryTime }) }
+    ),
 };
 
 // =============================================================================
