@@ -293,6 +293,7 @@ export const driverApi = {
 export interface Order {
   order_number: string;
   restaurant_id: number;
+  restaurant_name?: string; // Joined from RESTAURANTS table
   loyalty_number?: string;
   guest_phone?: string;
   delivery_building_number: string;
@@ -346,8 +347,8 @@ export interface CreateOrderRequest {
     state: string;
     zip_code: string;
   };
-  contact_name: string;
-  contact_phone: string;
+  delivery_contact_name: string;
+  delivery_contact_phone: string;
 }
 
 export const orderApi = {

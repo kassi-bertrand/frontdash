@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Clock3, MapPin, Phone } from 'lucide-react'
+import { CheckCircle2, Clock3, MapPin, Phone, AlertCircle } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { useCartStore } from '@/stores/use-cart-store'
+import { orderApi } from '@/lib/api'
+import { calculateOrderTotals } from '@/lib/checkout-utils'
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -37,8 +39,7 @@ type OrderConfirmationProps = {
 type OrderSnapshot = {
   orderNumber: string
   placedAt: Date
-  estimatedStart: Date
-  estimatedEnd: Date
+  estimatedDeliveryTime: Date
   restaurantName: string
   items: Array<{
     id: string
@@ -59,6 +60,7 @@ type OrderSnapshot = {
     apartment?: string
     city: string
     state: string
+    zipCode: string
     contactName: string
     contactPhone: string
   }
@@ -71,43 +73,27 @@ const formatPhone = (value: string) => {
   return `(${value.slice(0, 3)}) ${value.slice(3, 6)}-${value.slice(6)}`
 }
 
-const minutesToMs = (minutes: number) => minutes * 60 * 1000
-
-const generateOrderNumber = () => {
-  const now = new Date()
-  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
-    now.getDate(),
-  ).padStart(2, '0')}`
-  const random = Math.random().toString(36).slice(2, 6).toUpperCase()
-  return `FD-${stamp}-${random}`
-}
-
-const buildEstimateWindow = () => {
-  const startMinutes = 30 + Math.floor(Math.random() * 11) // 30-40 minutes
-  const endMinutes = startMinutes + 10
-  const now = new Date()
-  return {
-    start: new Date(now.getTime() + minutesToMs(startMinutes)),
-    end: new Date(now.getTime() + minutesToMs(endMinutes)),
-  }
-}
-
 export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
   const router = useRouter()
   const cart = useCartStore((state) => state.cartsByRestaurant[restaurantSlug])
   const clearCart = useCartStore((state) => state.clearCart)
 
   const [snapshot, setSnapshot] = useState<OrderSnapshot | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // Prevent double submission
+  const hasSubmittedRef = useRef(false)
 
   useEffect(() => {
-    if (!cart) {
-      if (!snapshot) {
-        router.replace('/')
-      }
+    // If we already have a snapshot, don't do anything
+    if (snapshot) {
       return
     }
 
-    if (snapshot) {
+    // If cart doesn't exist and no snapshot, redirect home
+    if (!cart) {
+      router.replace('/')
       return
     }
 
@@ -122,43 +108,96 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
       return
     }
 
-    const subtotalCents = items.reduce(
-      (acc, item) => acc + item.priceCents * item.quantity,
-      0,
-    )
-    const serviceChargeCents = Math.round(subtotalCents * 0.0825)
-    const tipCents =
-      cart.tip?.mode === 'percent'
-        ? Math.round(subtotalCents * (cart.tip.percent / 100))
-        : cart.tip?.mode === 'fixed'
-          ? cart.tip.cents
-          : 0
+    // Prevent double submission
+    if (hasSubmittedRef.current) {
+      return
+    }
+    hasSubmittedRef.current = true
 
-    const { start, end } = buildEstimateWindow()
+    // Extract validated values after guards (avoids ! assertions)
+    const delivery = cart.delivery
+    const restaurant = cart.restaurant
+    const totals = calculateOrderTotals(cart)
 
-    setSnapshot({
-      orderNumber: generateOrderNumber(),
-      placedAt: new Date(),
-      estimatedStart: start,
-      estimatedEnd: end,
-      restaurantName: cart.restaurant.name,
-      items: items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        priceCents: item.priceCents,
-        subtotalCents: item.priceCents * item.quantity,
-      })),
-      totals: {
-        subtotalCents,
-        serviceChargeCents,
-        tipCents,
-        grandTotalCents: subtotalCents + serviceChargeCents + tipCents,
-      },
-      delivery: cart.delivery,
+    // Validate restaurant ID before submission
+    const restaurantId = parseInt(restaurant.id, 10)
+    if (Number.isNaN(restaurantId)) {
+      setSubmitError('Invalid restaurant. Please try again.')
+      hasSubmittedRef.current = false
+      return
+    }
+
+    // Validate all menu item IDs
+    const orderItems = items.map((item) => {
+      const menuItemId = parseInt(item.id, 10)
+      if (Number.isNaN(menuItemId)) {
+        throw new Error(`Invalid menu item: ${item.name}`)
+      }
+      return { menu_item_id: menuItemId, quantity: item.quantity }
     })
 
-    clearCart(cart.restaurant.slug)
+    // Submit order to backend
+    const submitOrder = async () => {
+      setIsSubmitting(true)
+      setSubmitError(null)
+
+      try {
+        const response = await orderApi.create({
+          restaurant_id: restaurantId,
+          guest_phone: delivery.contactPhone,
+          items: orderItems,
+          tip_amount: totals.tipCents / 100, // Convert to dollars
+          delivery_address: {
+            building_number: delivery.buildingNumber,
+            street_name: delivery.streetName,
+            apartment: delivery.apartment,
+            city: delivery.city,
+            state: delivery.state,
+            zip_code: delivery.zipCode,
+          },
+          delivery_contact_name: delivery.contactName,
+          delivery_contact_phone: delivery.contactPhone,
+        })
+
+        // Create snapshot with real order data
+        // Backend returns estimated_delivery_time as "45 minutes" string, so we calculate actual time
+        const placedAt = new Date()
+        const estimatedMinutes = parseInt(response.estimated_delivery_time, 10) || 45
+        const estimatedDeliveryTime = new Date(placedAt.getTime() + estimatedMinutes * 60 * 1000)
+
+        setSnapshot({
+          orderNumber: response.order_number,
+          placedAt,
+          estimatedDeliveryTime,
+          restaurantName: restaurant.name,
+          items: items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            priceCents: item.priceCents,
+            subtotalCents: item.priceCents * item.quantity,
+          })),
+          totals: {
+            ...totals,
+            grandTotalCents: Math.round(response.grand_total * 100), // Backend returns dollars
+          },
+          delivery,
+        })
+
+        // Clear cart only after successful submission
+        clearCart(restaurant.slug)
+      } catch (err) {
+        console.error('Failed to submit order:', err)
+        setSubmitError(
+          err instanceof Error ? err.message : 'Failed to place order. Please try again.'
+        )
+        hasSubmittedRef.current = false // Allow retry
+      } finally {
+        setIsSubmitting(false)
+      }
+    }
+
+    submitOrder()
   }, [cart, clearCart, restaurantSlug, router, snapshot])
 
   const totals = snapshot?.totals
@@ -188,15 +227,50 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
     ]
   }, [totals])
 
+  // Show error state
+  if (submitError) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2 text-red-600">
+            <AlertCircle className="h-5 w-5" />
+            <CardTitle>Order Failed</CardTitle>
+          </div>
+          <CardDescription>{submitError}</CardDescription>
+        </CardHeader>
+        <CardFooter className="flex gap-3">
+          <Button variant="outline" onClick={() => router.push('/')}>
+            Back to restaurants
+          </Button>
+          <Button onClick={() => {
+            setSubmitError(null)
+            hasSubmittedRef.current = false
+            // Trigger re-submission by forcing a re-render
+            setSnapshot(null)
+          }}>
+            Try again
+          </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
+
+  // Show loading state
   if (!snapshot) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Wrapping things up…</CardTitle>
-          <CardDescription>Hold tight while we finalize your order.</CardDescription>
+          <CardTitle>{isSubmitting ? 'Placing your order…' : 'Wrapping things up…'}</CardTitle>
+          <CardDescription>
+            {isSubmitting
+              ? 'Please wait while we confirm your order with the restaurant.'
+              : 'Hold tight while we finalize your order.'}
+          </CardDescription>
         </CardHeader>
         <CardFooter>
-          <Button onClick={() => router.push('/')}>Back to restaurants</Button>
+          <Button onClick={() => router.push('/')} disabled={isSubmitting}>
+            Back to restaurants
+          </Button>
         </CardFooter>
       </Card>
     )
@@ -205,7 +279,7 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
   const deliveryLines = [
     `${snapshot.delivery.buildingNumber} ${snapshot.delivery.streetName}`,
     snapshot.delivery.apartment,
-    `${snapshot.delivery.city}, ${snapshot.delivery.state}`,
+    `${snapshot.delivery.city}, ${snapshot.delivery.state} ${snapshot.delivery.zipCode}`,
   ].filter(Boolean)
 
   return (
@@ -232,13 +306,12 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
           <div className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
             <Clock3 className="h-10 w-10 text-neutral-600" aria-hidden="true" />
             <div>
-              <p className="text-sm font-medium text-neutral-600">Estimated arrival</p>
+              <p className="text-sm font-medium text-neutral-600">Estimated delivery</p>
               <p className="text-lg font-semibold text-neutral-900">
-                {timeFormatter.format(snapshot.estimatedStart)} –{' '}
-                {timeFormatter.format(snapshot.estimatedEnd)}
+                {timeFormatter.format(snapshot.estimatedDeliveryTime)}
               </p>
               <p className="text-xs text-neutral-500">
-                We’ll notify you when the driver is on your block.
+                We'll notify you when the driver is on your block.
               </p>
             </div>
           </div>
@@ -251,8 +324,8 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
                 <p className="font-medium text-neutral-900">
                   {snapshot.delivery.contactName}
                 </p>
-                {deliveryLines.map((line) => (
-                  <p key={line}>{line}</p>
+                {deliveryLines.map((line, index) => (
+                  <p key={index}>{line}</p>
                 ))}
               </div>
             </div>
