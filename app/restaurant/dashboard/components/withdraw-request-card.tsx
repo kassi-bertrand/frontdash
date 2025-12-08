@@ -22,16 +22,17 @@
  * - Form: Shows withdrawal request form if status is not WITHDRAWAL_PENDING
  */
 
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { IconAlertTriangle, IconLoader2, IconCheck } from '@tabler/icons-react'
+import { IconAlertTriangle, IconCheck } from '@tabler/icons-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardLoadingState } from './card-loading-state'
 import {
   Form,
   FormControl,
@@ -55,6 +56,9 @@ import { useAuth, isRestaurantUser } from '@/hooks/use-auth'
 import { restaurantApi, type Restaurant } from '@/lib/api'
 import { getErrorMessage } from '@/lib/utils'
 
+// Computed once at module load - fine for "today" (user session typically < 24 hours)
+const TODAY_DATE_STRING = new Date().toISOString().split('T')[0]
+
 const withdrawalReasonValues = ['seasonal', 'permanent', 'pause', 'service'] as const
 
 type WithdrawalReason = (typeof withdrawalReasonValues)[number]
@@ -66,11 +70,21 @@ const withdrawalReasonLabels: Record<WithdrawalReason, string> = {
   service: 'Service or payout issue',
 }
 
+/** Pre-computed options for the reason dropdown (constant, no need for useMemo) */
+const reasonOptions = withdrawalReasonValues.map((value) => ({
+  value,
+  label: withdrawalReasonLabels[value],
+}))
+
 const withdrawSchema = z.object({
   effectiveDate: z.string().min(1, 'Select an effective date'),
-  reason: z.enum(withdrawalReasonValues, {
-    error: 'Pick the closest reason for your request',
-  }),
+  // Allow undefined initially, but require selection on submit via refine
+  reason: z
+    .enum(withdrawalReasonValues)
+    .optional()
+    .refine((val) => val !== undefined, {
+      message: 'Pick the closest reason for your request',
+    }),
   details: z.string().min(16, 'Share at least a short sentence so our team has context'),
   acknowledgement: z.boolean().refine((val) => val === true, {
     message: 'Please confirm there are no open orders or unpaid balances',
@@ -80,17 +94,32 @@ const withdrawSchema = z.object({
 type WithdrawFormValues = z.infer<typeof withdrawSchema>
 
 /**
- * Local-only request data for display after submission.
- * This data is NOT stored in the backend - only shown in the UI for the current session.
+ * Default form values - extracted for reuse in reset().
+ * Note: Uses z.input type since reason starts as undefined before user selects.
  */
-type QueuedRequest = {
-  reference: string
+const DEFAULT_FORM_VALUES: z.input<typeof withdrawSchema> = {
+  effectiveDate: '',
+  reason: undefined,
+  details: '',
+  acknowledgement: false,
+}
+
+/**
+ * Local-only data stored after submission for display purposes.
+ * This is NOT persisted to the backend.
+ */
+type SubmittedRequest = {
   effectiveDate: string
   reason: WithdrawalReason
   details: string
   submittedAt: string
 }
 
+/**
+ * Format a date string (YYYY-MM-DD) for display.
+ * @param value - Date string from form input, may be empty
+ * @returns Formatted date like "Dec 15, 2025", or "TBD" if empty, or original value if unparseable
+ */
 function formatDateLabel(value: string) {
   if (!value) return 'TBD'
   const parsed = new Date(`${value}T00:00:00`)
@@ -104,54 +133,37 @@ function formatDateLabel(value: string) {
   })
 }
 
-function generateReference() {
-  return `WDR-${Math.random().toString(36).slice(-5).toUpperCase()}`
-}
-
 export function WithdrawRequestCard() {
   const { user } = useAuth()
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
-    defaultValues: {
-      effectiveDate: '',
-      reason: undefined,
-      details: '',
-      acknowledgement: false,
-    },
+    defaultValues: DEFAULT_FORM_VALUES,
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [queuedRequest, setQueuedRequest] = useState<QueuedRequest | null>(null)
+  const [submittedRequest, setSubmittedRequest] = useState<SubmittedRequest | null>(null)
   const [accountStatus, setAccountStatus] = useState<Restaurant['account_status'] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const reasonOptions = useMemo(
-    () =>
-      withdrawalReasonValues.map((value) => ({
-        value,
-        label: withdrawalReasonLabels[value],
-      })),
-    [],
-  )
-
   // Fetch restaurant to check if withdrawal is already pending
-  const fetchRestaurant = useCallback(async () => {
-    if (!user || !isRestaurantUser(user)) return
-
-    setIsLoading(true)
-    try {
-      const restaurant = await restaurantApi.getById(user.restaurantId)
-      setAccountStatus(restaurant.account_status)
-    } catch (err) {
-      console.error('Failed to fetch restaurant status:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [user])
-
   useEffect(() => {
+    async function fetchRestaurant() {
+      if (!user || !isRestaurantUser(user)) return
+
+      setIsLoading(true)
+      setError(null)
+      try {
+        const restaurant = await restaurantApi.getById(user.restaurantId)
+        setAccountStatus(restaurant.account_status)
+      } catch (err) {
+        console.error('Failed to fetch restaurant status:', err)
+        setError('Could not verify account status. Please refresh and try again.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
     fetchRestaurant()
-  }, [fetchRestaurant])
+  }, [user])
 
   async function onSubmit(values: WithdrawFormValues) {
     if (!user || !isRestaurantUser(user)) return
@@ -163,24 +175,21 @@ export function WithdrawRequestCard() {
       // Call real API to request withdrawal
       await restaurantApi.requestWithdrawal(user.restaurantId)
 
-      const reference = generateReference()
       const submittedAt = new Date().toLocaleString(undefined, {
         dateStyle: 'medium',
         timeStyle: 'short',
       })
 
-      setQueuedRequest({
-        reference,
-        ...values,
+      // Store submission details for display
+      // Safe: schema.refine() validates reason exists before onSubmit is called
+      setSubmittedRequest({
+        effectiveDate: values.effectiveDate,
+        reason: values.reason!,
+        details: values.details,
         submittedAt,
       })
       setAccountStatus('WITHDRAWAL_PENDING')
-      form.reset({
-        effectiveDate: '',
-        reason: undefined,
-        details: '',
-        acknowledgement: false,
-      })
+      form.reset(DEFAULT_FORM_VALUES)
     } catch (err) {
       console.error('Failed to submit withdrawal request:', err)
       setError(getErrorMessage(err, 'Failed to submit withdrawal request'))
@@ -193,12 +202,7 @@ export function WithdrawRequestCard() {
   if (isLoading) {
     return (
       <section id="withdrawal" className="scroll-mt-28">
-        <Card className="border-emerald-100 bg-white/90 shadow-lg shadow-emerald-100/40">
-          <CardContent className="flex items-center justify-center py-12">
-            <IconLoader2 className="size-6 animate-spin text-emerald-600" />
-            <span className="ml-2 text-sm text-neutral-600">Loading...</span>
-          </CardContent>
-        </Card>
+        <CardLoadingState />
       </section>
     )
   }
@@ -235,23 +239,6 @@ export function WithdrawRequestCard() {
                 </div>
               </div>
             </div>
-            {queuedRequest && (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
-                  Request details
-                </p>
-                <dl className="mt-2 space-y-1 text-xs text-neutral-600">
-                  <div className="flex justify-between">
-                    <dt>Reference:</dt>
-                    <dd className="font-mono">{queuedRequest.reference}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt>Submitted:</dt>
-                    <dd>{queuedRequest.submittedAt}</dd>
-                  </div>
-                </dl>
-              </div>
-            )}
           </CardContent>
         </Card>
       </section>
@@ -279,7 +266,7 @@ export function WithdrawRequestCard() {
             the request for review and send a confirmation once everything is cleared.
           </p>
           {error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600" role="alert">{error}</p>
           )}
         </CardHeader>
         <CardContent className="pb-8">
@@ -300,7 +287,7 @@ export function WithdrawRequestCard() {
                         <Input
                           type="date"
                           className="w-full"
-                          min={new Date().toISOString().split('T')[0]}
+                          min={TODAY_DATE_STRING}
                           {...field}
                         />
                       </FormControl>
@@ -398,32 +385,31 @@ export function WithdrawRequestCard() {
                   <span className="text-xs text-neutral-500 sm:text-sm">
                     Requests land in the admin withdrawal queue within a minute.
                   </span>
-                  <Button type="submit" disabled={isSubmitting} className="sm:w-auto">
+                  <Button type="submit" disabled={isSubmitting} aria-busy={isSubmitting} className="sm:w-auto">
                     {isSubmitting ? 'Submitting…' : 'Submit withdrawal request'}
                   </Button>
                 </div>
               </div>
 
               <aside className="space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 text-sm text-neutral-700">
-                {queuedRequest ? (
+                {submittedRequest ? (
                   <div className="space-y-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
-                        Request queued
+                        Request submitted
                       </p>
                       <p className="text-xs text-neutral-500">
-                        Reference {queuedRequest.reference} • Submitted{' '}
-                        {queuedRequest.submittedAt}
+                        Submitted {submittedRequest.submittedAt}
                       </p>
                     </div>
                     <dl className="space-y-2 text-xs text-neutral-600">
                       <div className="flex items-center justify-between gap-4">
                         <dt className="font-medium text-neutral-700">Effective</dt>
-                        <dd>{formatDateLabel(queuedRequest.effectiveDate)}</dd>
+                        <dd>{formatDateLabel(submittedRequest.effectiveDate)}</dd>
                       </div>
                       <div className="flex items-center justify-between gap-4">
                         <dt className="font-medium text-neutral-700">Reason</dt>
-                        <dd>{withdrawalReasonLabels[queuedRequest.reason]}</dd>
+                        <dd>{withdrawalReasonLabels[submittedRequest.reason]}</dd>
                       </div>
                     </dl>
                     <div>
@@ -431,7 +417,7 @@ export function WithdrawRequestCard() {
                         Notes for admins
                       </p>
                       <p className="mt-1 rounded-lg bg-white/80 p-3 text-xs text-neutral-600">
-                        {queuedRequest.details}
+                        {submittedRequest.details}
                       </p>
                     </div>
                   </div>

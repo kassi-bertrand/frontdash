@@ -21,16 +21,17 @@
  * only stores one. We save the first phone number only.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { IconCheck, IconLoader2, IconPlus, IconStar } from '@tabler/icons-react'
-import { useFieldArray, useForm } from 'react-hook-form'
+import { IconCheck, IconLoader2, IconStar } from '@tabler/icons-react'
+import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardLoadingState } from './card-loading-state'
 import {
   Form,
   FormControl,
@@ -41,13 +42,14 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { useAuth, isRestaurantUser } from '@/hooks/use-auth'
 import { restaurantApi, type Restaurant } from '@/lib/api'
 import { getErrorMessage } from '@/lib/utils'
 
+// NOTE: 10-digit phone validation assumes US/Canada format.
+// Update this regex if international support is needed.
 const phoneNumberSchema = z.object({
-  value: z.string().regex(/^\d{10}$/, 'Phone numbers must be 10 digits'),
+  value: z.string().regex(/^\d{10}$/, 'Enter a 10-digit US/Canada phone number (no dashes or spaces)'),
 })
 
 const contactSchema = z.object({
@@ -57,25 +59,21 @@ const contactSchema = z.object({
     .array(phoneNumberSchema)
     .min(1, 'Provide at least one phone number'),
   street: z.string().min(5, 'Enter the pickup street address'),
-  suite: z.string().trim().max(32, 'Suite exceeds 32 characters').optional(),
   city: z.string().min(2, 'Enter the city'),
   state: z.string().length(2, 'Use 2-letter state code'),
   postalCode: z.string().min(3, 'Enter the postal code'),
-  notes: z.string().trim().max(180, 'Keep notes under 180 characters').optional(),
 })
 
-/** Convert backend Restaurant to form values */
+/** Convert backend Restaurant to form values (handles null/undefined fields) */
 function restaurantToFormValues(restaurant: Restaurant) {
   return {
-    contactPerson: restaurant.owner_name,
-    email: restaurant.email_address,
-    phoneNumbers: [{ value: restaurant.phone_number }],
-    street: restaurant.street_address,
-    suite: '', // Backend doesn't have suite field yet
-    city: restaurant.city,
-    state: restaurant.state,
-    postalCode: restaurant.zip_code,
-    notes: '',
+    contactPerson: restaurant.owner_name ?? '',
+    email: restaurant.email_address ?? '',
+    phoneNumbers: [{ value: restaurant.phone_number ?? '' }],
+    street: restaurant.street_address ?? '',
+    city: restaurant.city ?? '',
+    state: restaurant.state ?? '',
+    postalCode: restaurant.zip_code ?? '',
   }
 }
 
@@ -87,7 +85,6 @@ export function ContactDetailsCard() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [contactName, setContactName] = useState<string>('')
 
   const form = useForm<ContactFormValues>({
     resolver: zodResolver(contactSchema),
@@ -96,42 +93,38 @@ export function ContactDetailsCard() {
       email: '',
       phoneNumbers: [{ value: '' }],
       street: '',
-      suite: '',
       city: '',
       state: '',
       postalCode: '',
-      notes: '',
     },
   })
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: 'phoneNumbers',
-  })
+  // Watch contact person for display in badge (single source of truth)
+  const contactPerson = form.watch('contactPerson')
 
   // Fetch restaurant data on mount
-  const fetchRestaurant = useCallback(async () => {
-    if (!user || !isRestaurantUser(user)) return
-
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const restaurant = await restaurantApi.getById(user.restaurantId)
-      const formValues = restaurantToFormValues(restaurant)
-      form.reset(formValues)
-      setContactName(restaurant.owner_name)
-    } catch (err) {
-      console.error('Failed to fetch restaurant:', err)
-      setError(getErrorMessage(err, 'Failed to load contact details'))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [user, form])
-
   useEffect(() => {
+    async function fetchRestaurant() {
+      if (!user || !isRestaurantUser(user)) return
+
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const restaurant = await restaurantApi.getById(user.restaurantId)
+        form.reset(restaurantToFormValues(restaurant))
+      } catch (err) {
+        console.error('Failed to fetch restaurant:', err)
+        setError(getErrorMessage(err, 'Failed to load contact details'))
+      } finally {
+        setIsLoading(false)
+      }
+    }
     fetchRestaurant()
-  }, [fetchRestaurant])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only refetch when user changes. form.reset is called inside but we intentionally
+    // exclude it - including form would cause refetches whenever the user types.
+  }, [user])
 
   async function onSubmit(values: ContactFormValues) {
     if (!user || !isRestaurantUser(user)) return
@@ -141,10 +134,11 @@ export function ContactDetailsCard() {
 
     try {
       // Map form values to backend API format
+      // Note: Schema guarantees phoneNumbers has at least one entry
       const updateData = {
         owner_name: values.contactPerson,
         email_address: values.email,
-        phone_number: values.phoneNumbers[0]?.value || '',
+        phone_number: values.phoneNumbers[0].value,
         street_address: values.street,
         city: values.city,
         state: values.state,
@@ -153,8 +147,7 @@ export function ContactDetailsCard() {
 
       await restaurantApi.update(user.restaurantId, updateData)
       setLastSaved(new Date())
-      setContactName(values.contactPerson)
-      form.reset({ ...values, notes: '' })
+      form.reset(values)
     } catch (err) {
       console.error('Failed to save contact details:', err)
       setError(getErrorMessage(err, 'Failed to save contact details'))
@@ -167,12 +160,7 @@ export function ContactDetailsCard() {
   if (isLoading) {
     return (
       <section id="contact-info" className="scroll-mt-28">
-        <Card className="border-emerald-100 bg-white/90 shadow-lg shadow-emerald-100/40">
-          <CardContent className="flex items-center justify-center py-12">
-            <IconLoader2 className="size-6 animate-spin text-emerald-600" />
-            <span className="ml-2 text-sm text-neutral-600">Loading contact details...</span>
-          </CardContent>
-        </Card>
+        <CardLoadingState message="Loading contact details..." />
       </section>
     )
   }
@@ -189,12 +177,12 @@ export function ContactDetailsCard() {
             lead anytime an order question pops up.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-            {contactName && (
+            {contactPerson && (
               <Badge
                 variant="outline"
                 className="border-emerald-200 bg-emerald-50 text-emerald-700"
               >
-                <IconStar className="size-4" /> Primary: {contactName}
+                <IconStar className="size-4" /> Primary: {contactPerson}
               </Badge>
             )}
             {lastSaved ? (
@@ -205,7 +193,7 @@ export function ContactDetailsCard() {
             ) : null}
           </div>
           {error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600" role="alert">{error}</p>
           )}
         </CardHeader>
         <CardContent>
@@ -245,54 +233,26 @@ export function ContactDetailsCard() {
                     </FormItem>
                   )}
                 />
-                <div className="space-y-3">
-                  <FormLabel>Phone numbers</FormLabel>
-                  <FormDescription>
-                    Enter 10-digit numbers (FrontDash adds formatting).
-                  </FormDescription>
-                  <div className="space-y-3">
-                    {fields.map((field, index) => (
-                      <FormField
-                        key={field.id}
-                        control={form.control}
-                        name={`phoneNumbers.${index}.value`}
-                        render={({ field: phoneField }) => (
-                          <FormItem>
-                            <div className="flex items-center gap-3">
-                              <FormControl>
-                                <Input
-                                  inputMode="numeric"
-                                  placeholder="5125550198"
-                                  {...phoneField}
-                                />
-                              </FormControl>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-8"
-                                onClick={() => remove(index)}
-                                disabled={fields.length <= 1}
-                              >
-                                <span className="sr-only">Remove phone</span>×
-                              </Button>
-                            </div>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => append({ value: '' })}
-                  >
-                    <IconPlus className="size-4" /> Add phone number
-                  </Button>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="phoneNumbers.0.value"
+                  render={({ field: phoneField }) => (
+                    <FormItem>
+                      <FormLabel>Phone number</FormLabel>
+                      <FormDescription>
+                        Enter a 10-digit number (FrontDash adds formatting).
+                      </FormDescription>
+                      <FormControl>
+                        <Input
+                          inputMode="numeric"
+                          placeholder="5125550198"
+                          {...phoneField}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <div className="space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
@@ -304,19 +264,6 @@ export function ContactDetailsCard() {
                       <FormLabel>Street address</FormLabel>
                       <FormControl>
                         <Input placeholder="410 Market Street" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="suite"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Suite or unit (optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Suite B" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -363,28 +310,11 @@ export function ContactDetailsCard() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Internal notes (optional)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          rows={3}
-                          placeholder="Escalate to Morgan between 8a-11a."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <div className="flex items-center justify-end gap-3">
-                  <Button type="submit" disabled={isSaving}>
+                  <Button type="submit" disabled={isSaving} aria-busy={isSaving}>
                     {isSaving ? (
                       <>
-                        <IconLoader2 className="mr-2 size-4 animate-spin" />
+                        <IconLoader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
                         Saving...
                       </>
                     ) : (
