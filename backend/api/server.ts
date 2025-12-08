@@ -340,12 +340,48 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
             [username]
         );
 
-        res.json({
+        // Build response with role-specific data
+        const response: {
+            username: string;
+            role: string;
+            state: string;
+            message: string;
+            restaurant_id?: number;
+            restaurant_name?: string;
+            staff_id?: number;
+            must_change_password?: boolean;
+        } = {
             username: user.username,
             role: user.account_role,
             state: user.account_state,
             message: 'Login successful'
-        });
+        };
+
+        // Add restaurant_id and restaurant_name for restaurant users
+        if (user.account_role === 'RESTAURANT') {
+            const restaurantResult = await pool.query<{ restaurant_id: number; restaurant_name: string }>(
+                'SELECT restaurant_id, restaurant_name FROM RESTAURANTS WHERE username = $1',
+                [username]
+            );
+            if (restaurantResult.rows.length > 0) {
+                response.restaurant_id = restaurantResult.rows[0].restaurant_id;
+                response.restaurant_name = restaurantResult.rows[0].restaurant_name;
+            }
+        }
+
+        // Add staff_id and must_change_password for staff users
+        if (user.account_role === 'STAFF') {
+            const staffResult = await pool.query<{ staff_id: number; is_first_login: boolean }>(
+                'SELECT staff_id, is_first_login FROM STAFF_MEMBERS WHERE username = $1',
+                [username]
+            );
+            if (staffResult.rows.length > 0) {
+                response.staff_id = staffResult.rows[0].staff_id;
+                response.must_change_password = staffResult.rows[0].is_first_login;
+            }
+        }
+
+        res.json(response);
 
     } catch (error) {
         console.error('Login error:', error);
@@ -980,7 +1016,7 @@ app.post('/api/restaurants/:id/menu', async (req: Request, res: Response) => {
 
         res.status(201).json({
             message: 'Menu item added successfully',
-            item: result.rows[0]
+            menu_item: result.rows[0]
         });
 
     } catch (error) {
@@ -1013,7 +1049,7 @@ app.put('/api/menu-items/:id', async (req: Request, res: Response) => {
 
         res.json({
             message: 'Menu item updated successfully',
-            item: result.rows[0]
+            menu_item: result.rows[0]
         });
 
     } catch (error) {

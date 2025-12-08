@@ -281,7 +281,7 @@ function MenuItemCard({ item, quantity, onIncrease, onDecrease }: MenuItemCardPr
             src={item.imageUrl}
             alt={item.name}
             fill
-            sizes="96px"
+            sizes="192px"
             className="object-cover"
           />
         ) : (

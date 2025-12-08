@@ -39,6 +39,8 @@ export const BackendLoginResponseSchema = z.object({
   staff_id: z.number().optional(),
   /** Present only for RESTAURANT role */
   restaurant_id: z.number().optional(),
+  /** Present only for RESTAURANT role */
+  restaurant_name: z.string().optional(),
 });
 
 /** TypeScript type inferred from BackendLoginResponseSchema */

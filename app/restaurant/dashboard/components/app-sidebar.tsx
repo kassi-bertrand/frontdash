@@ -23,65 +23,74 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { useAuth, isRestaurantUser } from '@/hooks/use-auth'
 import { NavMain } from './nav-main'
 import { NavSecondary } from './nav-secondary'
 import { NavUser } from './nav-user'
 
-const data = {
-  user: {
-    name: 'Citrus & Thyme',
-    email: 'hello@citrusandthyme.com',
-    avatar: '/avatars/restaurant-citrus-thyme.png',
+const navMain = [
+  {
+    title: 'Overview',
+    url: '/restaurant/dashboard',
+    icon: IconDashboard,
+    badge: 'Live',
   },
-  navMain: [
-    {
-      title: 'Overview',
-      url: '/restaurant/dashboard',
-      icon: IconDashboard,
-      badge: 'Live',
-    },
-    {
-      title: 'Order queue',
-      url: '/restaurant/dashboard/order-queue',
-      icon: IconShoppingCart,
-      badge: 'Live',
-    },
-    {
-      title: 'Menu management',
-      url: '/restaurant/dashboard#menu-management',
-      icon: IconToolsKitchen2,
-    },
-    {
-      title: 'Operating hours',
-      url: '/restaurant/dashboard#operating-hours',
-      icon: IconClock,
-    },
-    {
-      title: 'Contact details',
-      url: '/restaurant/dashboard#contact-info',
-      icon: IconUsers,
-    },
-    {
-      title: 'Withdraw from FrontDash',
-      url: '/restaurant/dashboard#withdrawal',
-      icon: IconAlertTriangle,
-    },
-  ],
-  navSecondary: [
-    {
-      title: 'Support center',
-      url: '/restaurant/support',
-      icon: IconHelp,
-    },
-    {
-      title: 'Search knowledge base',
-      url: '/restaurant/search',
-      icon: IconSearch,
-    },
-  ],
-}
+  {
+    title: 'Order queue',
+    url: '/restaurant/dashboard/order-queue',
+    icon: IconShoppingCart,
+    badge: 'Live',
+  },
+  {
+    title: 'Menu management',
+    url: '/restaurant/dashboard#menu-management',
+    icon: IconToolsKitchen2,
+  },
+  {
+    title: 'Operating hours',
+    url: '/restaurant/dashboard#operating-hours',
+    icon: IconClock,
+  },
+  {
+    title: 'Contact details',
+    url: '/restaurant/dashboard#contact-info',
+    icon: IconUsers,
+  },
+  {
+    title: 'Withdraw from FrontDash',
+    url: '/restaurant/dashboard#withdrawal',
+    icon: IconAlertTriangle,
+  },
+]
+
+const navSecondary = [
+  {
+    title: 'Support center',
+    url: '/restaurant/support',
+    icon: IconHelp,
+  },
+  {
+    title: 'Search knowledge base',
+    url: '/restaurant/search',
+    icon: IconSearch,
+  },
+]
 
 export function RestaurantSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useAuth()
+
+  const navUser = isRestaurantUser(user)
+    ? {
+        name: user.restaurantName,
+        email: user.username,
+        avatar: '',
+      }
+    : {
+        name: 'Restaurant',
+        email: '',
+        avatar: '',
+      }
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -97,11 +106,11 @@ export function RestaurantSidebar({ ...props }: React.ComponentProps<typeof Side
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navMain} />
+        <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={navUser} />
       </SidebarFooter>
     </Sidebar>
   )

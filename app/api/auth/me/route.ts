@@ -48,11 +48,12 @@ export async function GET() {
     case "restaurant": {
       const restaurantIdStr = cookieStore.get(AUTH_COOKIES.RESTAURANT_ID)?.value;
       const restaurantId = restaurantIdStr ? parseInt(restaurantIdStr, 10) : NaN;
+      const restaurantName = cookieStore.get(AUTH_COOKIES.RESTAURANT_NAME)?.value || "";
       // Corrupted restaurant_id - treat as unauthenticated
       if (Number.isNaN(restaurantId)) {
         return NextResponse.json({ user: null });
       }
-      user = { role: "restaurant", username, restaurantId };
+      user = { role: "restaurant", username, restaurantId, restaurantName };
       break;
     }
   }

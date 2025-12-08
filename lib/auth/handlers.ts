@@ -130,6 +130,7 @@ function buildAuthUser(data: BackendLoginResponse, role: FrontendRole): AuthUser
         role: "restaurant",
         username: data.username,
         restaurantId: data.restaurant_id,
+        restaurantName: data.restaurant_name || "",
       };
   }
 }

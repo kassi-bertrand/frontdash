@@ -349,6 +349,8 @@ ENV_EOF
     fi
 
     # Start the API with PM2 (using compiled dist/server.js)
+    # Delete existing process first to ensure fresh start with new code
+    pm2 delete frontdash-api 2>/dev/null || true
     pm2 start dist/server.js --name frontdash-api
     pm2 save
     pm2 startup | tail -n 1 | bash

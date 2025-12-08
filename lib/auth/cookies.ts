@@ -26,6 +26,8 @@ export const AUTH_COOKIES = {
   STAFF_ID: "fd_staff_id",
   /** Restaurant's database ID (restaurant users only) */
   RESTAURANT_ID: "fd_restaurant_id",
+  /** Restaurant's name (restaurant users only) */
+  RESTAURANT_NAME: "fd_restaurant_name",
   /** Flag indicating staff must change password on first login */
   MUST_CHANGE_PWD: "fd_must_change_pwd",
 } as const;
@@ -53,6 +55,7 @@ export function setAuthCookies(res: NextResponse, user: AuthUser): void {
 
   if (user.role === "restaurant") {
     res.cookies.set(AUTH_COOKIES.RESTAURANT_ID, String(user.restaurantId), COOKIE_OPTIONS);
+    res.cookies.set(AUTH_COOKIES.RESTAURANT_NAME, user.restaurantName, COOKIE_OPTIONS);
   }
 }
 

@@ -23,11 +23,12 @@ export interface StaffUser {
   mustChangePassword: boolean;
 }
 
-/** Restaurant user - includes restaurantId */
+/** Restaurant user - includes restaurantId and restaurantName */
 export interface RestaurantUser {
   role: "restaurant";
   username: string;
   restaurantId: number;
+  restaurantName: string;
 }
 
 /** Discriminated union of all user types */

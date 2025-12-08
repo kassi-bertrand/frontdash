@@ -308,12 +308,10 @@ VALUES ('pizzapalace99', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9
 INSERT INTO RESTAURANTS (restaurant_name, owner_name, restaurant_image_url, email_address, street_address, city, state, zip_code, phone_number, account_status, approved_at, username)
 VALUES ('Pizza Palace', 'John Smith', 'https://example.com/logo.png', 'contact@pizzapalace.com', '123 Main Street', 'Dallas', 'TX', '75201', '2145551234', 'APPROVED', CURRENT_TIMESTAMP, 'pizzapalace99');
 
--- Insert sample menu items for Pizza Palace (restaurant_id will be 1)
+-- Insert sample menu item for Pizza Palace (only if it doesn't already exist)
 INSERT INTO MENU_ITEMS (restaurant_id, item_name, item_description, item_image_url, item_price, availability_status)
-VALUES
-(1, 'Margherita Pizza', 'Classic pizza with tomato sauce, mozzarella, and basil', 'https://example.com/margherita.jpg', 12.99, 'AVAILABLE'),
-(1, 'Pepperoni Pizza', 'Traditional pepperoni with mozzarella cheese', 'https://example.com/pepperoni.jpg', 14.99, 'AVAILABLE'),
-(1, 'Veggie Supreme', 'Loaded with fresh vegetables and cheese', 'https://example.com/veggie.jpg', 13.99, 'AVAILABLE');
+SELECT 1, 'Margherita Pizza', 'Classic pizza with tomato sauce, mozzarella, and basil', 'https://example.com/margherita.jpg', 12.99, 'AVAILABLE'
+WHERE NOT EXISTS (SELECT 1 FROM MENU_ITEMS WHERE restaurant_id = 1 AND item_name = 'Margherita Pizza');
 
 -- Insert sample operating hours for Pizza Palace
 INSERT INTO RESTAURANT_OPERATING_HOURS (restaurant_id, day_of_week, opening_time, closing_time, is_closed)
