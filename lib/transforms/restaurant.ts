@@ -14,7 +14,7 @@
  * =============================================================================
  */
 
-import type { Restaurant, MenuItem } from '@/lib/api'
+import type { Restaurant, MenuItem, OperatingHours } from '@/lib/api'
 import type {
   CustomerRestaurant,
   RestaurantMenuItem,
@@ -31,8 +31,58 @@ const PLACEHOLDER_DEFAULTS = {
   priceTier: '$$' as const,
   rating: 4.5,
   reviewCount: 0,
-  isOpen: true, // TODO: Calculate from operating hours API when available
 } as const
+
+/**
+ * Maps JavaScript day index (0=Sunday) to backend day names.
+ */
+const DAY_INDEX_TO_NAME: Record<number, OperatingHours['day_of_week']> = {
+  0: 'SUNDAY',
+  1: 'MONDAY',
+  2: 'TUESDAY',
+  3: 'WEDNESDAY',
+  4: 'THURSDAY',
+  5: 'FRIDAY',
+  6: 'SATURDAY',
+}
+
+/**
+ * Calculates if a restaurant is currently open based on operating hours.
+ *
+ * @param hours - Operating hours from the API
+ * @returns true if open now, false otherwise (defaults to closed)
+ */
+function calculateIsOpen(hours: OperatingHours[]): boolean {
+  if (!hours || hours.length === 0) {
+    return false // No hours defined = closed
+  }
+
+  const now = new Date()
+  const currentDay = DAY_INDEX_TO_NAME[now.getDay()]
+  const currentTime = now.toTimeString().slice(0, 5) // "HH:MM" format
+
+  // Find today's hours
+  const todayHours = hours.find((h) => h.day_of_week === currentDay)
+
+  if (!todayHours) {
+    return false // No hours for today = closed
+  }
+
+  if (todayHours.is_closed) {
+    return false // Explicitly marked as closed
+  }
+
+  if (!todayHours.opening_time || !todayHours.closing_time) {
+    return false // No times set = closed
+  }
+
+  // Compare current time with opening/closing times
+  // Times are in "HH:MM:SS" format, we compare as strings (works for 24h format)
+  const openTime = todayHours.opening_time.slice(0, 5)
+  const closeTime = todayHours.closing_time.slice(0, 5)
+
+  return currentTime >= openTime && currentTime < closeTime
+}
 
 /**
  * Creates a URL-friendly slug from a restaurant name.
@@ -112,14 +162,14 @@ export function groupMenuIntoSections(items: MenuItem[]): RestaurantMenuSection[
  * - priceTier: "$$" (mid-range default)
  * - rating: 4.5 (good default for new restaurants)
  * - reviewCount: 0 (no reviews yet)
- * - isOpen: true (assume open, no hours API yet)
  * - shortDescription: Generated from name and city
  *
- * When the backend adds these fields, update this function to use them.
+ * isOpen is calculated from operating hours (defaults to closed if no hours).
  */
 export function toCustomerRestaurant(
   restaurant: Restaurant,
-  menuItems: MenuItem[] = []
+  menuItems: MenuItem[] = [],
+  operatingHours: OperatingHours[] = []
 ): CustomerRestaurant {
   const slug = toSlug(restaurant.restaurant_name)
 
@@ -134,9 +184,10 @@ export function toCustomerRestaurant(
     priceTier: PLACEHOLDER_DEFAULTS.priceTier,
     rating: PLACEHOLDER_DEFAULTS.rating,
     reviewCount: PLACEHOLDER_DEFAULTS.reviewCount,
-    isOpen: PLACEHOLDER_DEFAULTS.isOpen,
-    // Build tags from available metadata (city for now, more later)
-    tags: [restaurant.city].filter((tag): tag is string => Boolean(tag)),
+    // Calculate open/closed from real operating hours
+    isOpen: calculateIsOpen(operatingHours),
+    // Tags for filtering/display (city already shown via neighborhood)
+    tags: [],
     shortDescription: `Welcome to ${restaurant.restaurant_name} in ${restaurant.city || PLACEHOLDER_DEFAULTS.fallbackNeighborhood}.`,
 
     // Menu data from API

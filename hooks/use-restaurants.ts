@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { restaurantApi } from "@/lib/api";
+import { restaurantApi, hoursApi } from "@/lib/api";
 import { toCustomerRestaurant } from "@/lib/transforms/restaurant";
 import { getErrorMessage } from "@/lib/utils";
 import type { CustomerRestaurant } from "@/lib/types/customer";
@@ -59,9 +59,18 @@ export function useRestaurants(): RestaurantsState {
       // Fetch all restaurants from API
       const apiRestaurants = await restaurantApi.getAll();
 
-      // Transform to display format (no menu data for list view)
-      const displayRestaurants = apiRestaurants.map((r) =>
-        toCustomerRestaurant(r, [])
+      // Fetch operating hours for each restaurant to calculate open/closed status
+      // Note: This is N+1 queries - could be optimized with a backend endpoint
+      const displayRestaurants = await Promise.all(
+        apiRestaurants.map(async (r) => {
+          try {
+            const hours = await hoursApi.getByRestaurant(r.restaurant_id);
+            return toCustomerRestaurant(r, [], hours);
+          } catch {
+            // If hours fetch fails, show as closed (empty hours)
+            return toCustomerRestaurant(r, [], []);
+          }
+        })
       );
 
       setRestaurants(displayRestaurants);

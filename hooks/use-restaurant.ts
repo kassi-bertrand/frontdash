@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { restaurantApi, menuApi, ApiError } from "@/lib/api";
+import { restaurantApi, menuApi, hoursApi, ApiError } from "@/lib/api";
 import { toCustomerRestaurant } from "@/lib/transforms/restaurant";
 import { getErrorMessage } from "@/lib/utils";
 import type { CustomerRestaurant } from "@/lib/types/customer";
@@ -63,11 +63,14 @@ export function useRestaurant(slug: string): RestaurantState {
       // Fetch restaurant by slug (single API call)
       const apiRestaurant = await restaurantApi.getBySlug(slug);
 
-      // Fetch menu items for this restaurant
-      const menuItems = await menuApi.getByRestaurant(apiRestaurant.restaurant_id);
+      // Fetch menu items and operating hours in parallel
+      const [menuItems, operatingHours] = await Promise.all([
+        menuApi.getByRestaurant(apiRestaurant.restaurant_id),
+        hoursApi.getByRestaurant(apiRestaurant.restaurant_id),
+      ]);
 
       // Transform to display format
-      const displayRestaurant = toCustomerRestaurant(apiRestaurant, menuItems);
+      const displayRestaurant = toCustomerRestaurant(apiRestaurant, menuItems, operatingHours);
       setRestaurant(displayRestaurant);
     } catch (err) {
       console.error("Failed to fetch restaurant:", err);
