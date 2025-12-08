@@ -1,9 +1,31 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+/**
+ * Withdraw Request Card
+ * =====================
+ * Allows restaurant owners to request withdrawal from the FrontDash platform.
+ *
+ * DATA FLOW:
+ * 1. On mount: Fetches restaurant to check if withdrawal is already pending
+ * 2. If account_status === 'WITHDRAWAL_PENDING': Shows "request submitted" UI
+ * 3. On submit: Calls restaurantApi.requestWithdrawal() to change status
+ *
+ * IMPORTANT - FORM DATA NOT STORED:
+ * The form collects effectiveDate, reason, and details for UX purposes, but
+ * the current backend API only changes account_status to 'WITHDRAWAL_PENDING'.
+ * The form details are displayed locally after submission but are NOT persisted
+ * to the database. Future enhancement: store these in a withdrawal_requests table.
+ *
+ * UI STATES:
+ * - Loading: Spinner while fetching restaurant status
+ * - Pending: Shows confirmation if withdrawal already requested
+ * - Form: Shows withdrawal request form if status is not WITHDRAWAL_PENDING
+ */
+
+import { useMemo, useState, useEffect, useCallback } from 'react'
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { IconAlertTriangle } from '@tabler/icons-react'
+import { IconAlertTriangle, IconLoader2, IconCheck } from '@tabler/icons-react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -29,6 +51,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuth, isRestaurantUser } from '@/hooks/use-auth'
+import { restaurantApi, type Restaurant } from '@/lib/api'
+import { getErrorMessage } from '@/lib/utils'
 
 const withdrawalReasonValues = ['seasonal', 'permanent', 'pause', 'service'] as const
 
@@ -54,6 +79,10 @@ const withdrawSchema = z.object({
 
 type WithdrawFormValues = z.infer<typeof withdrawSchema>
 
+/**
+ * Local-only request data for display after submission.
+ * This data is NOT stored in the backend - only shown in the UI for the current session.
+ */
 type QueuedRequest = {
   reference: string
   effectiveDate: string
@@ -80,6 +109,7 @@ function generateReference() {
 }
 
 export function WithdrawRequestCard() {
+  const { user } = useAuth()
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
     defaultValues: {
@@ -89,8 +119,11 @@ export function WithdrawRequestCard() {
       acknowledgement: false,
     },
   })
+  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [queuedRequest, setQueuedRequest] = useState<QueuedRequest | null>(null)
+  const [accountStatus, setAccountStatus] = useState<Restaurant['account_status'] | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const reasonOptions = useMemo(
     () =>
@@ -101,28 +134,128 @@ export function WithdrawRequestCard() {
     [],
   )
 
+  // Fetch restaurant to check if withdrawal is already pending
+  const fetchRestaurant = useCallback(async () => {
+    if (!user || !isRestaurantUser(user)) return
+
+    setIsLoading(true)
+    try {
+      const restaurant = await restaurantApi.getById(user.restaurantId)
+      setAccountStatus(restaurant.account_status)
+    } catch (err) {
+      console.error('Failed to fetch restaurant status:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    fetchRestaurant()
+  }, [fetchRestaurant])
+
   async function onSubmit(values: WithdrawFormValues) {
+    if (!user || !isRestaurantUser(user)) return
+
     setIsSubmitting(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    setError(null)
 
-    const reference = generateReference()
-    const submittedAt = new Date().toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    })
+    try {
+      // Call real API to request withdrawal
+      await restaurantApi.requestWithdrawal(user.restaurantId)
 
-    setQueuedRequest({
-      reference,
-      ...values,
-      submittedAt,
-    })
-    setIsSubmitting(false)
-    form.reset({
-      effectiveDate: '',
-      reason: undefined,
-      details: '',
-      acknowledgement: false,
-    })
+      const reference = generateReference()
+      const submittedAt = new Date().toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+
+      setQueuedRequest({
+        reference,
+        ...values,
+        submittedAt,
+      })
+      setAccountStatus('WITHDRAWAL_PENDING')
+      form.reset({
+        effectiveDate: '',
+        reason: undefined,
+        details: '',
+        acknowledgement: false,
+      })
+    } catch (err) {
+      console.error('Failed to submit withdrawal request:', err)
+      setError(getErrorMessage(err, 'Failed to submit withdrawal request'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <section id="withdrawal" className="scroll-mt-28">
+        <Card className="border-emerald-100 bg-white/90 shadow-lg shadow-emerald-100/40">
+          <CardContent className="flex items-center justify-center py-12">
+            <IconLoader2 className="size-6 animate-spin text-emerald-600" />
+            <span className="ml-2 text-sm text-neutral-600">Loading...</span>
+          </CardContent>
+        </Card>
+      </section>
+    )
+  }
+
+  // Show pending state if withdrawal already requested
+  if (accountStatus === 'WITHDRAWAL_PENDING') {
+    return (
+      <section id="withdrawal" className="scroll-mt-28">
+        <Card className="border-emerald-100 bg-white/90 shadow-lg shadow-emerald-100/40">
+          <CardHeader className="space-y-3">
+            <Badge
+              variant="outline"
+              className="w-fit border-amber-200 bg-amber-100 text-amber-700"
+            >
+              <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em]">
+                <IconAlertTriangle className="size-4" />
+                Withdrawal pending
+              </span>
+            </Badge>
+            <CardTitle className="text-2xl font-semibold text-neutral-900">
+              Withdrawal Request Submitted
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <IconCheck className="mt-0.5 size-5 text-amber-600" />
+                <div>
+                  <p className="font-medium text-amber-800">Your withdrawal request is being reviewed</p>
+                  <p className="mt-1 text-sm text-amber-700">
+                    The FrontDash admin team will review your request and verify all payouts
+                    are reconciled. You&apos;ll receive an email once a decision is made.
+                  </p>
+                </div>
+              </div>
+            </div>
+            {queuedRequest && (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-4 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                  Request details
+                </p>
+                <dl className="mt-2 space-y-1 text-xs text-neutral-600">
+                  <div className="flex justify-between">
+                    <dt>Reference:</dt>
+                    <dd className="font-mono">{queuedRequest.reference}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt>Submitted:</dt>
+                    <dd>{queuedRequest.submittedAt}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+    )
   }
 
   return (
@@ -145,6 +278,9 @@ export function WithdrawRequestCard() {
             Let the FrontDash ops team know when you plan to step away. We&apos;ll queue
             the request for review and send a confirmation once everything is cleared.
           </p>
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
         </CardHeader>
         <CardContent className="pb-8">
           <Form {...form}>
