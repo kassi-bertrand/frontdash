@@ -1,9 +1,43 @@
+'use client'
+
+import { useMemo } from 'react'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAuth, isRestaurantUser } from '@/hooks/use-auth'
+import { useRestaurantOrders } from '@/hooks/use-restaurant-orders'
 
 import { OrdersTable } from '../components/orders-table'
-import { restaurantInsights, restaurantOrders } from '../mock-data'
 
 export default function RestaurantOrderQueuePage() {
+  const { user } = useAuth()
+  const restaurantId = isRestaurantUser(user) ? user.restaurantId : 0
+
+  const { orders, isLoading, error, refetch } = useRestaurantOrders(restaurantId)
+
+  // Calculate live insights from real orders
+  const insights = useMemo(() => {
+    const ordersWaiting = orders.filter(o => o.status === 'NEW' || o.status === 'PREPARING').length
+    const completedOrders = orders.filter(o => o.status === 'COMPLETED')
+
+    return [
+      {
+        label: 'Orders waiting for prep',
+        value: String(ordersWaiting),
+        helper: 'Prioritize newest FrontDash tickets first',
+      },
+      {
+        label: 'Orders in queue',
+        value: String(orders.length),
+        helper: 'Total orders visible in the queue',
+      },
+      {
+        label: 'Completed today',
+        value: String(completedOrders.length),
+        helper: 'Orders marked as delivered',
+      },
+    ]
+  }, [orders])
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-4 pb-16 pt-6 lg:px-8">
       <section className="rounded-3xl border border-emerald-100 bg-white/90 p-8 shadow-lg shadow-emerald-100/40">
@@ -18,7 +52,7 @@ export default function RestaurantOrderQueuePage() {
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            {restaurantInsights.map((item) => (
+            {insights.map((item) => (
               <Card
                 key={item.label}
                 className="border border-emerald-100 bg-white/70 py-4 text-center shadow-none"
@@ -40,7 +74,14 @@ export default function RestaurantOrderQueuePage() {
         </div>
       </section>
 
-      <OrdersTable orders={restaurantOrders} variant="full" fullPageSize={8} />
+      <OrdersTable
+        orders={orders}
+        variant="full"
+        fullPageSize={8}
+        isLoading={isLoading}
+        error={error}
+        onRetry={refetch}
+      />
     </div>
   )
 }

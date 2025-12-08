@@ -1,44 +1,83 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { toast } from 'sonner'
 
-import { IconClock, IconCopy } from '@tabler/icons-react'
+import { IconClock, IconCopy, IconDeviceFloppy, IconLoader2 } from '@tabler/icons-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { useAuth, isRestaurantUser } from '@/hooks/use-auth'
+import { useRestaurantHours } from '@/hooks/use-restaurant-hours'
 
-import { restaurantHoursTemplate, type RestaurantHours } from '../mock-data'
-
-const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 
 export function OperatingHoursPanel() {
-  const [hours, setHours] = useState<RestaurantHours[]>(restaurantHoursTemplate)
+  const { user } = useAuth()
+  const restaurantId = isRestaurantUser(user) ? user.restaurantId : 0
+
+  const {
+    hours,
+    isLoading,
+    isSaving,
+    error,
+    refetch,
+    updateDay,
+    saveHours,
+    hasChanges,
+  } = useRestaurantHours(restaurantId)
 
   const openCount = useMemo(() => hours.filter((entry) => entry.isOpen).length, [hours])
-
-  function updateHours(day: string, patch: Partial<Omit<RestaurantHours, 'day'>>) {
-    setHours((prev) =>
-      prev.map((entry) => (entry.day === day ? { ...entry, ...patch } : entry)),
-    )
-  }
 
   function copyWeekdayTemplate() {
     const monday = hours.find((entry) => entry.day === 'Monday')
     if (!monday) return
-    setHours((prev) =>
-      prev.map((entry) =>
-        weekdays.includes(entry.day)
-          ? {
-              ...entry,
-              isOpen: monday.isOpen,
-              open: monday.open,
-              close: monday.close,
-            }
-          : entry,
-      ),
+    for (const day of WEEKDAYS) {
+      updateDay(day, {
+        isOpen: monday.isOpen,
+        open: monday.open,
+        close: monday.close,
+      })
+    }
+  }
+
+  async function handleSave() {
+    try {
+      await saveHours()
+      toast.success('Operating hours saved')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <section id="operating-hours" className="scroll-mt-28">
+        <Card className="border-emerald-100 bg-white/90 shadow-lg shadow-emerald-100/40">
+          <CardContent className="flex items-center justify-center py-12">
+            <IconLoader2 className="size-6 animate-spin text-emerald-600" />
+            <span className="ml-2 text-neutral-600">Loading hours...</span>
+          </CardContent>
+        </Card>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section id="operating-hours" className="scroll-mt-28">
+        <Card className="border-red-100 bg-white/90 shadow-lg">
+          <CardContent className="py-8 text-center">
+            <p className="text-red-600">{error}</p>
+            <Button variant="outline" onClick={refetch} className="mt-4">
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
     )
   }
 
@@ -68,6 +107,21 @@ export function OperatingHoursPanel() {
             >
               <IconCopy className="size-4" /> Apply Monday to weekdays
             </Button>
+            {hasChanges && (
+              <Button
+                size="sm"
+                className="gap-1 bg-emerald-600 hover:bg-emerald-700"
+                onClick={handleSave}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <IconLoader2 className="size-4 animate-spin" />
+                ) : (
+                  <IconDeviceFloppy className="size-4" />
+                )}
+                Save changes
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -88,7 +142,7 @@ export function OperatingHoursPanel() {
                   </div>
                   <Switch
                     checked={entry.isOpen}
-                    onCheckedChange={(value) => updateHours(entry.day, { isOpen: value })}
+                    onCheckedChange={(value) => updateDay(entry.day, { isOpen: value })}
                   />
                 </div>
                 {entry.isOpen ? (
@@ -101,7 +155,7 @@ export function OperatingHoursPanel() {
                         type="time"
                         value={entry.open}
                         onChange={(event) =>
-                          updateHours(entry.day, { open: event.target.value })
+                          updateDay(entry.day, { open: event.target.value })
                         }
                       />
                     </div>
@@ -113,7 +167,7 @@ export function OperatingHoursPanel() {
                         type="time"
                         value={entry.close}
                         onChange={(event) =>
-                          updateHours(entry.day, { close: event.target.value })
+                          updateDay(entry.day, { close: event.target.value })
                         }
                       />
                     </div>

@@ -322,6 +322,16 @@ export interface OrderItem {
   quantity: number;
 }
 
+/** Order item detail returned when fetching a specific order */
+export interface OrderItemDetail {
+  order_item_id: number;
+  order_number: string;
+  menu_item_id: number;
+  item_name: string;
+  item_price: number;
+  quantity: number;
+}
+
 export interface CreateOrderRequest {
   restaurant_id: number;
   loyalty_number?: string;
@@ -350,7 +360,7 @@ export const orderApi = {
   },
 
   getByOrderNumber: (orderNumber: string) =>
-    apiFetch<{ order: Order; items: unknown[] }>(`/api/orders/${orderNumber}`),
+    apiFetch<{ order: Order; items: OrderItemDetail[] }>(`/api/orders/${orderNumber}`),
 
   create: (data: CreateOrderRequest) =>
     apiFetch<{ message: string; order_number: string; estimated_delivery_time: string; grand_total: number }>(
@@ -413,6 +423,39 @@ export const menuApi = {
       `/api/menu-items/${itemId}`,
       { method: 'DELETE' }
     ),
+};
+
+// =============================================================================
+// Operating Hours API
+// =============================================================================
+
+export interface OperatingHours {
+  hours_id: number;
+  restaurant_id: number;
+  day_of_week: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
+  opening_time: string | null;
+  closing_time: string | null;
+  is_closed: boolean;
+}
+
+export const hoursApi = {
+  getByRestaurant: (restaurantId: number) =>
+    apiFetch<OperatingHours[]>(`/api/restaurants/${restaurantId}/hours`),
+
+  /** Update a single day's hours (uses upsert) */
+  updateDay: (restaurantId: number, hours: Partial<OperatingHours>) =>
+    apiFetch<{ message: string; hours: OperatingHours }>(
+      `/api/restaurants/${restaurantId}/hours`,
+      { method: 'POST', body: JSON.stringify(hours) }
+    ),
+
+  /** Update all days' hours (calls updateDay for each) */
+  updateAll: async (restaurantId: number, allHours: Partial<OperatingHours>[]) => {
+    const results = await Promise.all(
+      allHours.map(hours => hoursApi.updateDay(restaurantId, hours))
+    );
+    return { message: 'All hours updated', hours: results.map(r => r.hours) };
+  },
 };
 
 // =============================================================================

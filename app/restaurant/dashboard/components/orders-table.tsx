@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useId, useMemo, useState } from 'react'
 
+import { IconLoader2 } from '@tabler/icons-react'
 import {
   closestCenter,
   DndContext,
@@ -49,14 +50,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { type RestaurantOrder } from '@/hooks/use-restaurant-orders'
 
-export type RestaurantOrder = {
-  id: string
-  placedAt: string
-  items: string
-  customer: string
-  status: 'NEW' | 'PREPARING' | 'READY' | 'COMPLETED'
-}
+export type { RestaurantOrder }
 
 const statusTone: Record<RestaurantOrder['status'], string> = {
   NEW: 'border-emerald-200 bg-emerald-100 text-emerald-700',
@@ -70,6 +66,9 @@ type OrdersTableProps = {
   variant?: 'preview' | 'full'
   previewCount?: number
   fullPageSize?: number
+  isLoading?: boolean
+  error?: string | null
+  onRetry?: () => void
 }
 
 function DraggableRow({ row }: { row: Row<RestaurantOrder> }) {
@@ -132,12 +131,16 @@ export function OrdersTable({
   variant = 'preview',
   previewCount = 5,
   fullPageSize = 8,
+  isLoading = false,
+  error = null,
+  onRetry,
 }: OrdersTableProps) {
   const isFull = variant === 'full'
   const targetPageSize = isFull
     ? fullPageSize
     : Math.min(previewCount, orders.length || previewCount)
 
+  // All hooks must be called before any early returns
   const [data, setData] = useState<RestaurantOrder[]>(
     isFull ? orders : orders.slice(0, previewCount),
   )
@@ -219,6 +222,15 @@ export function OrdersTable({
     getPaginationRowModel: getPaginationRowModel(),
   })
 
+  const sortableId = useId()
+
+  // Derived values (not hooks)
+  const pageCount = table.getPageCount()
+  const currentPage = table.getState().pagination.pageIndex + 1
+  const totalPages = pageCount > 0 ? pageCount : 1
+  const rowModel = table.getRowModel()
+  const currentPageIds = rowModel.rows.map((row) => row.original.id)
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) {
@@ -237,12 +249,39 @@ export function OrdersTable({
     })
   }
 
-  const pageCount = table.getPageCount()
-  const currentPage = table.getState().pagination.pageIndex + 1
-  const totalPages = pageCount > 0 ? pageCount : 1
-  const rowModel = table.getRowModel()
-  const currentPageIds = rowModel.rows.map((row) => row.original.id)
-  const sortableId = useId()
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card
+        id="order-queue"
+        className="flex min-h-[320px] flex-col border-emerald-100 bg-white/90 shadow-lg shadow-emerald-100/40"
+      >
+        <CardContent className="flex flex-1 items-center justify-center">
+          <IconLoader2 className="size-6 animate-spin text-emerald-600" />
+          <span className="ml-2 text-neutral-600">Loading orders...</span>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Card
+        id="order-queue"
+        className="flex min-h-[320px] flex-col border-red-100 bg-white/90 shadow-lg"
+      >
+        <CardContent className="flex flex-1 flex-col items-center justify-center gap-4">
+          <p className="text-red-600">{error}</p>
+          {onRetry && (
+            <Button variant="outline" onClick={onRetry}>
+              Try again
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card

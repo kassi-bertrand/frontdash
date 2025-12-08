@@ -1,17 +1,21 @@
 'use client'
 
 import { useAuth, isRestaurantUser } from '@/hooks/use-auth'
+import { useRestaurantOrders } from '@/hooks/use-restaurant-orders'
 
 import { ContactDetailsCard } from './components/contact-details-card'
 import { MenuManagementPanel } from './components/menu-management-panel'
 import { OperatingHoursPanel } from './components/operating-hours-panel'
 import { OrdersTable } from './components/orders-table'
 import { WithdrawRequestCard } from './components/withdraw-request-card'
-import { restaurantOrders } from './mock-data'
 
 export default function RestaurantDashboardPage() {
   const { user } = useAuth()
   const restaurantName = isRestaurantUser(user) ? user.restaurantName : 'Your Restaurant'
+  const restaurantId = isRestaurantUser(user) ? user.restaurantId : 0
+
+  const { orders, isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useRestaurantOrders(restaurantId)
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-4 pb-16 pt-6 lg:px-8">
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-200 via-emerald-100 to-sky-100 p-8 text-neutral-900 shadow-lg">
@@ -30,7 +34,13 @@ export default function RestaurantDashboardPage() {
         </div>
       </section>
 
-      <OrdersTable orders={restaurantOrders} variant="preview" />
+      <OrdersTable
+        orders={orders}
+        variant="preview"
+        isLoading={ordersLoading}
+        error={ordersError}
+        onRetry={refetchOrders}
+      />
 
       <div id="requirements" className="sr-only" aria-hidden />
       <div id="delivery-checklist" className="sr-only" aria-hidden />
