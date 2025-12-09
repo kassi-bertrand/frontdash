@@ -43,9 +43,18 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
   return (
     <Card className="flex h-full w-full flex-col rounded-2xl border border-neutral-200 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.12)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_25px_55px_rgba(15,23,42,0.16)]">
       <CardContent className="flex flex-1 flex-col gap-5 p-6">
-        <div className="relative grid h-44 w-full place-items-center overflow-hidden rounded-xl border border-dashed border-neutral-300 bg-neutral-50 text-neutral-400">
-          <span className="text-sm">Photo placeholder</span>
-          <span className="absolute left-4 top-4 inline-block h-4 w-4 rounded-full bg-white shadow" />
+        <div className="relative h-44 w-full overflow-hidden rounded-xl bg-neutral-100">
+          {restaurant.imageUrl ? (
+            <img
+              src={restaurant.imageUrl}
+              alt={`${restaurant.name} photo`}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="grid h-full w-full place-items-center border border-dashed border-neutral-300 text-neutral-400">
+              <span className="text-sm">No photo available</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-3">

@@ -53,6 +53,7 @@ export type CustomerRestaurant = {
   id: string
   slug: string
   name: string
+  imageUrl?: string
   cuisine: string
   neighborhood: string
   priceTier: '$' | '$$' | '$$$' | '$$$$'

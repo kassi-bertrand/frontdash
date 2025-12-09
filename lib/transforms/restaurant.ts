@@ -177,6 +177,7 @@ export function toCustomerRestaurant(
     id: String(restaurant.restaurant_id),
     slug,
     name: restaurant.restaurant_name,
+    imageUrl: restaurant.restaurant_image_url || undefined,
 
     // Placeholder values from PLACEHOLDER_DEFAULTS - update when backend supports these
     cuisine: PLACEHOLDER_DEFAULTS.cuisine,
