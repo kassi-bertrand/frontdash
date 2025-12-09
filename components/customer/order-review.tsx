@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useCartStore } from '@/stores/use-cart-store'
 import type { TipState } from '@/stores/use-cart-store'
+import { SERVICE_CHARGE_RATE } from '@/lib/checkout-utils'
 
 export type OrderReviewProps = {
   restaurantSlug: string
@@ -30,7 +31,6 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 const formatCurrency = (cents: number) => currencyFormatter.format(cents / 100)
 
-const SERVICE_CHARGE_RATE = 0.0825
 const TIP_PERCENT_MAX = 100
 const TIP_FIXED_MAX_CENTS = 50000
 

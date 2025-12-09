@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 export type CartItemSnapshot = {
   id: string
@@ -34,11 +35,31 @@ export type DeliveryDetails = {
   contactPhone: string
 }
 
+export type PaymentDetails = {
+  cardType: string
+  cardLastFour: string
+  cardDisplay: string
+  cardholderFirstName: string
+  cardholderLastName: string
+  cardExpiry: string
+}
+
+export type BillingAddress = {
+  building: string
+  street: string
+  apartment?: string
+  city: string
+  state: string
+  zip: string
+}
+
 export type RestaurantCart = {
   restaurant: RestaurantSnapshot
   items: Record<string, CartItemSnapshot>
   tip: TipState
   delivery?: DeliveryDetails
+  payment?: PaymentDetails
+  billing?: BillingAddress
 }
 
 type CartState = {
@@ -56,6 +77,8 @@ type CartActions = {
   clearCart: (restaurantSlug: string) => void
   setTip: (payload: { restaurantSlug: string; tip: TipState }) => void
   setDelivery: (payload: { restaurantSlug: string; delivery: DeliveryDetails }) => void
+  setPayment: (payload: { restaurantSlug: string; payment: PaymentDetails }) => void
+  setBilling: (payload: { restaurantSlug: string; billing: BillingAddress }) => void
 }
 
 const defaultTip: TipState = { mode: 'none' }
@@ -63,8 +86,11 @@ const defaultTip: TipState = { mode: 'none' }
 /**
  * Global cart store keeps a separate cart per restaurant so guests can start
  * an order, explore other menus, and return without losing their picks.
+ * Persisted to localStorage so cart survives page refresh.
  */
-export const useCartStore = create<CartState & CartActions>((set) => ({
+export const useCartStore = create<CartState & CartActions>()(
+  persist(
+    (set) => ({
   activeRestaurantSlug: undefined,
   cartsByRestaurant: {},
 
@@ -219,4 +245,47 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
         },
       }
     }),
-}))
+
+  setPayment: ({ restaurantSlug, payment }) =>
+    set((state) => {
+      const cart = state.cartsByRestaurant[restaurantSlug]
+      if (!cart) {
+        return state
+      }
+
+      return {
+        ...state,
+        cartsByRestaurant: {
+          ...state.cartsByRestaurant,
+          [restaurantSlug]: {
+            ...cart,
+            payment,
+          },
+        },
+      }
+    }),
+
+  setBilling: ({ restaurantSlug, billing }) =>
+    set((state) => {
+      const cart = state.cartsByRestaurant[restaurantSlug]
+      if (!cart) {
+        return state
+      }
+
+      return {
+        ...state,
+        cartsByRestaurant: {
+          ...state.cartsByRestaurant,
+          [restaurantSlug]: {
+            ...cart,
+            billing,
+          },
+        },
+      }
+    }),
+    }),
+    {
+      name: 'frontdash-cart',
+    }
+  )
+)

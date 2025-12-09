@@ -359,6 +359,22 @@ export interface CreateOrderRequest {
   };
   delivery_contact_name: string;
   delivery_contact_phone: string;
+  payment: {
+    card_type: string;
+    card_last_four: string;
+    card_display: string;
+    cardholder_first_name: string;
+    cardholder_last_name: string;
+    card_expiry: string;
+  };
+  billing_address: {
+    building: string;
+    street: string;
+    apartment?: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
 }
 
 export const orderApi = {

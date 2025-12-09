@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useCartStore } from '@/stores/use-cart-store'
 import { calculateOrderTotals, emptyOrderTotals } from '@/lib/checkout-utils'
+import { formatCurrency } from '@/lib/utils'
 
 const cardOptions = ['VISA', 'MasterCard', 'Discover', 'American Express'] as const
 type CardType = (typeof cardOptions)[number]
@@ -100,11 +101,18 @@ const passesLuhnCheck = (digits: string) => {
 export function PaymentForm({ restaurantSlug }: PaymentFormProps) {
   const router = useRouter()
   const cart = useCartStore((state) => state.cartsByRestaurant[restaurantSlug])
+  const setPayment = useCartStore((state) => state.setPayment)
+  const setBilling = useCartStore((state) => state.setBilling)
   const [cardType, setCardType] = useState<CardType>('VISA')
   const [cardNumber, setCardNumber] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [billingAddress, setBillingAddress] = useState('')
+  const [billingBuilding, setBillingBuilding] = useState('')
+  const [billingStreet, setBillingStreet] = useState('')
+  const [billingApartment, setBillingApartment] = useState('')
+  const [billingCity, setBillingCity] = useState('')
+  const [billingState, setBillingState] = useState('')
+  const [billingZip, setBillingZip] = useState('')
   const [expiryMonth, setExpiryMonth] = useState('')
   const [expiryYear, setExpiryYear] = useState('')
   const [securityCode, setSecurityCode] = useState('')
@@ -174,8 +182,13 @@ export function PaymentForm({ restaurantSlug }: PaymentFormProps) {
       return
     }
 
-    if (!billingAddress.trim()) {
-      setErrorMessage('Billing address is required.')
+    if (!billingBuilding.trim() || !billingStreet.trim()) {
+      setErrorMessage('Billing address building number and street are required.')
+      return
+    }
+
+    if (!billingCity.trim() || !billingState.trim() || !billingZip.trim()) {
+      setErrorMessage('Billing city, state, and ZIP code are required.')
       return
     }
 
@@ -195,16 +208,32 @@ export function PaymentForm({ restaurantSlug }: PaymentFormProps) {
 
     setIsVerifying(false)
 
-    // STORY-C007 will introduce the delivery details route. Redirect there once
-    // the mocked verification passes so the flow mirrors the full project spec.
-    router.push(`/delivery/${restaurantSlug}`)
-  }
+    // Save masked payment data to cart store (NO CVV or full card number)
+    setPayment({
+      restaurantSlug,
+      payment: {
+        cardType,
+        cardLastFour: digitsOnly.slice(-4),
+        cardDisplay: `****-****-****-${digitsOnly.slice(-4)}`,
+        cardholderFirstName: firstName.trim(),
+        cardholderLastName: lastName.trim(),
+        cardExpiry: `${expiryMonth}/${expiryYear}`,
+      },
+    })
 
-  const formatCurrency = (cents: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(cents / 100)
+    setBilling({
+      restaurantSlug,
+      billing: {
+        building: billingBuilding.trim(),
+        street: billingStreet.trim(),
+        apartment: billingApartment.trim() || undefined,
+        city: billingCity.trim(),
+        state: billingState.trim(),
+        zip: billingZip.trim(),
+      },
+    })
+
+    router.push(`/delivery/${restaurantSlug}`)
   }
 
   return (
@@ -283,14 +312,72 @@ export function PaymentForm({ restaurantSlug }: PaymentFormProps) {
             </div>
           </section>
 
-          <section className="space-y-2">
-            <Label htmlFor="billing-address">Billing address</Label>
-            <Input
-              id="billing-address"
-              value={billingAddress}
-              onChange={(event) => setBillingAddress(event.target.value)}
-              placeholder="123 Market Street, Suite 200, San Francisco, CA"
-            />
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-sm font-medium text-neutral-700">Billing address</h2>
+              <p className="text-xs text-neutral-500">
+                Enter the address associated with your credit card.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="billing-building">Building number</Label>
+                <Input
+                  id="billing-building"
+                  value={billingBuilding}
+                  onChange={(event) => setBillingBuilding(event.target.value)}
+                  placeholder="123"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billing-street">Street name</Label>
+                <Input
+                  id="billing-street"
+                  value={billingStreet}
+                  onChange={(event) => setBillingStreet(event.target.value)}
+                  placeholder="Market Street"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="billing-apartment">Apartment / Suite (optional)</Label>
+              <Input
+                id="billing-apartment"
+                value={billingApartment}
+                onChange={(event) => setBillingApartment(event.target.value)}
+                placeholder="Suite 200"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="billing-city">City</Label>
+                <Input
+                  id="billing-city"
+                  value={billingCity}
+                  onChange={(event) => setBillingCity(event.target.value)}
+                  placeholder="San Francisco"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billing-state">State</Label>
+                <Input
+                  id="billing-state"
+                  value={billingState}
+                  onChange={(event) => setBillingState(event.target.value.toUpperCase().slice(0, 2))}
+                  placeholder="CA"
+                  maxLength={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billing-zip">ZIP code</Label>
+                <Input
+                  id="billing-zip"
+                  value={billingZip}
+                  onChange={(event) => setBillingZip(event.target.value.replace(/[^0-9-]/g, '').slice(0, 10))}
+                  placeholder="94102"
+                />
+              </div>
+            </div>
           </section>
 
           <section className="grid gap-4 sm:grid-cols-[repeat(3,minmax(0,1fr))]">

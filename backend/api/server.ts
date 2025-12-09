@@ -1229,6 +1229,24 @@ app.post('/api/uploads/presigned-url', async (req: Request, res: Response) => {
 // 11. Order Endpoints
 // ============================================================================
 
+interface PaymentInfo {
+    card_type: string;
+    card_last_four: string;
+    card_display: string;
+    cardholder_first_name: string;
+    cardholder_last_name: string;
+    card_expiry: string;
+}
+
+interface BillingAddress {
+    building: string;
+    street: string;
+    apartment?: string;
+    city: string;
+    state: string;
+    zip: string;
+}
+
 interface CreateOrderBody {
     restaurant_id: number;
     loyalty_number?: string;
@@ -1238,6 +1256,8 @@ interface CreateOrderBody {
     delivery_contact_phone: string;
     items: OrderItemInput[];
     tip_amount?: number;
+    payment: PaymentInfo;
+    billing_address: BillingAddress;
 }
 
 app.post('/api/orders', async (req: Request, res: Response) => {
@@ -1250,7 +1270,9 @@ app.post('/api/orders', async (req: Request, res: Response) => {
             delivery_contact_name,
             delivery_contact_phone,
             items,
-            tip_amount
+            tip_amount,
+            payment,
+            billing_address
         } = req.body as CreateOrderBody;
 
         if (!restaurant_id || !delivery_address || !delivery_contact_name ||
@@ -1260,6 +1282,15 @@ app.post('/api/orders', async (req: Request, res: Response) => {
 
         if (!loyalty_number && !guest_phone) {
             return res.status(400).json({ error: 'Guest phone is required for non-loyalty orders' });
+        }
+
+        if (!payment || !payment.card_type || !payment.card_last_four) {
+            return res.status(400).json({ error: 'Payment information is required' });
+        }
+
+        if (!billing_address || !billing_address.building || !billing_address.street ||
+            !billing_address.city || !billing_address.state || !billing_address.zip) {
+            return res.status(400).json({ error: 'Billing address is required' });
         }
 
         const client = await pool.connect();
@@ -1327,15 +1358,24 @@ app.post('/api/orders', async (req: Request, res: Response) => {
                     delivery_city, delivery_state, delivery_zip_code,
                     delivery_contact_name, delivery_contact_phone,
                     subtotal_amount, service_charge, tip_amount, loyalty_discount, grand_total,
-                    order_status, estimated_delivery_time
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'PENDING', CURRENT_TIMESTAMP + INTERVAL '45 minutes')`,
+                    order_status, estimated_delivery_time,
+                    card_type, card_last_four, card_display,
+                    cardholder_first_name, cardholder_last_name, card_expiry,
+                    billing_building, billing_street, billing_apartment,
+                    billing_city, billing_state, billing_zip
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'PENDING', CURRENT_TIMESTAMP + INTERVAL '45 minutes',
+                    $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)`,
                 [
                     orderNumber, restaurant_id, loyalty_number || null, guest_phone || null,
                     delivery_address.building_number, delivery_address.street_name,
                     delivery_address.apartment || null, delivery_address.city,
                     delivery_address.state, delivery_address.zip_code,
                     delivery_contact_name, delivery_contact_phone,
-                    subtotal, serviceCharge, tip_amount || 0, loyaltyDiscount, grandTotal
+                    subtotal, serviceCharge, tip_amount || 0, loyaltyDiscount, grandTotal,
+                    payment.card_type, payment.card_last_four, payment.card_display,
+                    payment.cardholder_first_name, payment.cardholder_last_name, payment.card_expiry,
+                    billing_address.building, billing_address.street, billing_address.apartment || null,
+                    billing_address.city, billing_address.state, billing_address.zip
                 ]
             );
 
