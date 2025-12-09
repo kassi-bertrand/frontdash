@@ -12,7 +12,7 @@ export AWS_PAGER=""
 
 # Configuration Variables
 INSTANCE_NAME="frontdash-api-server"
-INSTANCE_TYPE="t2.micro"  # Free tier eligible
+INSTANCE_TYPE="t3.small"  # 2 vCPU, 2GB RAM - better for frontend + backend
 AMI_ID="ami-0c7217cdde317cfec"  # Ubuntu 22.04 LTS in us-east-1 (change for your region)
 REGION="us-east-1"
 KEY_NAME="frontdash-key"

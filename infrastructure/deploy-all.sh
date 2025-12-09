@@ -158,23 +158,53 @@ fi
 ./deploy-api.sh
 
 # --------------------------------------------------
-# Done! Show the user what to do next
+# STEP 5 (Optional): Deploy Frontend to EC2
+#
+# Optionally deploy the Next.js frontend to the same EC2:
+#   - Clones the repo from GitHub
+#   - Builds the Next.js app
+#   - Runs on port 3001 via PM2
 # --------------------------------------------------
 source ec2-config.txt
 
+echo ""
+read -p "Deploy frontend to EC2 as well? (y/N): " deploy_frontend
+deploy_frontend=${deploy_frontend:-N}
+
+if [[ $deploy_frontend =~ ^[Yy] ]]; then
+    echo ""
+    echo "Step 5/5: Deploying frontend to EC2..."
+    ./setup-frontend.sh
+fi
+
+# --------------------------------------------------
+# Done! Show the user what to do next
+# --------------------------------------------------
 echo ""
 echo "================================================"
 echo "🚀 Deployment Complete!"
 echo "================================================"
 echo ""
-echo "API URL: http://${PUBLIC_IP}:3000"
+echo "Backend API: http://${PUBLIC_IP}:3000"
+
+if [[ $deploy_frontend =~ ^[Yy] ]]; then
+    echo "Frontend:    http://${PUBLIC_IP}:3001"
+fi
+
 echo ""
-echo "Test it:"
+echo "Test backend:"
 echo "  curl http://${PUBLIC_IP}:3000/health"
 echo ""
-echo "Update your .env.local:"
-echo "  NEXT_PUBLIC_API_URL=http://${PUBLIC_IP}:3000"
-echo ""
+
+if [[ ! $deploy_frontend =~ ^[Yy] ]]; then
+    echo "To deploy frontend later:"
+    echo "  ./setup-frontend.sh"
+    echo ""
+    echo "Or update your local .env.local:"
+    echo "  NEXT_PUBLIC_API_URL=http://${PUBLIC_IP}:3000"
+    echo ""
+fi
+
 echo "SSH into server:"
 echo "  ssh -i ${KEY_NAME}.pem ubuntu@${PUBLIC_IP}"
 echo "================================================"
