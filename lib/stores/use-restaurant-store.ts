@@ -133,7 +133,7 @@ export const useRestaurantStore = create<RestaurantState & RestaurantActions>((s
     set({ isLoading: true, error: null })
     try {
       const [allRestaurants, withdrawalRestaurants] = await Promise.all([
-        restaurantApi.getAll(),
+        restaurantApi.getAllAdmin(),
         restaurantApi.getWithdrawals(),
       ])
 

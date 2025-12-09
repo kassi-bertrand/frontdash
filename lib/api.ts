@@ -133,9 +133,13 @@ export interface RestaurantRegistration {
 }
 
 export const restaurantApi = {
-  // Get all approved restaurants (public)
+  // Get all approved restaurants (public, for customers)
   getAll: () =>
     apiFetch<Restaurant[]>('/api/restaurants'),
+
+  // Get ALL restaurants including pending (admin only)
+  getAllAdmin: () =>
+    apiFetch<Restaurant[]>('/api/restaurants?all=true'),
 
   // Get single restaurant by ID
   getById: (id: number) =>
@@ -164,7 +168,13 @@ export const restaurantApi = {
 
   // Register new restaurant
   register: (data: RestaurantRegistration) =>
-    apiFetch<{ message: string; restaurant: Restaurant; credentials: { username: string; password: string } }>(
+    apiFetch<{
+      message: string;
+      restaurant_id: number;
+      username: string;
+      temporary_password: string;
+      note: string;
+    }>(
       '/api/restaurants/register',
       { method: 'POST', body: JSON.stringify(data) }
     ),

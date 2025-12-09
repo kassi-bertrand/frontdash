@@ -390,14 +390,21 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         };
 
         // Add restaurant_id and restaurant_name for restaurant users
+        // Also check that the restaurant is APPROVED before allowing login
         if (user.account_role === 'RESTAURANT') {
-            const restaurantResult = await pool.query<{ restaurant_id: number; restaurant_name: string }>(
-                'SELECT restaurant_id, restaurant_name FROM RESTAURANTS WHERE username = $1',
+            const restaurantResult = await pool.query<{ restaurant_id: number; restaurant_name: string; account_status: string }>(
+                'SELECT restaurant_id, restaurant_name, account_status FROM RESTAURANTS WHERE username = $1',
                 [username]
             );
             if (restaurantResult.rows.length > 0) {
-                response.restaurant_id = restaurantResult.rows[0].restaurant_id;
-                response.restaurant_name = restaurantResult.rows[0].restaurant_name;
+                const restaurant = restaurantResult.rows[0];
+                if (restaurant.account_status !== 'APPROVED') {
+                    return res.status(403).json({
+                        error: 'Your registration is pending approval. Please wait for an administrator to review your application.'
+                    });
+                }
+                response.restaurant_id = restaurant.restaurant_id;
+                response.restaurant_name = restaurant.restaurant_name;
             }
         }
 
@@ -484,19 +491,24 @@ app.post('/api/auth/logout', async (_req: Request, res: Response) => {
 // 9. Restaurant Endpoints
 // ============================================================================
 
-app.get('/api/restaurants', async (_req: Request, res: Response) => {
+app.get('/api/restaurants', async (req: Request, res: Response) => {
     try {
+        // Admin can request all restaurants with ?all=true
+        const includeAll = req.query.all === 'true';
+
         const result = await pool.query<Restaurant>(`
             SELECT
                 restaurant_id,
                 restaurant_name,
                 restaurant_image_url,
+                street_address,
                 city,
                 state,
+                zip_code,
                 phone_number,
                 account_status
             FROM RESTAURANTS
-            WHERE account_status = 'APPROVED'
+            ${includeAll ? '' : "WHERE account_status = 'APPROVED'"}
             ORDER BY restaurant_name
         `);
 
@@ -504,6 +516,24 @@ app.get('/api/restaurants', async (_req: Request, res: Response) => {
 
     } catch (error) {
         console.error('Get restaurants error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get all withdrawal requests (admin)
+// NOTE: This MUST be before /api/restaurants/:id to avoid route parameter matching
+app.get('/api/restaurants/withdrawals', async (_req: Request, res: Response) => {
+    try {
+        const result = await pool.query<Restaurant>(
+            `SELECT * FROM RESTAURANTS
+             WHERE account_status = 'WITHDRAWAL_PENDING'
+             ORDER BY restaurant_name`
+        );
+
+        res.json(result.rows);
+
+    } catch (error) {
+        console.error('Get withdrawal requests error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -760,7 +790,15 @@ app.post('/api/restaurants/register', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Restaurant registration error:', error);
         if (isPgError(error) && error.code === PG_UNIQUE_VIOLATION) {
-            res.status(409).json({ error: 'Restaurant name or email already exists' });
+            // Check which field caused the conflict
+            const detail = (error as { detail?: string }).detail || '';
+            if (detail.includes('email_address')) {
+                res.status(409).json({ error: 'This email address is already registered' });
+            } else if (detail.includes('restaurant_name')) {
+                res.status(409).json({ error: 'This restaurant name is already registered' });
+            } else {
+                res.status(409).json({ error: 'Restaurant name or email already exists' });
+            }
         } else {
             res.status(500).json({ error: 'Internal server error' });
         }
@@ -877,22 +915,8 @@ app.post('/api/restaurants/:id/withdraw', async (req: Request, res: Response) =>
     }
 });
 
-// Get all withdrawal requests (admin)
-app.get('/api/restaurants/withdrawals', async (_req: Request, res: Response) => {
-    try {
-        const result = await pool.query<Restaurant>(
-            `SELECT * FROM RESTAURANTS
-             WHERE account_status = 'WITHDRAWAL_PENDING'
-             ORDER BY restaurant_name`
-        );
-
-        res.json(result.rows);
-
-    } catch (error) {
-        console.error('Get withdrawal requests error:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-});
+// NOTE: GET /api/restaurants/withdrawals is defined earlier in the file
+// (before /api/restaurants/:id to avoid route parameter matching)
 
 // Approve withdrawal request (admin)
 app.put('/api/restaurants/:id/withdraw/approve', async (req: Request, res: Response) => {
