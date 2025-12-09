@@ -420,7 +420,14 @@ export default function AdminDashboardPage() {
             </div>
             <div className="flex gap-2 pt-2">
               <Button size="sm" onClick={() => { handleApproveReg(viewReg); setViewReg(null) }}>Approve</Button>
-              <Button size="sm" variant="destructive" onClick={() => { handleRejectReg(viewReg); setViewReg(null) }}>Reject</Button>
+              <Confirm
+                trigger={<Button size="sm" variant="destructive">Reject</Button>}
+                title={`Reject ${viewReg.restaurantName}?`}
+                description="This will permanently delete the registration request."
+                confirmLabel="Reject"
+                confirmVariant="destructive"
+                onConfirm={() => { handleRejectReg(viewReg); setViewReg(null) }}
+              />
               <Button size="sm" variant="outline" className="ml-auto" onClick={() => setViewReg(null)}>Close</Button>
             </div>
           </div>

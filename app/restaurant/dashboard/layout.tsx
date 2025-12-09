@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { Toaster } from 'sonner'
 
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
@@ -22,6 +23,7 @@ export default function RestaurantDashboardLayout({ children }: { children: Reac
           <div className="flex-1 px-4 pb-6 pt-4 lg:px-8 lg:pb-10 lg:pt-6">{children}</div>
         </div>
       </SidebarInset>
+      <Toaster richColors position="top-right" />
     </SidebarProvider>
   )
 }

@@ -405,6 +405,11 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
                 }
                 response.restaurant_id = restaurant.restaurant_id;
                 response.restaurant_name = restaurant.restaurant_name;
+            } else {
+                // Restaurant was rejected and deleted - credentials exist but restaurant doesn't
+                return res.status(403).json({
+                    error: 'This restaurant registration was rejected. Please register again with a new application.'
+                });
             }
         }
 

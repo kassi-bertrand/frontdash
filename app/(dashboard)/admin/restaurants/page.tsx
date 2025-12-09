@@ -138,31 +138,49 @@ export default function AdminRestaurantsPage() {
   }
 
   async function handleApproveSelected() {
+    let succeeded = 0
+    let failed = 0
     for (const r of regPageItems) {
       if (selected[String(r.id)]) {
         try {
           await approveRegistration(r.id)
+          succeeded++
         } catch {
-          // Continue with others
+          failed++
         }
       }
     }
     setSelected({})
-    toast.success('Approved selected registrations')
+    if (failed === 0) {
+      toast.success(`Approved ${succeeded} registration${succeeded !== 1 ? 's' : ''}`)
+    } else if (succeeded === 0) {
+      toast.error(`Failed to approve ${failed} registration${failed !== 1 ? 's' : ''}`)
+    } else {
+      toast.warning(`Approved ${succeeded}, failed ${failed}`)
+    }
   }
 
   async function handleRejectSelected() {
+    let succeeded = 0
+    let failed = 0
     for (const r of regPageItems) {
       if (selected[String(r.id)]) {
         try {
           await rejectRegistration(r.id)
+          succeeded++
         } catch {
-          // Continue with others
+          failed++
         }
       }
     }
     setSelected({})
-    toast.warning('Rejected selected registrations')
+    if (failed === 0) {
+      toast.warning(`Rejected ${succeeded} registration${succeeded !== 1 ? 's' : ''}`)
+    } else if (succeeded === 0) {
+      toast.error(`Failed to reject ${failed} registration${failed !== 1 ? 's' : ''}`)
+    } else {
+      toast.warning(`Rejected ${succeeded}, failed ${failed}`)
+    }
   }
 
   async function handleApproveWithdrawal(id: RestaurantId, name: string) {
@@ -384,7 +402,14 @@ export default function AdminRestaurantsPage() {
             </div>
             <div className="flex gap-2 pt-2">
               <Button size="sm" onClick={() => { handleApproveReg(viewReg.id, viewReg.restaurantName); setViewReg(null) }}>Approve</Button>
-              <Button size="sm" variant="destructive" onClick={() => { handleRejectReg(viewReg.id, viewReg.restaurantName); setViewReg(null) }}>Reject</Button>
+              <Confirm
+                trigger={<Button size="sm" variant="destructive">Reject</Button>}
+                title={`Reject ${viewReg.restaurantName}?`}
+                description="This will permanently delete the registration request."
+                confirmLabel="Reject"
+                confirmVariant="destructive"
+                onConfirm={() => { handleRejectReg(viewReg.id, viewReg.restaurantName); setViewReg(null) }}
+              />
               <Button size="sm" variant="outline" className="ml-auto" onClick={() => setViewReg(null)}>Close</Button>
             </div>
           </div>
@@ -409,7 +434,14 @@ export default function AdminRestaurantsPage() {
             </div>
             <div className="flex gap-2 pt-2">
               <Button size="sm" onClick={() => { handleApproveWithdrawal(viewWd.id, viewWd.restaurantName); setViewWd(null) }}>Approve</Button>
-              <Button size="sm" variant="destructive" onClick={() => { handleRejectWithdrawal(viewWd.id, viewWd.restaurantName); setViewWd(null) }}>Disapprove</Button>
+              <Confirm
+                trigger={<Button size="sm" variant="destructive">Disapprove</Button>}
+                title={`Disapprove withdrawal for ${viewWd.restaurantName}?`}
+                description="The restaurant will remain active on FrontDash."
+                confirmLabel="Disapprove"
+                confirmVariant="destructive"
+                onConfirm={() => { handleRejectWithdrawal(viewWd.id, viewWd.restaurantName); setViewWd(null) }}
+              />
               <Button size="sm" variant="outline" className="ml-auto" onClick={() => setViewWd(null)}>Close</Button>
             </div>
           </div>

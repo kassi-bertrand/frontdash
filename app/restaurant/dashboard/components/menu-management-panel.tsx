@@ -10,6 +10,7 @@ import { z } from 'zod'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Confirm } from '@/components/ui/confirm'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Form,
@@ -219,13 +220,11 @@ export function MenuManagementPanel() {
   }
 
   async function removeItem(id: string) {
-    if (confirm('Remove this item from the menu?')) {
-      try {
-        await deleteItem(id)
-        toast.success('Menu item removed')
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to remove menu item')
-      }
+    try {
+      await deleteItem(id)
+      toast.success('Menu item removed')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove menu item')
     }
   }
 
@@ -510,16 +509,24 @@ export function MenuManagementPanel() {
                         >
                           Edit
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => removeItem(item.id)}
-                          disabled={isSaving}
-                        >
-                          <IconTrash className="size-4" />
-                          <span className="sr-only">Remove</span>
-                        </Button>
+                        <Confirm
+                          trigger={
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10"
+                              disabled={isSaving}
+                            >
+                              <IconTrash className="size-4" />
+                              <span className="sr-only">Remove</span>
+                            </Button>
+                          }
+                          title={`Remove "${item.name}" from menu?`}
+                          description="This action cannot be undone."
+                          confirmLabel="Remove"
+                          confirmVariant="destructive"
+                          onConfirm={() => removeItem(item.id)}
+                        />
                       </div>
                     )}
                   </div>
