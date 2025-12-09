@@ -63,3 +63,22 @@ export function timeAgo(iso?: string): string {
   const mins = Math.floor(diff / 60000)
   return mins > 0 ? `${mins}m ago` : 'just now'
 }
+
+/**
+ * Format cents as a USD currency string.
+ *
+ * @param cents - Amount in cents (e.g., 1299 for $12.99)
+ * @returns Formatted currency string (e.g., "$12.99")
+ *
+ * @example
+ * ```ts
+ * formatCurrency(1299) // "$12.99"
+ * formatCurrency(0)    // "$0.00"
+ * ```
+ */
+export function formatCurrency(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(cents / 100)
+}

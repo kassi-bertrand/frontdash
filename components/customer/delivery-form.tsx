@@ -16,73 +16,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCartStore, type DeliveryDetails } from '@/stores/use-cart-store'
 import { calculateOrderTotals, emptyOrderTotals } from '@/lib/checkout-utils'
+import { US_STATES } from '@/lib/constants'
+import { formatCurrency } from '@/lib/utils'
 
 // Format helpers keep the inputs resilient while guests type.
 const phoneDigits = (value: string) => value.replace(/[^0-9]/g, '')
-const formatCurrency = (cents: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-    cents / 100,
-  )
 
 export type DeliveryFormProps = {
   restaurantSlug: string
 }
-
-// Whitelist of U.S. state abbreviations—keeps validation deterministic without
-// adding a full dropdown.
-const US_STATES = new Set([
-  'AL',
-  'AK',
-  'AZ',
-  'AR',
-  'CA',
-  'CO',
-  'CT',
-  'DE',
-  'FL',
-  'GA',
-  'HI',
-  'ID',
-  'IL',
-  'IN',
-  'IA',
-  'KS',
-  'KY',
-  'LA',
-  'ME',
-  'MD',
-  'MA',
-  'MI',
-  'MN',
-  'MS',
-  'MO',
-  'MT',
-  'NE',
-  'NV',
-  'NH',
-  'NJ',
-  'NM',
-  'NY',
-  'NC',
-  'ND',
-  'OH',
-  'OK',
-  'OR',
-  'PA',
-  'RI',
-  'SC',
-  'SD',
-  'TN',
-  'TX',
-  'UT',
-  'VT',
-  'VA',
-  'WA',
-  'WV',
-  'WI',
-  'WY',
-  'DC',
-])
 
 export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
   const router = useRouter()
@@ -184,7 +126,11 @@ export function DeliveryForm({ restaurantSlug }: DeliveryFormProps) {
     }
 
     if (contactPhone.length !== 10) {
-      setErrorMessage('Contact phone must be 10 digits.')
+      setErrorMessage('Phone must be 10 digits.')
+      return
+    }
+    if (contactPhone.startsWith('0')) {
+      setErrorMessage('Phone cannot start with 0.')
       return
     }
 

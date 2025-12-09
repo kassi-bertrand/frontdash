@@ -18,11 +18,7 @@ import { Separator } from '@/components/ui/separator'
 import { useCartStore } from '@/stores/use-cart-store'
 import { orderApi } from '@/lib/api'
 import { calculateOrderTotals } from '@/lib/checkout-utils'
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-})
+import { formatCurrency } from '@/lib/utils'
 
 const timeFormatter = new Intl.DateTimeFormat('en-US', {
   timeStyle: 'short',
@@ -108,6 +104,11 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
       return
     }
 
+    if (!cart.payment || !cart.billing) {
+      router.replace(`/payment/${restaurantSlug}`)
+      return
+    }
+
     // Prevent double submission
     if (hasSubmittedRef.current) {
       return
@@ -116,6 +117,8 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
 
     // Extract validated values after guards (avoids ! assertions)
     const delivery = cart.delivery
+    const payment = cart.payment
+    const billing = cart.billing
     const restaurant = cart.restaurant
     const totals = calculateOrderTotals(cart)
 
@@ -157,6 +160,22 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
           },
           delivery_contact_name: delivery.contactName,
           delivery_contact_phone: delivery.contactPhone,
+          payment: {
+            card_type: payment.cardType,
+            card_last_four: payment.cardLastFour,
+            card_display: payment.cardDisplay,
+            cardholder_first_name: payment.cardholderFirstName,
+            cardholder_last_name: payment.cardholderLastName,
+            card_expiry: payment.cardExpiry,
+          },
+          billing_address: {
+            building: billing.building,
+            street: billing.street,
+            apartment: billing.apartment,
+            city: billing.city,
+            state: billing.state,
+            zip: billing.zip,
+          },
         })
 
         // Create snapshot with real order data
@@ -209,19 +228,19 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
     return [
       {
         label: 'Subtotal',
-        value: currency.format(totals.subtotalCents / 100),
+        value: formatCurrency(totals.subtotalCents),
       },
       {
         label: 'Service charge (8.25%)',
-        value: currency.format(totals.serviceChargeCents / 100),
+        value: formatCurrency(totals.serviceChargeCents),
       },
       {
         label: 'Tip',
-        value: currency.format(totals.tipCents / 100),
+        value: formatCurrency(totals.tipCents),
       },
       {
         label: 'Total charged',
-        value: currency.format(totals.grandTotalCents / 100),
+        value: formatCurrency(totals.grandTotalCents),
         emphasize: true,
       },
     ]
@@ -311,7 +330,7 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
                 {timeFormatter.format(snapshot.estimatedDeliveryTime)}
               </p>
               <p className="text-xs text-neutral-500">
-                We'll notify you when the driver is on your block.
+                We&apos;ll notify you when the driver is on your block.
               </p>
             </div>
           </div>
@@ -345,13 +364,13 @@ export function OrderConfirmation({ restaurantSlug }: OrderConfirmationProps) {
                   <div>
                     <p className="font-medium text-neutral-900">{item.name}</p>
                     <p className="text-xs text-neutral-500">
-                      {currency.format(item.priceCents / 100)} each
+                      {formatCurrency(item.priceCents)} each
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-neutral-900">×{item.quantity}</p>
                     <p className="text-xs text-neutral-500">
-                      {currency.format(item.subtotalCents / 100)}
+                      {formatCurrency(item.subtotalCents)}
                     </p>
                   </div>
                 </li>

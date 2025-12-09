@@ -23,3 +23,16 @@ export const PASSWORD = {
   MIN_LENGTH: 6,
   SALT_ROUNDS: 10,
 } as const;
+
+/**
+ * Valid U.S. state abbreviations for address validation.
+ * Includes all 50 states plus DC.
+ */
+export const US_STATES: Set<string> = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'DC',
+]);

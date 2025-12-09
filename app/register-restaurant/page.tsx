@@ -25,6 +25,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 
 import { restaurantApi, uploadApi, hoursApi, menuApi, ApiError, type OperatingHours } from '@/lib/api'
+import { US_STATES } from '@/lib/constants'
 
 type DayOfWeek = OperatingHours['day_of_week']
 
@@ -67,60 +68,6 @@ const DEFAULT_HOURS = [
   'Saturday',
   'Sunday',
 ].map((day) => ({ day, open: '', close: '', closed: false }))
-
-const US_STATES = new Set([
-  'AL',
-  'AK',
-  'AZ',
-  'AR',
-  'CA',
-  'CO',
-  'CT',
-  'DE',
-  'FL',
-  'GA',
-  'HI',
-  'ID',
-  'IL',
-  'IN',
-  'IA',
-  'KS',
-  'KY',
-  'LA',
-  'ME',
-  'MD',
-  'MA',
-  'MI',
-  'MN',
-  'MS',
-  'MO',
-  'MT',
-  'NE',
-  'NV',
-  'NH',
-  'NJ',
-  'NM',
-  'NY',
-  'NC',
-  'ND',
-  'OH',
-  'OK',
-  'OR',
-  'PA',
-  'RI',
-  'SC',
-  'SD',
-  'TN',
-  'TX',
-  'UT',
-  'VT',
-  'VA',
-  'WA',
-  'WV',
-  'WI',
-  'WY',
-  'DC',
-])
 
 type Availability = 'AVAILABLE' | 'UNAVAILABLE'
 
