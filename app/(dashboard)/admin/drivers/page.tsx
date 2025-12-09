@@ -72,8 +72,9 @@ export default function AdminDriversPage() {
       const nextCount = filtered.length - 1
       const nextTotalPages = Math.max(1, Math.ceil(nextCount / PAGE_SIZE))
       if (page > nextTotalPages) setPage(nextTotalPages)
-    } catch {
-      toast.error('Failed to fire driver.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fire driver'
+      toast.error(message)
     }
   }
 

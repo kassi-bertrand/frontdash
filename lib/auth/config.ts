@@ -6,13 +6,13 @@
 import type { FrontendRole } from "./types";
 
 /** Express backend API URL */
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 /** httpOnly cookie options for secure auth */
 export const COOKIE_OPTIONS = {
   path: "/",
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: false, // Set to true only when using HTTPS
   sameSite: "lax" as const,
   maxAge: 60 * 60, // 1 hour
 };

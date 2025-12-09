@@ -12,13 +12,13 @@
 #
 # Prerequisites:
 #   - Database must be running (deploy-all.sh already executed)
-#   - db-config.txt must exist with connection details
+#   - db-config.txt and ec2-config.txt must exist
 # ===================================================================
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_FILE="$SCRIPT_DIR/db-config.txt"
+cd "$SCRIPT_DIR"
 
 # Colors for output
 RED='\033[0;31m'
@@ -37,46 +37,43 @@ echo "FrontDash - Reset Test Data"
 echo "================================================"
 echo ""
 
-# Check for config file
-if [[ ! -f "$CONFIG_FILE" ]]; then
+# Check for config files
+if [[ ! -f "db-config.txt" ]]; then
     echo -e "${RED}Error: db-config.txt not found!${NC}"
     echo "Run deploy-all.sh first to set up the database."
     exit 1
 fi
 
-# Read database configuration
-echo "Reading database configuration..."
-DB_ENDPOINT=$(grep "DB_ENDPOINT=" "$CONFIG_FILE" | cut -d'=' -f2)
-DB_NAME=$(grep "DB_NAME=" "$CONFIG_FILE" | cut -d'=' -f2)
-DB_USERNAME=$(grep "DB_USERNAME=" "$CONFIG_FILE" | cut -d'=' -f2)
-DB_PASSWORD=$(grep "DB_PASSWORD=" "$CONFIG_FILE" | cut -d'=' -f2)
-
-if [[ -z "$DB_ENDPOINT" || -z "$DB_NAME" || -z "$DB_USERNAME" || -z "$DB_PASSWORD" ]]; then
-    echo -e "${RED}Error: Invalid db-config.txt format${NC}"
+if [[ ! -f "ec2-config.txt" ]]; then
+    echo -e "${RED}Error: ec2-config.txt not found!${NC}"
+    echo "Run deploy-all.sh first to set up EC2."
     exit 1
 fi
 
-echo "  Host: $DB_ENDPOINT"
-echo "  Database: $DB_NAME"
+# Load EC2 configuration (for SSH access)
+source ec2-config.txt
+
+echo "Connecting to EC2: ${PUBLIC_IP}"
 echo ""
 
-# Set password for psql
-export PGPASSWORD="$DB_PASSWORD"
-
-# Test connection
-echo "Testing database connection..."
-if ! psql -h "$DB_ENDPOINT" -U "$DB_USERNAME" -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
-    echo -e "${RED}Error: Cannot connect to database${NC}"
-    echo "Make sure the database is running and accessible."
+# Test SSH connection
+echo "Testing SSH connection..."
+if ! ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@${PUBLIC_IP} "echo 'SSH OK'" 2>/dev/null; then
+    echo -e "${RED}Error: Cannot connect to EC2 instance${NC}"
+    echo "Make sure the EC2 instance is running."
     exit 1
 fi
-echo -e "${GREEN}Connection successful!${NC}"
+echo -e "${GREEN}SSH connection successful!${NC}"
 echo ""
 
 # Clean mode - truncate all tables
 if [[ "$CLEAN_MODE" == true ]]; then
     echo -e "${YELLOW}Clean mode: Truncating all tables...${NC}"
-    psql -h "$DB_ENDPOINT" -U "$DB_USERNAME" -d "$DB_NAME" << 'TRUNCATE_SQL'
+
+    ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@${PUBLIC_IP} << 'REMOTE_EOF'
+source /home/ubuntu/frontdash-api/db-config.txt
+
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME << 'SQL_EOF'
 -- Disable foreign key checks temporarily
 SET session_replication_role = 'replica';
 
@@ -102,23 +99,27 @@ ALTER SEQUENCE staff_members_staff_id_seq RESTART WITH 1;
 ALTER SEQUENCE menu_items_menu_item_id_seq RESTART WITH 1;
 ALTER SEQUENCE restaurant_operating_hours_hours_id_seq RESTART WITH 1;
 ALTER SEQUENCE order_items_order_item_id_seq RESTART WITH 1;
+SQL_EOF
+REMOTE_EOF
 
-TRUNCATE_SQL
     echo -e "${GREEN}Tables truncated!${NC}"
     echo ""
 fi
 
 echo "Inserting professor's test data..."
 
-psql -h "$DB_ENDPOINT" -U "$DB_USERNAME" -d "$DB_NAME" << 'TEST_DATA_SQL'
+ssh -i ${KEY_NAME}.pem -o StrictHostKeyChecking=no ubuntu@${PUBLIC_IP} << 'REMOTE_EOF'
+source /home/ubuntu/frontdash-api/db-config.txt
+
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME << 'SQL_EOF'
 -- ===================================================================
 -- Professor's Test Data from xlsx file
 -- ===================================================================
 
 BEGIN;
 
--- Same bcrypt hash as admin password (Admin123)
--- $2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO
+-- Same bcrypt hash as admin password (admin123)
+-- $2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C
 
 -- ===================================================================
 -- RESTAURANTS (3 restaurants)
@@ -126,7 +127,7 @@ BEGIN;
 
 -- Restaurant 1: All Chicken Meals
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('allchickenmeals01', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'RESTAURANT', 'ACTIVE')
+VALUES ('allchickenmeals01', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'RESTAURANT', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO RESTAURANTS (restaurant_name, owner_name, restaurant_image_url, email_address, street_address, city, state, zip_code, phone_number, account_status, approved_at, username)
@@ -135,7 +136,7 @@ ON CONFLICT (restaurant_name) DO NOTHING;
 
 -- Restaurant 2: Pizza Only
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('pizzaonly02', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'RESTAURANT', 'ACTIVE')
+VALUES ('pizzaonly02', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'RESTAURANT', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO RESTAURANTS (restaurant_name, owner_name, restaurant_image_url, email_address, street_address, city, state, zip_code, phone_number, account_status, approved_at, username)
@@ -144,7 +145,7 @@ ON CONFLICT (restaurant_name) DO NOTHING;
 
 -- Restaurant 3: Best Burgers
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('bestburgers03', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'RESTAURANT', 'ACTIVE')
+VALUES ('bestburgers03', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'RESTAURANT', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO RESTAURANTS (restaurant_name, owner_name, restaurant_image_url, email_address, street_address, city, state, zip_code, phone_number, account_status, approved_at, username)
@@ -316,35 +317,35 @@ INSERT INTO DRIVERS (driver_name, driver_status) VALUES ('Lucy Gordon', 'OFFLINE
 -- ===================================================================
 
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('richard01', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'STAFF', 'ACTIVE')
+VALUES ('richard01', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'STAFF', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 INSERT INTO STAFF_MEMBERS (first_name, last_name, username, account_status, is_first_login)
 VALUES ('Amanda', 'Richard', 'richard01', 'ACTIVE', false)
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('cox02', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'STAFF', 'ACTIVE')
+VALUES ('cox02', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'STAFF', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 INSERT INTO STAFF_MEMBERS (first_name, last_name, username, account_status, is_first_login)
 VALUES ('Arthur', 'Cox', 'cox02', 'ACTIVE', false)
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('deckon03', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'STAFF', 'ACTIVE')
+VALUES ('deckon03', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'STAFF', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 INSERT INTO STAFF_MEMBERS (first_name, last_name, username, account_status, is_first_login)
 VALUES ('Charles', 'Deckon', 'deckon03', 'ACTIVE', false)
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('cox04', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'STAFF', 'ACTIVE')
+VALUES ('cox04', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'STAFF', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 INSERT INTO STAFF_MEMBERS (first_name, last_name, username, account_status, is_first_login)
 VALUES ('Francis', 'Cox', 'cox04', 'ACTIVE', false)
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO ACCOUNT_LOGINS (username, password_hash, account_role, account_state)
-VALUES ('mullard05', '$2b$10$m.TPdVbsBev924ktt7R32uEVaTeaC0dZd7LocpQYkLCj2L9w6IAUO', 'STAFF', 'ACTIVE')
+VALUES ('mullard05', '$2b$10$pJ1Wtw30i/FpDDxDgZ0/8.aGEhk6Ifq04rqRzo2NB5X0t2gBHrO1C', 'STAFF', 'ACTIVE')
 ON CONFLICT (username) DO NOTHING;
 INSERT INTO STAFF_MEMBERS (first_name, last_name, username, account_status, is_first_login)
 VALUES ('Sarah', 'Mullard', 'mullard05', 'ACTIVE', false)
@@ -629,8 +630,8 @@ WHERE r.restaurant_name = 'Best Burgers' AND m.item_name = 'Cheese Burger'
 ON CONFLICT DO NOTHING;
 
 COMMIT;
-
-TEST_DATA_SQL
+SQL_EOF
+REMOTE_EOF
 
 echo ""
 echo -e "${GREEN}================================================${NC}"
@@ -646,7 +647,7 @@ echo "  - 5 Staff members"
 echo "  - 4 Completed orders"
 echo "  - 4 Pending orders"
 echo ""
-echo "Test accounts (password: Admin123):"
+echo "Test accounts (password: admin123):"
 echo "  - admin (Admin)"
 echo "  - richard01, cox02, deckon03, cox04, mullard05 (Staff)"
 echo "  - allchickenmeals01, pizzaonly02, bestburgers03 (Restaurants)"

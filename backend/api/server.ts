@@ -2061,8 +2061,12 @@ app.delete('/api/drivers/:id', async (req: Request, res: Response) => {
 
         res.json({ message: 'Driver removed successfully' });
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Delete driver error:', error);
+        // Check for foreign key constraint violation (driver has orders)
+        if (error && typeof error === 'object' && 'code' in error && error.code === '23503') {
+            return res.status(409).json({ error: 'Cannot remove driver with existing delivery history' });
+        }
         res.status(500).json({ error: 'Internal server error' });
     }
 });
